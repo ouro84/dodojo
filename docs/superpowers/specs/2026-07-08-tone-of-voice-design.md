@@ -5,12 +5,12 @@
 
 ## Décision
 
-Le tone of voice de base défini dans `SPECS_FONCTIONNELLES.md` ("Le Maître du Donjon de la Street" — mentor bienveillant + commentateur d'arcade) est confirmé et précisé en guide concret ci-dessous.
+Direction révisée le 2026-07-08 (remplace le premier draft "Maître du Donjon de la Street", jugé confus). Nouvelle ambiance : élève de dojo d'arts martiaux qui se bat dans la rue — vibe Ryu/Ken (Street Fighter). Discipline et humilité du dojo, mais grinta et franc-parler du combat de rue.
 
 ## Deux voix distinctes
 
-### Voix Narrateur (Maître du Donjon)
-Commente les actions du joueur, les stats, les transitions d'écran (heal, dégâts, level up, rituels). Tutoie systématiquement, s'adresse au joueur par son **pseudo/prénom défini au profil** (`profiles.username`) — jamais par "Héros" ou autre appellation générique.
+### Voix Narrateur (Sensei)
+Le mentor du dojo qui commente tes combats de rue quotidiens : actions du joueur, stats, transitions d'écran (heal, dégâts, level up, rituels). Discipline et respect du dojo, mais pas coincé — reste franc et direct comme un combat de rue. Tutoie systématiquement, s'adresse au joueur par son **pseudo/prénom défini au profil** (`profiles.username`) — jamais par "Héros" ou autre appellation générique.
 
 ### Voix Boss
 Nargue le joueur en 1ère personne aux moments clés (notifications, attaques surprises, ricanements sur rage quit). Toujours dans le cadre de la fiction de combat.
@@ -36,15 +36,15 @@ Les jurons/piques ciblent toujours le Boss, la tâche ou la situation — **jama
 
 | Contexte | Voix | Exemple |
 |---|---|---|
-| Heal (ajout tâche, US-06) | Narrateur | "Le Boss se soigne, +20 HP. Il prend des forces, {pseudo}." |
-| Dégât (validation, US-21) | Narrateur | "PAN ! -20 HP. Combo enclenché !" |
-| Level up (US-09) | Narrateur | "Putain, LEVEL UP ! Niveau 2 débloqué, {pseudo}." |
-| Rituel Obi-Wan victoire (US-07) | Narrateur | "Journée bouclée. Le Boss est à terre, va te reposer, {pseudo}." |
-| Rituel du Réveil (US-08) | Narrateur | "Ces tâches d'hier te collent aux basques. On annihile ou on reporte ?" |
-| Rage Quit (US-15) | Narrateur | "Tâche abandonnée. -5 XP. Le Boss ricane." |
-| Perfect (US-16) | Narrateur | "PERFECT, bordel ! Le Boss explose en pixels. T'es une machine, {pseudo}." |
-| Erreur technique | Narrateur | "Bordel, ça a planté côté serveur. Réessaie." |
-| Empty state (aucune tâche) | Narrateur | "Aucun monstre à l'horizon. Balance ta première quête." |
+| Heal (ajout tâche, US-06) | Sensei | "Le Boss se soigne, +20 HP. Il prend des forces, {pseudo}." |
+| Dégât (validation, US-21) | Sensei | "PAN ! -20 HP. Combo enclenché !" |
+| Level up (US-09) | Sensei | "Putain, LEVEL UP ! Niveau 2 débloqué, {pseudo}." |
+| Rituel Obi-Wan victoire (US-07) | Sensei | "Journée bouclée. Le Boss est à terre, va te reposer, {pseudo}." |
+| Rituel du Réveil (US-08) | Sensei | "Ces tâches d'hier te collent aux basques. On annihile ou on reporte ?" |
+| Rage Quit (US-15) | Sensei | "Tâche abandonnée. -5 XP. Le Boss ricane." |
+| Perfect (US-16) | Sensei | "PERFECT, bordel ! Le Boss explose en pixels. T'es une machine, {pseudo}." |
+| Erreur technique | Sensei | "Bordel, ça a planté côté serveur. Réessaie." |
+| Empty state (aucune tâche) | Sensei | "Aucun monstre à l'horizon. Balance ta première quête." |
 | Notification (US-11) | Boss | "Je ricane depuis ta poche. Encore 3 monstres avant le Rituel." |
 | Attaque surprise (US-05) | Boss | "14h00 pétantes. T'as pas coché à temps, tant pis pour tes HP." |
 

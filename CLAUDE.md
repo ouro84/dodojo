@@ -28,6 +28,8 @@ Une application de productivité mobile-first de style RPG/Arcade 16-bits où ch
 |---------|------|
 | `SPECS_FONCTIONNELLES.md` | Registre des 21 User Stories (Sprint 0 à 3), règles métier (RG-01 à RG-04) et modèle de données. |
 | `ADR.md` | Choix technologiques validés (Next.js, Supabase, Tailwind v4, Vitest/Playwright). |
+| `PRODUCT.md` | Contexte produit (impeccable) : users, purpose, brand personality, anti-références, principes de design, a11y. |
+| `DESIGN.md` | Système de design (impeccable, actuellement en seed) : palette, typographie, motion, do's/don'ts visuels. |
 
 **Ne jamais improviser un choix ou une modification de règles que ces documents ont déjà tranché.**
 

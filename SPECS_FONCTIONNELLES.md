@@ -19,7 +19,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
 
 ### Tone of Voice & Identité Visuelle
 *   **Esthétique :** Écrans inspirés des jeux de combat d'arcade des années 90. Typographie pixel, jauges de vie clignotantes, retours visuels percutants (flashs, secousses d'écran).
-*   **Ton :** "Le Maître du Donjon de la Street". C'est un mélange de commentateur de borne d'arcade et de mentor bienveillant. L'application tutoie l'utilisateur, l'appelle "Héros", et utilise des punchlines de combat rétro pour commenter les actions.
+*   **Ton :** Élève de dojo d'arts martiaux qui se bat dans la rue (vibe Ryu/Ken de Street Fighter) — discipline et humilité du dojo, grinta et franc-parler du combat de rue. L'application tutoie l'utilisateur et l'appelle par son pseudo (jamais "Héros" générique), utilise des punchlines de combat rétro pour commenter les actions. Détail complet : `docs/superpowers/specs/2026-07-08-tone-of-voice-design.md`.
 
 ---
 
