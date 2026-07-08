@@ -106,6 +106,10 @@ Format strict : `type: description courte`
 
 **Décalage horaire et Étanchéité du jour** — Le Boss est calculé uniquement sur les tâches du jour J. Lors du changement de fuseau horaire ou à minuit pile, les calculs ne doivent pas planter. Toute tâche historique non validée doit passer par le processus bloquant du "Rituel du Réveil" avant toute nouvelle action.
 
+**Pas de policy DELETE en RLS** — Les tables `profiles` et `tasks` n'ont volontairement aucune policy Supabase RLS pour `DELETE`. Ceci applique RG-04 au niveau base de données, en plus de la convention côté application (colonnes `is_abandoned` / `is_completed`).
+
+**Pas de trigger d'auto-création de profil** — Aucun trigger sur `auth.users` ne crée automatiquement une ligne `profiles` à l'inscription. Le pseudo doit être défini explicitement par l'utilisateur (voir tone of voice : pas de fallback générique type "Héros"), donc la création de la ligne `profiles` fait partie du flow d'onboarding applicatif (US-14), pas de la migration SQL.
+
 ---
 
 ## URL de production
