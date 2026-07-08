@@ -81,6 +81,9 @@ boss-de-la-journee/
 
 ## Conventions — non négociables
 
+### Langue d'échange
+Toute communication avec l'utilisateur se fait en français, sans exception. Les termes techniques, noms d'API, de librairies, de variables, de commandes et le vocabulaire spécifique (ex: "commit", "fetch", "hook", "state") restent en anglais quand c'est l'usage naturel du domaine.
+
 ### Commits (Conventional Commits)
 Format strict : `type: description courte`
 - `feat:` Nouvelle fonctionnalité (ex: `feat: add screen shake animation on damage`)
@@ -92,6 +95,7 @@ Format strict : `type: description courte`
 - `main` est protégée. Aucun commit direct. Déploiement automatique sur Vercel.
 - Une branche par fonctionnalité : `feat/us-XX-nom-feature`.
 - **Zéro merge si la CI est rouge.** Tous les tests Vitest et l'application doivent build sans erreur.
+- **Zéro PR poussée sur GitHub tant que les tests (Vitest + Playwright e2e) n'ont pas été passés en local.** Une fois la CI en place, elle vient en double sécurité, pas en remplacement de cette vérification locale.
 
 ---
 
