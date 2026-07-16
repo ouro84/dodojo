@@ -30,8 +30,11 @@ Une application de productivité mobile-first de style RPG/Arcade 16-bits où ch
 | `ADR.md` | Choix technologiques validés (Next.js, Supabase, Tailwind v4, Vitest/Playwright). |
 | `PRODUCT.md` | Contexte produit (impeccable) : users, purpose, brand personality, anti-références, principes de design, a11y. |
 | `DESIGN.md` | Système de design (impeccable, actuellement en seed) : palette, typographie, motion, do's/don'ts visuels. |
+| `ASSETS.md` | Cartographie du dossier `assets/` (sprites, boss, décors, VFX, icônes, police) : quel pack pour quel usage, licences, chemins. **À consulter avant toute recherche de sprite** — ne jamais explorer `assets/` au hasard. |
 
 **Ne jamais improviser un choix ou une modification de règles que ces documents ont déjà tranché.**
+
+**Avant d'intégrer un sprite/décor/effet/icône dans le code, consulter `ASSETS.md`** pour savoir quel pack utiliser, sous quelle licence, et quel chemin copier vers `public/`. Si `assets/` évolue (nouveaux packs ajoutés/supprimés), mettre `ASSETS.md` à jour dans le même commit (cf. règle de mise à jour ci-dessus).
 
 ---
 
