@@ -1,7 +1,7 @@
 # SPECS_FONCTIONNELLES.md — "Boss de la Journée" (Projet Arcade To-Do)
 
-> Dernière mise à jour : 2026-07-08
-> Statut : Document de Référence Produit Spécifié (21/21 US) — Validé
+> Dernière mise à jour : 2026-07-17
+> Statut : Document de Référence Produit Spécifié (22/22 US) — Validé
 
 ---
 
@@ -32,7 +32,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
 
 ---
 
-## 3. Registre Intégral des User Stories (21/21)
+## 3. Registre Intégral des User Stories (22/22)
 
 ### 🚀 SPRINT 0 : LE MVP MINIMALISTE
 
@@ -203,6 +203,18 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     Given L'application en arrière-plan avec configuration de raccourcis OS
     When L'utilisateur dit "Dis Siri, ajoute le monstre Rappeler le client dans Boss de la Journée"
     Then La tâche est interceptée en tâche de fond et injectée dans la BDD Supabase du jour
+    ```
+
+#### US-22 : Ajout de tâche vocale via Gemini (Serveur MCP connecté)
+*   **Standard :** En tant que Héros mobile, je veux dire "OK Google, ajoute la tâche [X] à Dodojo" pour créer un monstre dans l'Arène sans ouvrir l'application, via Gemini connecté à un serveur MCP exposé par l'application.
+*   **Note technique :** Depuis le remplacement de Google Assistant par Gemini sur Android (2026), le mécanisme n'est plus App Actions mais une "Connected App" MCP : l'application expose un endpoint MCP (route Next.js sur Vercel) avec un tool `add_task(title)`, que l'utilisateur relie une fois dans Gemini via OAuth (liaison compte Gemini ↔ session Supabase). Le tool réutilise strictement `lib/game-engine.ts` pour l'insertion et le recalcul des HP (RG-01/RG-02) — aucune duplication de la logique de heal du Boss. Complète/précise US-03 côté Google (Siri conserve son mécanisme natif propre).
+*   **BDD :**
+    ```gherkin
+    Given Un utilisateur ayant relié son compte Gemini à Dodojo via le serveur MCP (OAuth actif)
+    When Il dit "OK Google, ajoute la tâche Boire de l'eau à Dodojo"
+    Then Gemini appelle le tool MCP "add_task" avec le titre "Boire de l'eau"
+    And Une tâche est insérée dans `tasks` avec `day_date` = date du jour courant
+    And Les HP max et actuels du Boss du jour augmentent de +20 HP (RG-02), visible à la prochaine ouverture de l'Arène
     ```
 
 #### US-05 : Deadlines horaires (Attaques surprises du Boss)
