@@ -9,12 +9,6 @@ export default function BossBar({ bossName, currentHp, maxHp }: BossBarProps) {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between font-display text-sm uppercase tracking-wide text-ink">
-        <span>{bossName}</span>
-        <span className="font-hud text-xs tabular-nums text-muted">
-          {currentHp}/{maxHp} HP
-        </span>
-      </div>
       <div
         role="progressbar"
         aria-valuenow={currentHp}
@@ -27,6 +21,12 @@ export default function BossBar({ bossName, currentHp, maxHp }: BossBarProps) {
           className="h-full bg-hp transition-[width] duration-300 ease-out"
           style={{ width: `${pct}%` }}
         />
+      </div>
+      <div className="flex items-center justify-between font-display text-sm uppercase tracking-wide text-ink drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+        <span className="font-hud text-xs tabular-nums text-muted">
+          {currentHp}/{maxHp} HP
+        </span>
+        <span>{bossName}</span>
       </div>
     </div>
   );

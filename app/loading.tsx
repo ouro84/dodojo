@@ -1,11 +1,17 @@
 export default function ArenaLoading() {
   return (
     <div className="flex flex-1 flex-col gap-3 px-4 py-4" aria-busy="true">
-      <div className="flex items-center justify-between">
-        <span className="skeleton h-4 w-32" />
-        <span className="skeleton h-4 w-16" />
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 flex-col gap-1">
+          <span className="skeleton h-4 w-full" />
+          <span className="skeleton h-3.5 w-full" />
+        </div>
+        <span className="skeleton h-3 w-6" />
+        <div className="flex flex-1 flex-col gap-1">
+          <span className="skeleton h-4 w-full" />
+          <span className="skeleton h-3.5 w-full" />
+        </div>
       </div>
-      <span className="skeleton h-3.5 w-full" />
       <span className="skeleton h-40 w-full rounded-lg" />
       <div className="flex flex-1 flex-col gap-1.5">
         <span className="skeleton h-9 w-full rounded-md" />

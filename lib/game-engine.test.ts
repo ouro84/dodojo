@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
+  calculateHeroHp,
   taskHpValue,
 } from "./game-engine";
 import type { Task } from "../types";
@@ -78,5 +79,33 @@ describe("calculateBossCurrentHp (RG-02)", () => {
       makeTask({ id: "2", is_abandoned: true }),
     ];
     expect(calculateBossCurrentHp(tasks)).toBe(0);
+  });
+});
+
+describe("calculateHeroHp (pénalité procrastination)", () => {
+  test("100 HP quand aucune tâche n'est en retard", () => {
+    expect(calculateHeroHp([])).toBe(100);
+  });
+
+  test("retire 20 HP par tâche en retard non résolue", () => {
+    const tasks = [
+      makeTask({ id: "1" }),
+      makeTask({ id: "2" }),
+    ];
+    expect(calculateHeroHp(tasks)).toBe(60);
+  });
+
+  test("ignore les tâches en retard déjà complétées ou abandonnées", () => {
+    const tasks = [
+      makeTask({ id: "1", is_completed: true }),
+      makeTask({ id: "2", is_abandoned: true }),
+      makeTask({ id: "3" }),
+    ];
+    expect(calculateHeroHp(tasks)).toBe(80);
+  });
+
+  test("plafonne à 0, jamais négatif", () => {
+    const tasks = Array.from({ length: 10 }, (_, i) => makeTask({ id: `t${i}` }));
+    expect(calculateHeroHp(tasks)).toBe(0);
   });
 });

@@ -43,9 +43,7 @@ export default function OnboardingForm() {
       >
         {pending ? "…" : "Entrer dans l'Arène"}
       </button>
-      <p className="text-xs text-faint">
-        Pas de &laquo;&nbsp;Héros&nbsp;&raquo; générique ici. Ton nom, ta rue.
-      </p>
+      <p className="text-xs text-faint">Ton nom. Ta rue.</p>
     </form>
   );
 }

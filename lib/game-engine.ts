@@ -22,3 +22,16 @@ export function calculateBossCurrentHp(tasks: HpTask[]): number {
 
   return calculateBossMaxHp(tasks) - damageDealt;
 }
+
+export const HERO_MAX_HP = 100;
+export const HERO_DAMAGE_PER_OVERDUE_TASK = 20;
+
+export type OverdueTask = Pick<Task, "is_abandoned" | "is_completed">;
+
+export function calculateHeroHp(overdueTasks: OverdueTask[]): number {
+  const unresolvedCount = overdueTasks.filter(
+    (task) => !task.is_abandoned && !task.is_completed,
+  ).length;
+
+  return Math.max(0, HERO_MAX_HP - unresolvedCount * HERO_DAMAGE_PER_OVERDUE_TASK);
+}

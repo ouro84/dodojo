@@ -1,28 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Profile, Task } from "@/types";
-import { calculateBossCurrentHp, calculateBossMaxHp } from "@/lib/game-engine";
-import { addTask as addTaskAction, completeTask as completeTaskAction } from "@/app/actions/tasks";
+import {
+  calculateBossCurrentHp,
+  calculateBossMaxHp,
+  calculateHeroHp,
+  HERO_MAX_HP,
+} from "@/lib/game-engine";
+import {
+  addTask as addTaskAction,
+  abandonTask as abandonTaskAction,
+  setTaskCompleted as setTaskCompletedAction,
+} from "@/app/actions/tasks";
 import BottomNav from "@/components/ui/BottomNav";
-import BossBar from "./BossBar";
-import CombatScene from "./CombatScene";
+import VersusScene from "./VersusScene";
 import TaskList from "./TaskList";
 import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
 import PerfectOverlay from "./PerfectOverlay";
+import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
 
 const BOSS_NAME = "Le Gardien de Glace";
+const HERO_NAME = "Le Chevalier de Feu";
 
 interface ArenaProps {
   profile: Profile;
   initialTasks: Task[];
+  overdueTasks: Task[];
 }
 
 interface Pulse {
   key: number;
   amount: number;
   kind: "damage" | "heal";
+  impactVariant?: ImpactVariantId;
 }
 
 let pulseCounter = 0;
@@ -32,21 +44,40 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function Arena({ profile, initialTasks }: ArenaProps) {
+export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [showPerfect, setShowPerfect] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const maxHp = calculateBossMaxHp(tasks);
   const currentHp = calculateBossCurrentHp(tasks);
+  const heroHp = calculateHeroHp(overdueTasks);
   const activeTasks = tasks.filter((task) => !task.is_abandoned);
   const isEmpty = activeTasks.length === 0;
 
+  useEffect(() => {
+    return () => {
+      if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+    };
+  }, []);
+
   function triggerPulse(amount: number, kind: Pulse["kind"]) {
     pulseCounter += 1;
-    setPulse({ key: pulseCounter, amount, kind });
+    const key = pulseCounter;
+    setPulse({
+      key,
+      amount,
+      kind,
+      impactVariant: kind === "damage" ? pickImpactVariant() : undefined,
+    });
+
+    if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+    pulseTimeoutRef.current = setTimeout(() => {
+      setPulse((current) => (current?.key === key ? null : current));
+    }, 1400);
   }
 
   function handleAdd(title: string) {
@@ -78,29 +109,50 @@ export default function Arena({ profile, initialTasks }: ArenaProps) {
     });
   }
 
-  function handleComplete(id: string) {
+  function handleToggle(id: string, isCompleted: boolean) {
     const target = tasks.find((task) => task.id === id);
-    if (!target || target.is_completed) return;
+    if (!target || target.is_completed === isCompleted) return;
 
     const previousSnapshot = tasks;
     const previousHp = currentHp;
     const nextTasks = tasks.map((task) =>
-      task.id === id ? { ...task, is_completed: true } : task,
+      task.id === id ? { ...task, is_completed: isCompleted } : task,
     );
 
     setTasks(nextTasks);
 
     const nextHp = calculateBossCurrentHp(nextTasks);
-    triggerPulse(previousHp - nextHp, "damage");
+    const delta = previousHp - nextHp;
 
-    if (nextHp === 0 && calculateBossMaxHp(nextTasks) > 0) {
-      setShowPerfect(true);
+    if (isCompleted) {
+      triggerPulse(delta, "damage");
+      if (nextHp === 0 && calculateBossMaxHp(nextTasks) > 0) {
+        setShowPerfect(true);
+      }
+    } else {
+      triggerPulse(-delta, "heal");
     }
 
-    void completeTaskAction(id).then((result) => {
+    void setTaskCompletedAction(id, isCompleted).then((result) => {
       if (result.error) {
         setTasks(previousSnapshot);
-        setShowPerfect(false);
+        if (isCompleted) setShowPerfect(false);
+        setBanner(result.error);
+      }
+    });
+  }
+
+  function handleAbandon(id: string) {
+    const previousSnapshot = tasks;
+    const nextTasks = tasks.map((task) =>
+      task.id === id ? { ...task, is_abandoned: true } : task,
+    );
+
+    setTasks(nextTasks);
+
+    void abandonTaskAction(id).then((result) => {
+      if (result.error) {
+        setTasks(previousSnapshot);
         setBanner(result.error);
       }
     });
@@ -117,12 +169,25 @@ export default function Arena({ profile, initialTasks }: ArenaProps) {
         {pulse?.kind === "damage" && (
           <div className="hit-flash-overlay pointer-events-none absolute inset-0 z-30 rounded-lg" />
         )}
-        <BossBar bossName={BOSS_NAME} currentHp={currentHp} maxHp={maxHp} />
         <div className="relative">
-          <CombatScene dimmed={isEmpty} />
+          <VersusScene
+            heroName={HERO_NAME}
+            heroHp={heroHp}
+            heroMaxHp={HERO_MAX_HP}
+            bossName={BOSS_NAME}
+            currentHp={currentHp}
+            maxHp={maxHp}
+            dimmed={isEmpty}
+          />
+          {pulse?.kind === "damage" && pulse.impactVariant && (
+            <ImpactVfx key={pulse.key} variant={pulse.impactVariant} />
+          )}
           {pulse && <FloatingText amount={pulse.amount} kind={pulse.kind} />}
           {showPerfect && (
-            <PerfectOverlay onDismiss={() => setShowPerfect(false)} />
+            <PerfectOverlay
+              bossName={BOSS_NAME}
+              onDismiss={() => setShowPerfect(false)}
+            />
           )}
         </div>
       </div>
@@ -153,7 +218,11 @@ export default function Arena({ profile, initialTasks }: ArenaProps) {
           </p>
         </div>
       ) : (
-        <TaskList tasks={activeTasks} onComplete={handleComplete} />
+        <TaskList
+          tasks={activeTasks}
+          onToggle={handleToggle}
+          onAbandon={handleAbandon}
+        />
       )}
 
       <AddTaskForm onAdd={handleAdd} pending={isAdding} />
