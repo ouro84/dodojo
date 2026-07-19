@@ -34,7 +34,7 @@ export default function MidnightTimer() {
 
   return (
     <span
-      className="font-hud text-sm tabular-nums text-alert"
+      className="rounded-md border border-alert/50 bg-black/40 px-2 py-0.5 font-display text-xl tabular-nums text-alert drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
       aria-label={`Temps restant avant minuit : ${label}`}
     >
       {label}

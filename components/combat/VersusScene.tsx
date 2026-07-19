@@ -39,6 +39,7 @@ export default function VersusScene({
         priority
         className="object-cover [image-rendering:pixelated]"
       />
+      <div className="absolute inset-x-0 top-0 z-[5] h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
       <div className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 p-2">
         <div className="flex-1">
           <HeroBar heroName={heroName} currentHp={heroHp} maxHp={heroMaxHp} />

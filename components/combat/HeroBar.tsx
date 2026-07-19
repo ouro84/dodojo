@@ -22,11 +22,11 @@ export default function HeroBar({ heroName, currentHp, maxHp }: HeroBarProps) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="flex items-center justify-between font-display text-sm uppercase tracking-wide text-ink">
+      <div className="flex items-center justify-between font-display text-sm uppercase tracking-wide text-ink drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+        <span>{heroName}</span>
         <span className="font-hud text-xs tabular-nums text-muted">
           {currentHp}/{maxHp} HP
         </span>
-        <span>{heroName}</span>
       </div>
     </div>
   );
