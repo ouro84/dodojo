@@ -14,9 +14,7 @@ import {
   setTaskCompleted as setTaskCompletedAction,
 } from "@/app/actions/tasks";
 import BottomNav from "@/components/ui/BottomNav";
-import BossBar from "./BossBar";
 import VersusScene from "./VersusScene";
-import HeroBar from "./HeroBar";
 import TaskList from "./TaskList";
 import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
@@ -171,17 +169,16 @@ export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProp
         {pulse?.kind === "damage" && (
           <div className="hit-flash-overlay pointer-events-none absolute inset-0 z-30 rounded-lg" />
         )}
-        <div className="flex items-center gap-2">
-          <div className="flex-1">
-            <HeroBar heroName={HERO_NAME} currentHp={heroHp} maxHp={HERO_MAX_HP} />
-          </div>
-          <span className="font-display text-xs text-alert">VS</span>
-          <div className="flex-1">
-            <BossBar bossName={BOSS_NAME} currentHp={currentHp} maxHp={maxHp} />
-          </div>
-        </div>
         <div className="relative">
-          <VersusScene dimmed={isEmpty} />
+          <VersusScene
+            heroName={HERO_NAME}
+            heroHp={heroHp}
+            heroMaxHp={HERO_MAX_HP}
+            bossName={BOSS_NAME}
+            currentHp={currentHp}
+            maxHp={maxHp}
+            dimmed={isEmpty}
+          />
           {pulse?.kind === "damage" && pulse.impactVariant && (
             <ImpactVfx key={pulse.key} variant={pulse.impactVariant} />
           )}

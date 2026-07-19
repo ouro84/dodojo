@@ -9,12 +9,6 @@ export default function HeroBar({ heroName, currentHp, maxHp }: HeroBarProps) {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between font-display text-sm uppercase tracking-wide text-ink">
-        <span className="font-hud text-xs tabular-nums text-muted">
-          {currentHp}/{maxHp} HP
-        </span>
-        <span>{heroName}</span>
-      </div>
       <div
         role="progressbar"
         aria-valuenow={currentHp}
@@ -27,6 +21,12 @@ export default function HeroBar({ heroName, currentHp, maxHp }: HeroBarProps) {
           className="ml-auto h-full bg-hp transition-[width] duration-300 ease-out"
           style={{ width: `${pct}%` }}
         />
+      </div>
+      <div className="flex items-center justify-between font-display text-sm uppercase tracking-wide text-ink">
+        <span className="font-hud text-xs tabular-nums text-muted">
+          {currentHp}/{maxHp} HP
+        </span>
+        <span>{heroName}</span>
       </div>
     </div>
   );

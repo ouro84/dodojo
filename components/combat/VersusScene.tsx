@@ -1,17 +1,34 @@
 import Image from "next/image";
 import IdleSprite from "./IdleSprite";
+import HeroBar from "./HeroBar";
+import BossBar from "./BossBar";
+import MidnightTimer from "./MidnightTimer";
 
 interface VersusSceneProps {
+  heroName: string;
+  heroHp: number;
+  heroMaxHp: number;
+  bossName: string;
+  currentHp: number;
+  maxHp: number;
   dimmed?: boolean;
 }
 
 // Décor : assets/Backgrounds/free-steampunk-cityscape-pixel-backgrounds (CraftPix, cf. ASSETS.md)
 // Héros : assets/MC/Elementals_fire_knight_FREE_v1.1 (licence non documentée localement, cf. ASSETS.md)
 // Boss : assets/Boss/Frost_Guardian_FREE_v1.0 (licence non documentée localement, cf. ASSETS.md)
-export default function VersusScene({ dimmed = false }: VersusSceneProps) {
+export default function VersusScene({
+  heroName,
+  heroHp,
+  heroMaxHp,
+  bossName,
+  currentHp,
+  maxHp,
+  dimmed = false,
+}: VersusSceneProps) {
   return (
     <div
-      className="relative h-40 w-full overflow-hidden rounded-lg border border-border"
+      className="relative h-48 w-full overflow-hidden rounded-lg border border-border"
       style={dimmed ? { filter: "saturate(0.5) brightness(0.7)" } : undefined}
     >
       <Image
@@ -22,6 +39,17 @@ export default function VersusScene({ dimmed = false }: VersusSceneProps) {
         priority
         className="object-cover [image-rendering:pixelated]"
       />
+      <div className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 p-2">
+        <div className="flex-1">
+          <HeroBar heroName={heroName} currentHp={heroHp} maxHp={heroMaxHp} />
+        </div>
+        <div className="flex flex-col items-center pt-1">
+          <MidnightTimer />
+        </div>
+        <div className="flex-1">
+          <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} />
+        </div>
+      </div>
       <IdleSprite
         framePrefix="/sprites/mc/fire-knight/idle/frame"
         frameCount={8}
