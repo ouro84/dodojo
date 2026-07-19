@@ -24,7 +24,7 @@ export default function AddTaskForm({ onAdd, pending = false }: AddTaskFormProps
       className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2"
     >
       <label htmlFor="new-task" className="sr-only">
-        Nomme le prochain monstre
+        Ajouter une tâche
       </label>
       <input
         id="new-task"
@@ -32,7 +32,7 @@ export default function AddTaskForm({ onAdd, pending = false }: AddTaskFormProps
         type="text"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        placeholder="Nomme le prochain monstre…"
+        placeholder="Balance ta tâche…"
         maxLength={140}
         className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
       />

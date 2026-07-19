@@ -1,8 +1,9 @@
 interface PerfectOverlayProps {
+  bossName: string;
   onDismiss: () => void;
 }
 
-export default function PerfectOverlay({ onDismiss }: PerfectOverlayProps) {
+export default function PerfectOverlay({ bossName, onDismiss }: PerfectOverlayProps) {
   return (
     <div
       role="alertdialog"
@@ -11,10 +12,10 @@ export default function PerfectOverlay({ onDismiss }: PerfectOverlayProps) {
       className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-lg bg-[oklch(0.08_0_0_/_72%)] px-4 text-center"
     >
       <p className="font-display text-2xl uppercase tracking-wide text-hp">
-        Perfect !
+        Victory !
       </p>
       <p className="max-w-[26ch] text-sm text-muted">
-        Le Boss du jour est à terre. Rien ne lui a survécu.
+        {bossName} a mordu la poussière. La rue est calme pour ce soir…
       </p>
       <button
         type="button"

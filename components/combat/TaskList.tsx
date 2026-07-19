@@ -1,12 +1,12 @@
 import type { Task } from "@/types";
-import { taskHpValue } from "@/lib/game-engine";
 
 interface TaskListProps {
   tasks: Task[];
-  onComplete: (id: string) => void;
+  onToggle: (id: string, isCompleted: boolean) => void;
+  onAbandon: (id: string) => void;
 }
 
-export default function TaskList({ tasks, onComplete }: TaskListProps) {
+export default function TaskList({ tasks, onToggle, onAbandon }: TaskListProps) {
   return (
     <ul className="flex flex-1 flex-col gap-1.5 overflow-y-auto">
       {tasks.map((task) => (
@@ -19,9 +19,10 @@ export default function TaskList({ tasks, onComplete }: TaskListProps) {
           <input
             type="checkbox"
             checked={task.is_completed}
-            disabled={task.is_completed}
-            onChange={() => onComplete(task.id)}
-            aria-label={`Marquer "${task.title}" comme accomplie`}
+            onChange={(event) => onToggle(task.id, event.target.checked)}
+            aria-label={`Marquer "${task.title}" comme ${
+              task.is_completed ? "non accomplie" : "accomplie"
+            }`}
             className="h-4 w-4 shrink-0 accent-hp"
           />
           <span
@@ -31,9 +32,14 @@ export default function TaskList({ tasks, onComplete }: TaskListProps) {
           >
             {task.title}
           </span>
-          <span className="shrink-0 rounded border border-hp-dim px-1.5 py-0.5 text-xs text-hp">
-            {taskHpValue(task)} HP
-          </span>
+          <button
+            type="button"
+            onClick={() => onAbandon(task.id)}
+            aria-label={`Abandonner "${task.title}"`}
+            className="shrink-0 rounded px-1.5 py-0.5 text-xs text-faint hover:text-alert focus-visible:text-alert"
+          >
+            ×
+          </button>
         </li>
       ))}
     </ul>

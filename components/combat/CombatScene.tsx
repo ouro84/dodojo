@@ -21,11 +21,11 @@ export default function CombatScene({ dimmed = false }: CombatSceneProps) {
         className="object-cover [image-rendering:pixelated]"
       />
       <Image
-        src="/sprites/bosses/frost-guardian/idle-1.png"
+        src="/sprites/bosses/frost-guardian/idle-1-trimmed.png"
         alt="Le Boss du jour : le Gardien de Glace"
-        width={192}
-        height={128}
-        className="absolute bottom-1 left-1/2 h-24 w-auto -translate-x-1/2 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        width={79}
+        height={91}
+        className="absolute bottom-2 left-1/2 h-32 w-auto -translate-x-1/2 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
     </div>
   );
