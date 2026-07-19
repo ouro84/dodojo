@@ -119,6 +119,8 @@ Format strict : `type: description courte`
 
 **Pas de trigger d'auto-création de profil** — Aucun trigger sur `auth.users` ne crée automatiquement une ligne `profiles` à l'inscription. Le pseudo doit être défini explicitement par l'utilisateur (voir tone of voice : pas de fallback générique type "Héros"), donc la création de la ligne `profiles` fait partie du flow d'onboarding applicatif (US-14), pas de la migration SQL.
 
+**Jauge de HP du Héros sans conséquence tant que US-08 n'existe pas** — L'Arène (direction "Street Fighter" retenue, cf. `feat/arena-street-fighter-challenger`) affiche une jauge de HP du Héros calculée depuis les tâches en retard (`calculateHeroHp` dans `lib/game-engine.ts`, -20 HP par tâche non résolue d'un jour précédent, plancher à 0). C'est une pénalité **visuelle uniquement** pour l'instant : rien ne se passe quand elle atteint 0, aucune action n'est proposée sur les tâches en retard depuis l'Arène. Le vrai traitement (overlay bloquant "Annihiler"/"Reporter") est le Rituel du Réveil (US-08), pas encore implémenté. Ne pas être surpris que la jauge puisse rester à 0 indéfiniment — c'est attendu tant que US-08 n'est pas livré, décision produit assumée (cf. `docs/superpowers/specs/2026-07-19-arena-versus-design.md`).
+
 ---
 
 ## URL de production
