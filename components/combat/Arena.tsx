@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Profile, Task } from "@/types";
-import { calculateBossCurrentHp, calculateBossMaxHp } from "@/lib/game-engine";
+import {
+  calculateBossCurrentHp,
+  calculateBossMaxHp,
+  calculateHeroHp,
+  HERO_MAX_HP,
+} from "@/lib/game-engine";
 import {
   addTask as addTaskAction,
   abandonTask as abandonTaskAction,
@@ -10,7 +15,8 @@ import {
 } from "@/app/actions/tasks";
 import BottomNav from "@/components/ui/BottomNav";
 import BossBar from "./BossBar";
-import CombatScene from "./CombatScene";
+import VersusScene from "./VersusScene";
+import HeroBar from "./HeroBar";
 import TaskList from "./TaskList";
 import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
@@ -18,10 +24,12 @@ import PerfectOverlay from "./PerfectOverlay";
 import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
 
 const BOSS_NAME = "Le Gardien de Glace";
+const HERO_NAME = "Le Chevalier de Feu";
 
 interface ArenaProps {
   profile: Profile;
   initialTasks: Task[];
+  overdueTasks: Task[];
 }
 
 interface Pulse {
@@ -38,7 +46,7 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function Arena({ profile, initialTasks }: ArenaProps) {
+export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [showPerfect, setShowPerfect] = useState(false);
@@ -48,6 +56,7 @@ export default function Arena({ profile, initialTasks }: ArenaProps) {
 
   const maxHp = calculateBossMaxHp(tasks);
   const currentHp = calculateBossCurrentHp(tasks);
+  const heroHp = calculateHeroHp(overdueTasks);
   const activeTasks = tasks.filter((task) => !task.is_abandoned);
   const isEmpty = activeTasks.length === 0;
 
@@ -162,9 +171,17 @@ export default function Arena({ profile, initialTasks }: ArenaProps) {
         {pulse?.kind === "damage" && (
           <div className="hit-flash-overlay pointer-events-none absolute inset-0 z-30 rounded-lg" />
         )}
-        <BossBar bossName={BOSS_NAME} currentHp={currentHp} maxHp={maxHp} />
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <HeroBar heroName={HERO_NAME} currentHp={heroHp} maxHp={HERO_MAX_HP} />
+          </div>
+          <span className="font-display text-xs text-alert">VS</span>
+          <div className="flex-1">
+            <BossBar bossName={BOSS_NAME} currentHp={currentHp} maxHp={maxHp} />
+          </div>
+        </div>
         <div className="relative">
-          <CombatScene dimmed={isEmpty} />
+          <VersusScene dimmed={isEmpty} />
           {pulse?.kind === "damage" && pulse.impactVariant && (
             <ImpactVfx key={pulse.key} variant={pulse.impactVariant} />
           )}
