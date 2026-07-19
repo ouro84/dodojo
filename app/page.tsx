@@ -42,5 +42,23 @@ export default async function ArenePage() {
     return <ArenaError />;
   }
 
-  return <Arena profile={profile} initialTasks={tasks ?? []} />;
+  const { data: overdueTasks, error: overdueError } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("user_id", user.id)
+    .lt("day_date", todayIso())
+    .eq("is_completed", false)
+    .eq("is_abandoned", false);
+
+  if (overdueError) {
+    return <ArenaError />;
+  }
+
+  return (
+    <Arena
+      profile={profile}
+      initialTasks={tasks ?? []}
+      overdueTasks={overdueTasks ?? []}
+    />
+  );
 }
