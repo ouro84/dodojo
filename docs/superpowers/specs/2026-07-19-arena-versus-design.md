@@ -13,9 +13,10 @@ Redesigner l'écran Arène de cette branche en layout versus (MC vs Boss), sans 
 
 ## Sprites
 
-- Héros : **Fire Knight** (`assets/MC/Elementals_fire_knight_FREE_v1.1/`), frame idle statique trim (même traitement `sharp-cli trim` que Frost Guardian).
-- Boss : **Frost Guardian** (déjà en place, réutilisé tel quel).
+- Héros : **Fire Knight** (`assets/MC/Elementals_fire_knight_FREE_v1.1/.../01_idle/`), 8 frames.
+- Boss : **Frost Guardian** (`assets/Boss/Frost_Guardian_FREE_v1.0/.../idle/`), 6 frames.
 - Choix validé par l'utilisateur : cohérence avec le reste de l'appli plutôt que le pack CC0 "Streets of Fight".
+- **Anim idle en boucle** pour les deux (demande utilisateur, plus immersif qu'une frame statique). Recadrage : au lieu d'un `sharp-cli trim` par frame (risque de jitter, chaque frame ayant une silhouette légèrement différente), déterminer un rectangle de crop commun sur une frame représentative puis l'appliquer uniformément à toutes les frames de l'animation via `sharp-cli extract` — alignement stable frame à frame.
 
 ## Nouvelle mécanique : HP du héros (pénalité procrastination)
 
@@ -46,13 +47,14 @@ Requête additionnelle en lecture seule : tâches de l'utilisateur où `day_date
 ## Composants
 
 - **`components/combat/HeroBar.tsx`** — nouveau, miroir de `BossBar.tsx` : même structure ARIA (`role="progressbar"`), jauge remplie de droite à gauche (visuellement face à la jauge du Boss).
-- **`components/combat/VersusScene.tsx`** — remplace `CombatScene.tsx` dans cette branche : même background (steampunk cityscape), Fire Knight positionné bas-gauche, Frost Guardian bas-droite, face à face. Même traitement `[image-rendering:pixelated]` et `drop-shadow`.
+- **`components/combat/IdleSprite.tsx`** — nouveau, composant générique de boucle d'anim idle : props `framePrefix`/`frameCount`/`className`, cycle les frames via `setInterval` (même `FRAME_MS` que `ImpactVfx`), boucle infinie (contrairement à `ImpactVfx` qui s'arrête à la dernière frame), respecte `prefers-reduced-motion` (fige sur la frame 1). Réutilisé pour Fire Knight ET Frost Guardian (juste `framePrefix`/`frameCount` différents).
+- **`components/combat/VersusScene.tsx`** — remplace `CombatScene.tsx` dans cette branche : même background (steampunk cityscape), `IdleSprite` Fire Knight positionné bas-gauche, `IdleSprite` Frost Guardian bas-droite, face à face. Même traitement `[image-rendering:pixelated]` et `drop-shadow`.
 - **`components/combat/Arena.tsx`** — réécrit : rangée versus en haut (`HeroBar` — libellé "VS" central — `BossBar`), `VersusScene` en dessous, puis task list / add form / bottom nav inchangés. VFX (`ImpactVfx`, `FloatingText`, `PerfectOverlay`) réutilisés sans modification — ils s'appliquent toujours côté Boss uniquement (pas de pulse côté héros dans cette itération).
 
 ## Hors scope (explicitement exclu)
 
 - Pas de vrai "Rituel du Réveil" (overlay bloquant, choix Annihiler/Reporter) — juste l'affichage passif de la jauge héros.
-- Pas d'animation de dégâts/hit côté héros.
+- Pas d'animation de dégâts/hit côté héros (l'idle loop tourne en continu, indépendamment du combat).
 - Pas de changement sur la branche `feat/arena-classic-polish` (préservée telle quelle pour comparaison).
 
 ## Tests
