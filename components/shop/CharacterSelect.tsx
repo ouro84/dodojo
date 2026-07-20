@@ -104,7 +104,7 @@ export function CharacterSelect({
                 setSelectedId(h.id);
                 setError(null);
               }}
-              className={`flex h-9 w-9 items-center justify-center rounded border-2 text-xs ${
+              className={`h-11 w-11 overflow-hidden rounded border-2 bg-black/40 ${
                 isEquipped
                   ? "border-xp"
                   : isSelected
@@ -113,7 +113,17 @@ export function CharacterSelect({
               }`}
               style={hOwned ? undefined : { filter: "grayscale(1) brightness(0.4)" }}
             >
-              {h.element.slice(0, 1)}
+              {/* Portrait : haut du sprite idle recadré, façon VS Fighting */}
+              <span
+                aria-hidden
+                className="block h-full w-full [image-rendering:pixelated]"
+                style={{
+                  backgroundImage: `url(${h.idleFramePrefix}0000.png)`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "50% 12%",
+                  backgroundSize: "300%",
+                }}
+              />
             </button>
           );
         })}

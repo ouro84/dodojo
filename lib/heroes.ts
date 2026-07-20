@@ -10,7 +10,7 @@ const idlePrefix = (slug: string) => `/sprites/mc/${slug}/idle/frame`;
 export const HEROES: Hero[] = [
   {
     id: "fire_knight",
-    name: "Fire Knight",
+    name: "Chevalier de Feu",
     element: "Feu",
     slug: "fire-knight",
     idleFramePrefix: idlePrefix("fire-knight"),
@@ -20,7 +20,7 @@ export const HEROES: Hero[] = [
   },
   {
     id: "water_priestess",
-    name: "Water Priestess",
+    name: "Prêtresse de l'Eau",
     element: "Eau",
     slug: "water-priestess",
     idleFramePrefix: idlePrefix("water-priestess"),
@@ -30,7 +30,7 @@ export const HEROES: Hero[] = [
   },
   {
     id: "ground_monk",
-    name: "Ground Monk",
+    name: "Moine de la Terre",
     element: "Terre",
     slug: "ground-monk",
     idleFramePrefix: idlePrefix("ground-monk"),
@@ -40,7 +40,7 @@ export const HEROES: Hero[] = [
   },
   {
     id: "wind_hashashin",
-    name: "Wind Hashashin",
+    name: "Assassin du Vent",
     element: "Vent",
     slug: "wind-hashashin",
     idleFramePrefix: idlePrefix("wind-hashashin"),
@@ -50,7 +50,7 @@ export const HEROES: Hero[] = [
   },
   {
     id: "leaf_ranger",
-    name: "Leaf Ranger",
+    name: "Rôdeur des Feuilles",
     element: "Feuille",
     slug: "leaf-ranger",
     idleFramePrefix: idlePrefix("leaf-ranger"),
@@ -60,7 +60,7 @@ export const HEROES: Hero[] = [
   },
   {
     id: "crystal_mauler",
-    name: "Crystal Mauler",
+    name: "Broyeur de Cristal",
     element: "Cristal",
     slug: "crystal-mauler",
     idleFramePrefix: idlePrefix("crystal-mauler"),
@@ -70,7 +70,7 @@ export const HEROES: Hero[] = [
   },
   {
     id: "metal_bladekeeper",
-    name: "Metal Bladekeeper",
+    name: "Gardien des Lames",
     element: "Métal",
     slug: "metal-bladekeeper",
     idleFramePrefix: idlePrefix("metal-bladekeeper"),
