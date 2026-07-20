@@ -54,35 +54,74 @@ export function sortTasksHierarchically<T extends HierarchyTask>(tasks: T[]): T[
   ]);
 }
 
-export interface NestingCheck {
-  allowed: boolean;
-  reason?: string;
+export type ReorderableTask = Pick<Task, "id" | "parent_id" | "position" | "is_abandoned">;
+
+export interface DropTarget {
+  overTaskId: string;
+  isTopHalf: boolean;
 }
 
-const NESTING_REJECTED_SELF: NestingCheck = {
-  allowed: false,
-  reason: "Une tâche ne peut pas s'imbriquer sous elle-même.",
-};
-const NESTING_REJECTED_DEPTH: NestingCheck = {
-  allowed: false,
-  reason: "Deux niveaux, pas plus — cette tâche est déjà une sous-tâche.",
-};
-const NESTING_REJECTED_HAS_CHILDREN: NestingCheck = {
-  allowed: false,
-  reason: "Cette tâche a déjà des sous-tâches, elle ne peut pas devenir une sous-tâche.",
-};
-const NESTING_ALLOWED: NestingCheck = { allowed: true };
+export interface ReorderPlan {
+  parentId: string | null;
+  orderedTaskIds: string[];
+}
 
-export function canNestTask(
-  taskToNest: Pick<Task, "id" | "parent_id">,
-  targetParent: Pick<Task, "id" | "parent_id">,
-  allTasks: Pick<Task, "id" | "parent_id">[],
-): NestingCheck {
-  if (taskToNest.id === targetParent.id) return NESTING_REJECTED_SELF;
-  if (!isNestableParent(targetParent)) return NESTING_REJECTED_DEPTH;
-  const hasChildren = allTasks.some((task) => task.parent_id === taskToNest.id);
-  if (hasChildren) return NESTING_REJECTED_HAS_CHILDREN;
-  return NESTING_ALLOWED;
+// US-19 : décide, à partir d'un drop, si le geste réordonne (moitié haute
+// d'une ligne — même niveau que la cible, y compris repromouvoir une
+// sous-tâche en tâche racine) ou imbrique (moitié basse d'une tâche racine
+// nestable). Moitié basse d'une sous-tâche = réordonne après elle (une
+// sous-tâche ne peut jamais recevoir d'enfant, RG-01).
+export function planReorder(
+  draggedId: string,
+  target: DropTarget,
+  allTasks: ReorderableTask[],
+): ReorderPlan | null {
+  const dragged = allTasks.find((task) => task.id === draggedId);
+  const overTask = allTasks.find((task) => task.id === target.overTaskId);
+  if (!dragged || !overTask || dragged.id === overTask.id) return null;
+
+  let parentId: string | null;
+  let anchorId: string | null;
+  let insertMode: "before" | "append" | "after";
+
+  if (target.isTopHalf) {
+    parentId = overTask.parent_id;
+    anchorId = overTask.id;
+    insertMode = "before";
+  } else if (isNestableParent(overTask)) {
+    parentId = overTask.id;
+    anchorId = null;
+    insertMode = "append";
+  } else {
+    parentId = overTask.parent_id;
+    anchorId = overTask.id;
+    insertMode = "after";
+  }
+
+  const draggedHasChildren = allTasks.some((task) => task.parent_id === dragged.id);
+  if (parentId !== null && draggedHasChildren) return null;
+
+  const siblings = allTasks
+    .filter(
+      (task) => task.parent_id === parentId && task.id !== dragged.id && !task.is_abandoned,
+    )
+    .sort((a, b) => a.position - b.position)
+    .map((task) => task.id);
+
+  if (insertMode === "append") {
+    return { parentId, orderedTaskIds: [...siblings, dragged.id] };
+  }
+
+  const anchorIndex = siblings.indexOf(anchorId as string);
+  const insertAt = insertMode === "before" ? anchorIndex : anchorIndex + 1;
+  return {
+    parentId,
+    orderedTaskIds: [
+      ...siblings.slice(0, insertAt),
+      dragged.id,
+      ...siblings.slice(insertAt),
+    ],
+  };
 }
 
 export type HpTask = Pick<Task, "parent_id" | "is_abandoned" | "is_completed">;

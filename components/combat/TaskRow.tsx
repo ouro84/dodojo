@@ -6,12 +6,18 @@ import type { Task } from "@/types";
 import { isNestableParent, isOptimisticTask } from "@/lib/game-engine";
 import SubtaskForm from "./SubtaskForm";
 
+export interface DragOverInfo {
+  overTaskId: string;
+  isTopHalf: boolean;
+}
+
 interface TaskRowProps {
   task: Task;
   onToggle: (id: string, isCompleted: boolean) => void;
   onAbandon: (id: string) => void;
   onAddSubtask: (parentId: string, title: string) => void;
   isAddingSubtask: boolean;
+  dropIndicator?: DragOverInfo | null;
 }
 
 export default function TaskRow({
@@ -20,13 +26,11 @@ export default function TaskRow({
   onAbandon,
   onAddSubtask,
   isAddingSubtask,
+  dropIndicator = null,
 }: TaskRowProps) {
   const isPending = isOptimisticTask(task);
   const draggable = useDraggable({ id: task.id, disabled: isPending });
-  const droppable = useDroppable({
-    id: task.id,
-    disabled: !isNestableParent(task) || isPending,
-  });
+  const droppable = useDroppable({ id: task.id, disabled: isPending });
 
   const style = draggable.transform
     ? {
@@ -34,6 +38,21 @@ export default function TaskRow({
         zIndex: 10,
       }
     : undefined;
+
+  // Moitié haute survolée : insertion avant cette ligne (réordonne, ou
+  // repromeut une sous-tâche en tâche si la cible est une tâche racine).
+  // Moitié basse d'une tâche racine : imbrication. Moitié basse d'une
+  // sous-tâche : insertion après elle (jamais d'imbrication à 3 niveaux).
+  let dropZoneClassName = "border-border bg-surface";
+  if (dropIndicator) {
+    if (dropIndicator.isTopHalf) {
+      dropZoneClassName = "border-border border-t-2 border-t-hp bg-surface";
+    } else if (isNestableParent(task)) {
+      dropZoneClassName = "border-dashed border-hp bg-surface";
+    } else {
+      dropZoneClassName = "border-border border-b-2 border-b-hp bg-surface";
+    }
+  }
 
   return (
     <div
@@ -44,11 +63,7 @@ export default function TaskRow({
       style={style}
       className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
         task.parent_id ? "ml-6" : ""
-      } ${
-        droppable.isOver
-          ? "border-dashed border-hp bg-surface"
-          : "border-border bg-surface"
-      } ${draggable.isDragging ? "opacity-40" : ""}`}
+      } ${dropZoneClassName} ${draggable.isDragging ? "opacity-40" : ""}`}
     >
       <button
         type="button"

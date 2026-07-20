@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  closestCenter,
   DndContext,
   DragOverlay,
   KeyboardSensor,
@@ -9,7 +10,9 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  type ClientRect,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import type { Profile, Task } from "@/types";
@@ -18,16 +21,16 @@ import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
-  canNestTask,
   HERO_MAX_HP,
   nextSiblingPosition,
+  planReorder,
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
   abandonTask as abandonTaskAction,
-  nestTask as nestTaskAction,
+  reorderSiblings as reorderSiblingsAction,
   setTaskCompleted as setTaskCompletedAction,
 } from "@/app/actions/tasks";
 import BottomNav from "@/components/ui/BottomNav";
@@ -61,12 +64,26 @@ interface XpPulse {
   kind: "damage" | "heal";
 }
 
+interface DragOverInfo {
+  overTaskId: string;
+  isTopHalf: boolean;
+}
+
 let pulseCounter = 0;
 let xpPulseCounter = 0;
 let optimisticIdCounter = 0;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// La cible de drop est le rect mesuré de la ligne survolée ; le rect
+// "traduit" du dragged suit le pointeur en direct (dnd-kit translate tout
+// l'élément par le delta de pointeur, pas seulement le point de saisie).
+function isTopHalfDrop(activeRect: ClientRect | null, overRect: ClientRect): boolean {
+  if (!activeRect) return false;
+  const activeCenterY = activeRect.top + activeRect.height / 2;
+  return activeCenterY < overRect.top + overRect.height / 2;
 }
 
 export default function Arena({ initialProfile, initialTasks, overdueTasks }: ArenaProps) {
@@ -80,6 +97,7 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
   const [isAdding, setIsAdding] = useState(false);
   const [addingSubtaskParentId, setAddingSubtaskParentId] = useState<string | null>(null);
   const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
+  const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const xpPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -267,35 +285,52 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
     setActiveDragTaskId(String(event.active.id));
   }
 
+  function handleDragOver(event: DragOverEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      setDragOverInfo(null);
+      return;
+    }
+    const isTopHalf = isTopHalfDrop(active.rect.current.translated, over.rect);
+    setDragOverInfo({
+      overTaskId: String(over.id),
+      isTopHalf,
+    });
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     setActiveDragTaskId(null);
+    setDragOverInfo(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const taskToNest = tasks.find((task) => task.id === active.id);
-    const targetParent = tasks.find((task) => task.id === over.id);
-    if (!taskToNest || !targetParent) return;
+    const isTopHalf = isTopHalfDrop(active.rect.current.translated, over.rect);
 
-    const check = canNestTask(taskToNest, targetParent, tasks);
-    if (!check.allowed) {
-      setBanner(check.reason ?? "Imbrication impossible.");
+    const plan = planReorder(
+      String(active.id),
+      {
+        overTaskId: String(over.id),
+        isTopHalf,
+      },
+      tasks,
+    );
+
+    if (!plan) {
+      setBanner("Ce déplacement n'est pas autorisé.");
       return;
     }
 
     const previousSnapshot = tasks;
-    const siblings = tasks.filter(
-      (task) => task.parent_id === targetParent.id && task.id !== taskToNest.id,
-    );
-    const position = nextSiblingPosition(siblings);
-    const nextTasks = tasks.map((task) =>
-      task.id === taskToNest.id
-        ? { ...task, parent_id: targetParent.id, position }
-        : task,
-    );
+    const positionById = new Map(plan.orderedTaskIds.map((id, index) => [id, index]));
+    const nextTasks = tasks.map((task) => {
+      const newPosition = positionById.get(task.id);
+      if (newPosition === undefined) return task;
+      return { ...task, parent_id: plan.parentId, position: newPosition };
+    });
 
     setTasks(nextTasks);
 
-    void nestTaskAction(taskToNest.id, targetParent.id).then((result) => {
+    void reorderSiblingsAction(plan.parentId, plan.orderedTaskIds).then((result) => {
       if (result.error) {
         setTasks(previousSnapshot);
         setBanner(result.error);
@@ -390,7 +425,10 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       ) : (
         <DndContext
           sensors={sensors}
+          collisionDetection={closestCenter}
+          autoScroll={false}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <TaskList
@@ -399,6 +437,7 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
             onAbandon={handleAbandon}
             onAddSubtask={handleAddSubtask}
             addingSubtaskParentId={addingSubtaskParentId}
+            dragOverInfo={dragOverInfo}
           />
           <DragOverlay>
             {activeDragTaskId && (
