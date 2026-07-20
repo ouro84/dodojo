@@ -1,4 +1,4 @@
-import type { Task } from "../types";
+import type { DayOutcome, DayResult, Task } from "../types";
 
 const HP_PER_TASK = 20;
 const HP_PER_SUBTASK = 10;
@@ -239,4 +239,139 @@ export function applyXpDelta(state: XpState, delta: number): XpState {
   }
 
   return { level, xp };
+}
+
+// Jour calendaire local (YYYY-MM-DD) dans le fuseau donné. Corrige le piège
+// UTC : à 01h à Paris on est déjà "demain" alors que toISOString() dirait
+// encore "hier". en-CA formate en ISO (2026-07-20).
+export function dayKey(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+export type DayContext = "manual" | "backfill";
+
+export type SummaryTask = Pick<Task, "parent_id" | "is_completed" | "is_abandoned">;
+
+export interface DaySummary {
+  outcome: DayOutcome;
+  damageDealt: number;
+  bossMaxHp: number;
+  tasksCompleted: number;
+  tasksAbandoned: number;
+  xpEarned: number;
+}
+
+// Résume un jour à partir de ses tâches. L'issue dépend du contexte : à la
+// clôture manuelle (Crépuscule) un Boss vivant = "retreat" ; au backfill d'un
+// jour raté = "defeat". Victoire uniquement si le Boss est tombé à 0.
+export function summarizeDay(tasks: SummaryTask[], context: DayContext): DaySummary {
+  const bossMaxHp = calculateBossMaxHp(tasks);
+  const currentHp = calculateBossCurrentHp(tasks);
+  const damageDealt = bossMaxHp - currentHp;
+  const tasksCompleted = tasks.filter((t) => !t.is_abandoned && t.is_completed).length;
+  const tasksAbandoned = tasks.filter((t) => t.is_abandoned).length;
+
+  const outcome: DayOutcome =
+    currentHp === 0 && bossMaxHp > 0
+      ? "victory"
+      : context === "manual"
+        ? "retreat"
+        : "defeat";
+
+  return {
+    outcome,
+    damageDealt,
+    bossMaxHp,
+    tasksCompleted,
+    tasksAbandoned,
+    xpEarned: tasksCompleted * XP_PER_TASK,
+  };
+}
+
+export type WakeUpTask = Pick<
+  Task,
+  "id" | "parent_id" | "title" | "day_date" | "position" | "is_completed" | "is_abandoned"
+>;
+
+export interface WakeUpRoot {
+  task: WakeUpTask;
+  children: WakeUpTask[];
+}
+
+export interface WakeUpDayGroup {
+  dayDate: string;
+  roots: WakeUpRoot[];
+}
+
+// US-08 : structure les restes (tâches non finies et non abandonnées d'un jour
+// passé) pour l'overlay du Réveil. Groupe par jour (plus ancien d'abord),
+// niche les sous-tâches restes sous leur parent reste ; une sous-tâche dont le
+// parent n'est pas lui-même un reste devient une racine standalone.
+export function planWakeUp(overdueTasks: WakeUpTask[]): WakeUpDayGroup[] {
+  const leftovers = overdueTasks.filter((t) => !t.is_completed && !t.is_abandoned);
+  const idsInSet = new Set(leftovers.map((t) => t.id));
+  const byDay = new Map<string, WakeUpTask[]>();
+
+  for (const task of leftovers) {
+    const bucket = byDay.get(task.day_date) ?? [];
+    bucket.push(task);
+    byDay.set(task.day_date, bucket);
+  }
+
+  const sortedDays = Array.from(byDay.keys()).sort();
+
+  return sortedDays.map((dayDate) => {
+    const dayTasks = byDay.get(dayDate) as WakeUpTask[];
+    const childrenByParent = new Map<string, WakeUpTask[]>();
+    const roots: WakeUpTask[] = [];
+
+    for (const task of dayTasks) {
+      const nestable = task.parent_id !== null && idsInSet.has(task.parent_id);
+      if (nestable) {
+        const siblings = childrenByParent.get(task.parent_id as string) ?? [];
+        siblings.push(task);
+        childrenByParent.set(task.parent_id as string, siblings);
+      } else {
+        roots.push(task);
+      }
+    }
+
+    const byPosition = (a: WakeUpTask, b: WakeUpTask) => a.position - b.position;
+    return {
+      dayDate,
+      roots: roots.sort(byPosition).map((task) => ({
+        task,
+        children: (childrenByParent.get(task.id) ?? []).sort(byPosition),
+      })),
+    };
+  });
+}
+
+// A8 : streak preview lecture seule. Compte les victoires consécutives en
+// remontant depuis aujourd'hui (ou la veille si aujourd'hui n'a pas encore de
+// résultat), stoppe au premier trou / jour non gagné.
+export function currentStreak(
+  dayResults: Array<Pick<DayResult, "day_date" | "outcome">>,
+  today: string,
+): number {
+  const victoryDays = new Set(
+    dayResults.filter((r) => r.outcome === "victory").map((r) => r.day_date),
+  );
+
+  const cursor = new Date(`${today}T00:00:00Z`);
+  if (!victoryDays.has(today)) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+
+  let streak = 0;
+  while (victoryDays.has(dayKey(cursor, "UTC"))) {
+    streak += 1;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return streak;
 }

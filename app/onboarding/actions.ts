@@ -12,6 +12,7 @@ export async function createProfile(
   formData: FormData,
 ): Promise<CreateProfileState> {
   const username = String(formData.get("username") ?? "").trim();
+  const timezone = String(formData.get("timezone") ?? "UTC").trim() || "UTC";
 
   if (!username) {
     return { error: "Un pseudo de combattant, ça se choisit. Tape quelque chose." };
@@ -29,6 +30,7 @@ export async function createProfile(
   const { error } = await supabase.from("profiles").insert({
     id: user.id,
     username,
+    timezone,
   });
 
   if (error) {

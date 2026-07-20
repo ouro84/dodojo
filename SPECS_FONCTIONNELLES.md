@@ -25,7 +25,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
 
 ## 2. Lotissement Stratégique & Roadmap (Sprints)
 
-*   **SPRINT 0 : Le MVP Minimaliste (Objectif : Lancer vite)** : Focus exclusif sur l'Arène (To-Do classique textuelle), le QG (Profil e2e) et la boucle de combat brute (HP dynamiques, Flash combat, Rituels Obi-Wan).
+*   **SPRINT 0 : Le MVP Minimaliste (Objectif : Lancer vite)** : Focus exclusif sur l'Arène (To-Do classique textuelle), le QG (Profil e2e) et la boucle de combat brute (HP dynamiques, Flash combat, Rituels du Crépuscule / du Réveil).
 *   **⚔️ SPRINT 1 : L'UX Héroïque & Ergonomie** : Intégration de la voix (micro in-app), des sous-tâches à 2 niveaux et du Drag & Drop pour imbrication.
 *   **🏆 SPRINT 2 : Rétention & Dopamine (La Gamification)** : Ouverture de l'Échoppe (Shop), du Panthéon (Stats), gestion des Streaks, des tâches récurrentes et du Rage Quit de tâche.
 *   **🔮 SPRINT 3 & + : La Vision Long Terme (Scalabilité)** : Intégrations natives lourdes (Siri/Google Assistant profond, notifications push, deadlines horaires, Widget mobile).
@@ -66,23 +66,27 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     And Les HP du Boss descendent à 60
     ```
 
-#### US-07 : Rituel Obi-Wan Manuel (Fin de journée)
+#### US-07 : Rituel du Crépuscule (Fin de journée)
+> Renommé depuis "Rituel Obi-Wan". Design détaillé : `docs/superpowers/specs/2026-07-20-cycle-journee-design.md`.
 *   **Standard :** En tant que Héros, je veux clore ma journée manuellement pour fêter ma victoire ou acter ma retraite.
 *   **BDD :**
     ```gherkin
     Given Un utilisateur ayant fini ses tâches ou abandonnant le combat
-    When Il clique sur le bouton "Rituel Obi-Wan : Quitter l'Arène"
-    Then Un écran de transition affiche le récapitulatif des dégâts infligés et gèle l'état de la journée
+    When Il clique sur le bouton "Rituel du Crépuscule"
+    Then Un récap figé (carte de score) affiche dégâts, tâches, XP et l'issue (victory/retreat)
+    And Un day_result est persisté (clôture cérémonielle, non-bloquante)
     ```
 
 #### US-08 : Rituel du Réveil Automatique (Traitement des restes)
+> Design détaillé : `docs/superpowers/specs/2026-07-20-cycle-journee-design.md`.
 *   **Standard :** En tant que Héros, je veux être confronté au démarrage aux tâches non résolues de la veille.
 *   **BDD :**
     ```gherkin
-    Given Un utilisateur ouvrant l'app un nouveau jour avec 2 tâches non finies de la veille
+    Given Un utilisateur ouvrant l'app un nouveau jour local avec 2 tâches non finies de la veille
     When L'application s'initialise
-    Then Un overlay bloquant "Rituel du Matin" apparaît
-    And Force l'utilisateur à choisir entre "Annihiler" (Suppression) ou "Reporter" (Ajout au jour J)
+    Then Un overlay bloquant "Rituel du Réveil" apparaît
+    And Force l'utilisateur à choisir, par reste, entre "Terminé", "Reporter" (au jour J) ou "Annihiler"
+    And "Annihiler" = is_abandoned (jamais de suppression SQL, RG-04)
     ```
 
 #### US-09 : Progression de base (XP & Niveaux)
@@ -232,7 +236,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```gherkin
     Given L'application fermée à 16h00 avec un Boss encore à 60 HP
     When Le serveur de tâches cron s'exécute
-    Then Une notification push est envoyée : "Le Boss ricane, il te reste 3 monstres à abattre avant le Rituel Obi-Wan !"
+    Then Une notification push est envoyée : "Le Boss ricane, il te reste 3 monstres à abattre avant le Rituel du Crépuscule !"
     ```
 
 #### US-13 : Widget Mobile d'Écran d'Accueil

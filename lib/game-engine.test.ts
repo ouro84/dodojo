@@ -1,15 +1,19 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import {
   applyXpDelta,
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
   computeToggleCascade,
+  currentStreak,
+  dayKey,
   isNestableParent,
   isOptimisticTask,
   nextSiblingPosition,
   planReorder,
+  planWakeUp,
   sortTasksHierarchically,
+  summarizeDay,
   taskHpValue,
   xpThresholdForLevel,
   XP_PER_TASK,
@@ -395,5 +399,133 @@ describe("applyXpDelta (US-09)", () => {
 
   test("XP_THRESHOLD_PER_LEVEL vaut 100", () => {
     expect(XP_THRESHOLD_PER_LEVEL).toBe(100);
+  });
+});
+
+describe("dayKey", () => {
+  it("retourne la date calendaire locale, pas UTC", () => {
+    const instant = new Date("2026-07-20T23:30:00Z");
+    expect(dayKey(instant, "Europe/Paris")).toBe("2026-07-21");
+    expect(dayKey(instant, "UTC")).toBe("2026-07-20");
+  });
+
+  it("gère le passage de minuit dans l'autre sens", () => {
+    const instant = new Date("2026-07-20T02:00:00Z");
+    expect(dayKey(instant, "America/New_York")).toBe("2026-07-19");
+  });
+});
+
+describe("summarizeDay", () => {
+  const t = (
+    over: Partial<{ parent_id: string | null; is_completed: boolean; is_abandoned: boolean }>,
+  ) => ({ parent_id: null, is_completed: false, is_abandoned: false, ...over });
+
+  it("victoire : toutes les tâches complétées, Boss à 0", () => {
+    const s = summarizeDay([t({ is_completed: true }), t({ is_completed: true })], "manual");
+    expect(s.outcome).toBe("victory");
+    expect(s.bossMaxHp).toBe(40);
+    expect(s.damageDealt).toBe(40);
+    expect(s.tasksCompleted).toBe(2);
+    expect(s.xpEarned).toBe(60);
+  });
+
+  it("retraite : clôture manuelle Boss vivant", () => {
+    const s = summarizeDay([t({ is_completed: true }), t({})], "manual");
+    expect(s.outcome).toBe("retreat");
+    expect(s.damageDealt).toBe(20);
+  });
+
+  it("défaite : backfill Boss vivant", () => {
+    const s = summarizeDay([t({ is_completed: true }), t({})], "backfill");
+    expect(s.outcome).toBe("defeat");
+  });
+
+  it("sous-tâche vaut 10 HP, tâches abandonnées comptées à part", () => {
+    const s = summarizeDay(
+      [
+        t({ is_completed: true }),
+        t({ parent_id: "p", is_completed: true }),
+        t({ is_abandoned: true }),
+      ],
+      "manual",
+    );
+    expect(s.bossMaxHp).toBe(30);
+    expect(s.tasksAbandoned).toBe(1);
+  });
+});
+
+describe("planWakeUp", () => {
+  const w = (
+    over: Partial<{
+      id: string;
+      parent_id: string | null;
+      title: string;
+      day_date: string;
+      position: number;
+      is_completed: boolean;
+      is_abandoned: boolean;
+    }>,
+  ) => ({
+    id: "x",
+    parent_id: null,
+    title: "t",
+    day_date: "2026-07-19",
+    position: 0,
+    is_completed: false,
+    is_abandoned: false,
+    ...over,
+  });
+
+  it("groupe par jour (plus ancien d'abord) et niche les sous-tâches", () => {
+    const groups = planWakeUp([
+      w({ id: "a", day_date: "2026-07-19", position: 0 }),
+      w({ id: "a1", parent_id: "a", day_date: "2026-07-19", position: 0 }),
+      w({ id: "b", day_date: "2026-07-18", position: 0 }),
+    ]);
+    expect(groups.map((g) => g.dayDate)).toEqual(["2026-07-18", "2026-07-19"]);
+    const dayA = groups.find((g) => g.dayDate === "2026-07-19");
+    expect(dayA?.roots).toHaveLength(1);
+    expect(dayA?.roots[0].children.map((c) => c.id)).toEqual(["a1"]);
+  });
+
+  it("exclut les tâches complétées ou abandonnées", () => {
+    const groups = planWakeUp([
+      w({ id: "done", is_completed: true }),
+      w({ id: "gone", is_abandoned: true }),
+      w({ id: "live" }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].roots[0].task.id).toBe("live");
+  });
+
+  it("promeut une sous-tâche orpheline en racine standalone", () => {
+    const groups = planWakeUp([
+      w({ id: "orphan", parent_id: "completed-parent", day_date: "2026-07-19" }),
+    ]);
+    expect(groups[0].roots[0].task.id).toBe("orphan");
+  });
+});
+
+describe("currentStreak", () => {
+  it("compte les victoires consécutives en remontant depuis aujourd'hui", () => {
+    const rows = [
+      { day_date: "2026-07-20", outcome: "victory" as const },
+      { day_date: "2026-07-19", outcome: "victory" as const },
+      { day_date: "2026-07-18", outcome: "defeat" as const },
+    ];
+    expect(currentStreak(rows, "2026-07-20")).toBe(2);
+  });
+
+  it("démarre la veille si aujourd'hui n'a pas encore de résultat", () => {
+    const rows = [{ day_date: "2026-07-19", outcome: "victory" as const }];
+    expect(currentStreak(rows, "2026-07-20")).toBe(1);
+  });
+
+  it("un trou casse le streak", () => {
+    const rows = [
+      { day_date: "2026-07-20", outcome: "victory" as const },
+      { day_date: "2026-07-18", outcome: "victory" as const },
+    ];
+    expect(currentStreak(rows, "2026-07-20")).toBe(1);
   });
 });

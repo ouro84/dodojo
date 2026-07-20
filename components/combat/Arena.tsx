@@ -15,16 +15,18 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import type { Profile, Task } from "@/types";
+import type { DayResult, Profile, Task } from "@/types";
 import {
   applyXpDelta,
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
   computeToggleCascade,
+  currentStreak,
   HERO_MAX_HP,
   nextSiblingPosition,
   planReorder,
+  summarizeDay,
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import {
@@ -34,6 +36,7 @@ import {
   reorderSiblings as reorderSiblingsAction,
   setTaskCompleted as setTaskCompletedAction,
 } from "@/app/actions/tasks";
+import { closeDay as closeDayAction } from "@/app/actions/day";
 import BottomNav from "@/components/ui/BottomNav";
 import VersusScene from "./VersusScene";
 import TaskList from "./TaskList";
@@ -41,6 +44,8 @@ import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
 import PerfectOverlay from "./PerfectOverlay";
 import LevelUpOverlay from "./LevelUpOverlay";
+import WakeUpRitual from "./WakeUpRitual";
+import CrepusculeRecap from "./CrepusculeRecap";
 import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
 
 const BOSS_NAME = "Le Gardien de Glace";
@@ -50,6 +55,8 @@ interface ArenaProps {
   initialProfile: Profile;
   initialTasks: Task[];
   overdueTasks: Task[];
+  dayResults: Array<Pick<DayResult, "day_date" | "outcome">>;
+  today: string;
 }
 
 interface Pulse {
@@ -74,10 +81,6 @@ let pulseCounter = 0;
 let xpPulseCounter = 0;
 let optimisticIdCounter = 0;
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 // La cible de drop est le rect mesuré de la ligne survolée ; le rect
 // "traduit" du dragged suit le pointeur en direct (dnd-kit translate tout
 // l'élément par le delta de pointeur, pas seulement le point de saisie).
@@ -87,7 +90,13 @@ function isTopHalfDrop(activeRect: ClientRect | null, overRect: ClientRect): boo
   return activeCenterY < overRect.top + overRect.height / 2;
 }
 
-export default function Arena({ initialProfile, initialTasks, overdueTasks }: ArenaProps) {
+export default function Arena({
+  initialProfile,
+  initialTasks,
+  overdueTasks,
+  dayResults,
+  today,
+}: ArenaProps) {
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
@@ -96,6 +105,9 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [showWakeUp, setShowWakeUp] = useState(overdueTasks.length > 0);
+  const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
+  const [closing, setClosing] = useState(false);
   const [addingSubtaskParentId, setAddingSubtaskParentId] = useState<string | null>(null);
   const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
   const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
@@ -160,7 +172,7 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       is_abandoned: false,
       is_recurring: false,
       deadline_at: null,
-      day_date: todayIso(),
+      day_date: today,
       position: nextSiblingPosition(roots),
       created_at: new Date().toISOString(),
     };
@@ -201,7 +213,7 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       is_abandoned: false,
       is_recurring: false,
       deadline_at: null,
-      day_date: todayIso(),
+      day_date: today,
       position: nextSiblingPosition(siblings),
       created_at: new Date().toISOString(),
     };
@@ -371,8 +383,42 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
     });
   }
 
+  // US-07 : clôture cérémonielle. Persiste le day_result puis affiche le récap
+  // figé (calculé depuis l'état courant des tâches).
+  async function handleCrepuscule() {
+    setClosing(true);
+    const result = await closeDayAction();
+    setClosing(false);
+    if (result.error) {
+      setBanner(result.error);
+      return;
+    }
+    setRecap(summarizeDay(tasks, "manual"));
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-3 px-4 py-4">
+      {showWakeUp && (
+        <WakeUpRitual
+          overdueTasks={overdueTasks}
+          timezone={profile.timezone}
+          onResolved={() => setShowWakeUp(false)}
+        />
+      )}
+      {recap && (
+        <CrepusculeRecap
+          outcome={recap.outcome}
+          bossName={BOSS_NAME}
+          username={profile.username}
+          damageDealt={recap.damageDealt}
+          tasksCompleted={recap.tasksCompleted}
+          tasksAbandoned={recap.tasksAbandoned}
+          xpEarned={recap.xpEarned}
+          remainingMonsters={activeTasks.filter((task) => !task.is_completed).length}
+          streak={currentStreak(dayResults, today)}
+          onDismiss={() => setRecap(null)}
+        />
+      )}
       <div
         key={pulse ? `fx-${pulse.key}` : "fx-idle"}
         className={`relative flex flex-col gap-3 ${
@@ -467,6 +513,17 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       )}
 
       <AddTaskForm onAdd={handleAdd} pending={isAdding} />
+
+      {!isEmpty && (
+        <button
+          type="button"
+          onClick={handleCrepuscule}
+          disabled={closing}
+          className="rounded-md border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
+        >
+          {closing ? "…" : "Rituel du Crépuscule"}
+        </button>
+      )}
 
       <BottomNav active="arene" />
     </div>

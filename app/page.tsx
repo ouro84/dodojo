@@ -1,11 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dayKey } from "@/lib/game-engine";
 import Arena from "@/components/combat/Arena";
 import ArenaError from "@/components/combat/ArenaError";
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default async function ArenePage() {
   const supabase = await createClient();
@@ -31,11 +28,13 @@ export default async function ArenePage() {
     redirect("/onboarding");
   }
 
+  const today = dayKey(new Date(), profile.timezone ?? "UTC");
+
   const { data: tasks, error: tasksError } = await supabase
     .from("tasks")
     .select("*")
     .eq("user_id", user.id)
-    .eq("day_date", todayIso())
+    .eq("day_date", today)
     .order("position", { ascending: true });
 
   if (tasksError) {
@@ -46,7 +45,7 @@ export default async function ArenePage() {
     .from("tasks")
     .select("*")
     .eq("user_id", user.id)
-    .lt("day_date", todayIso())
+    .lt("day_date", today)
     .eq("is_completed", false)
     .eq("is_abandoned", false);
 
@@ -54,11 +53,20 @@ export default async function ArenePage() {
     return <ArenaError />;
   }
 
+  const { data: dayResults } = await supabase
+    .from("day_results")
+    .select("day_date, outcome")
+    .eq("user_id", user.id)
+    .order("day_date", { ascending: false })
+    .limit(60);
+
   return (
     <Arena
       initialProfile={profile}
       initialTasks={tasks ?? []}
       overdueTasks={overdueTasks ?? []}
+      dayResults={dayResults ?? []}
+      today={today}
     />
   );
 }

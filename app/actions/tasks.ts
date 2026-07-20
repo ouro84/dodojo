@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   applyXpDelta,
+  dayKey,
   isNestableParent,
   nextSiblingPosition,
   XP_PER_TASK,
@@ -17,8 +18,18 @@ export interface TaskActionResult {
   leveledUp?: boolean;
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+// Le "jour" du jeu est le jour local de l'utilisateur (RG-03), pas l'UTC.
+// On lit le fuseau stocké sur le profil (renseigné à l'onboarding).
+async function userToday(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .maybeSingle();
+  return dayKey(new Date(), data?.timezone ?? "UTC");
 }
 
 export async function addTask(title: string): Promise<TaskActionResult> {
@@ -37,7 +48,7 @@ export async function addTask(title: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const today = todayIso();
+  const today = await userToday(supabase, user.id);
   const { data: roots, error: rootsError } = await supabase
     .from("tasks")
     .select("position")
@@ -115,13 +126,14 @@ export async function addSubtask(
     return { error: "La sous-tâche a résisté à l'invocation. Réessaie." };
   }
 
+  const today = await userToday(supabase, user.id);
   const { data: inserted, error } = await supabase
     .from("tasks")
     .insert({
       user_id: user.id,
       parent_id: parentId,
       title: trimmed,
-      day_date: todayIso(),
+      day_date: today,
       position: nextSiblingPosition(siblings ?? []),
     })
     .select("id")
@@ -299,6 +311,129 @@ export async function reorderSiblings(
     }
   }
 
+  revalidatePath("/");
+  return { error: null };
+}
+
+// US-08 (A1) : la tâche a été faite hors app — on la valide rétroactivement
+// sur son jour d'origine (elle inflige ses dégâts au Boss de ce jour-là).
+// Cascade sur les sous-tâches restes.
+export async function completeOverdueTask(id: string): Promise<TaskActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ is_completed: true })
+    .or(`id.eq.${id},parent_id.eq.${id}`)
+    .eq("user_id", user.id)
+    .eq("is_abandoned", false);
+
+  if (error) return { error: "Impossible de valider ce reste. Réessaie." };
+  revalidatePath("/");
+  return { error: null };
+}
+
+// US-08 (D5) : reporte au jour local courant — la tâche revient dans la liste
+// du jour et re-soigne le Boss (RG-02). La tâche et ses sous-tâches restes
+// changent de day_date ; position recalculée en tête de la fratrie du jour.
+export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const today = await userToday(supabase, user.id);
+
+  const { data: roots } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("user_id", user.id)
+    .eq("day_date", today)
+    .is("parent_id", null);
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ day_date: today, position: nextSiblingPosition(roots ?? []) })
+    .or(`id.eq.${id},parent_id.eq.${id}`)
+    .eq("user_id", user.id)
+    .eq("is_abandoned", false);
+
+  if (error) return { error: "Impossible de reporter ce reste. Réessaie." };
+  revalidatePath("/");
+  return { error: null };
+}
+
+// US-08 (D6) : annihiler = is_abandoned (RG-04, jamais DELETE). Ton non-punitif
+// côté UI ("on tourne la page").
+export async function annihilateOverdueTask(id: string): Promise<TaskActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ is_abandoned: true })
+    .or(`id.eq.${id},parent_id.eq.${id}`)
+    .eq("user_id", user.id);
+
+  if (error) return { error: "Impossible d'annihiler ce reste. Réessaie." };
+  revalidatePath("/");
+  return { error: null };
+}
+
+// US-08 (A4) : action groupée anti "mur de la honte" — reporte tous les restes
+// au jour local courant.
+export async function deferAllOverdue(): Promise<TaskActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const today = await userToday(supabase, user.id);
+  const { error } = await supabase
+    .from("tasks")
+    .update({ day_date: today })
+    .eq("user_id", user.id)
+    .lt("day_date", today)
+    .eq("is_completed", false)
+    .eq("is_abandoned", false);
+
+  if (error) return { error: "Impossible de tout reporter. Réessaie." };
+  revalidatePath("/");
+  return { error: null };
+}
+
+// US-08 (A4) : action groupée — annihile les restes plus vieux que `days` jours.
+export async function annihilateOverdueOlderThan(days: number): Promise<TaskActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const today = await userToday(supabase, user.id);
+  const cutoff = dayKey(
+    new Date(Date.parse(`${today}T00:00:00Z`) - days * 86400000),
+    "UTC",
+  );
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ is_abandoned: true })
+    .eq("user_id", user.id)
+    .lt("day_date", cutoff)
+    .eq("is_completed", false)
+    .eq("is_abandoned", false);
+
+  if (error) return { error: "Impossible d'annihiler les vieux restes. Réessaie." };
   revalidatePath("/");
   return { error: null };
 }
