@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import MicButton from "./MicButton";
 
 interface AddTaskFormProps {
   onAdd: (title: string) => void;
@@ -36,6 +37,7 @@ export default function AddTaskForm({ onAdd, pending = false }: AddTaskFormProps
         maxLength={140}
         className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
       />
+      <MicButton disabled={pending} onTranscript={onAdd} />
       <button
         type="submit"
         disabled={pending || !title.trim()}

@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { applyXpDelta, XP_PER_TASK } from "@/lib/game-engine";
+import {
+  applyXpDelta,
+  canNestTask,
+  isNestableParent,
+  nextSiblingPosition,
+  XP_PER_TASK,
+} from "@/lib/game-engine";
 
 export interface TaskActionResult {
   error: string | null;
@@ -31,14 +37,90 @@ export async function addTask(title: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
+  const today = todayIso();
+  const { data: roots, error: rootsError } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("user_id", user.id)
+    .eq("day_date", today)
+    .is("parent_id", null);
+
+  if (rootsError) {
+    return { error: "Le monstre a résisté à l'invocation. Réessaie." };
+  }
+
   const { error } = await supabase.from("tasks").insert({
     user_id: user.id,
     title: trimmed,
-    day_date: todayIso(),
+    day_date: today,
+    position: nextSiblingPosition(roots ?? []),
   });
 
   if (error) {
     return { error: "Le monstre a résisté à l'invocation. Réessaie." };
+  }
+
+  revalidatePath("/");
+  return { error: null };
+}
+
+export async function addSubtask(
+  parentId: string,
+  title: string,
+): Promise<TaskActionResult> {
+  const trimmed = title.trim();
+
+  if (!trimmed) {
+    return { error: "Nomme ta sous-quête avant de l'invoquer." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Session expirée. Reconnecte-toi." };
+  }
+
+  const { data: parent, error: parentError } = await supabase
+    .from("tasks")
+    .select("id, parent_id, is_abandoned")
+    .eq("id", parentId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (parentError || !parent) {
+    return { error: "Cette quête est introuvable." };
+  }
+
+  if (parent.is_abandoned) {
+    return { error: "Cette quête a été abandonnée, pas de sous-quête possible." };
+  }
+
+  if (!isNestableParent(parent)) {
+    return { error: "Deux niveaux, pas plus — cette quête est déjà une sous-quête." };
+  }
+
+  const { data: siblings, error: siblingsError } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("parent_id", parentId);
+
+  if (siblingsError) {
+    return { error: "La sous-quête a résisté à l'invocation. Réessaie." };
+  }
+
+  const { error } = await supabase.from("tasks").insert({
+    user_id: user.id,
+    parent_id: parentId,
+    title: trimmed,
+    day_date: todayIso(),
+    position: nextSiblingPosition(siblings ?? []),
+  });
+
+  if (error) {
+    return { error: "La sous-quête a résisté à l'invocation. Réessaie." };
   }
 
   revalidatePath("/");
@@ -139,6 +221,63 @@ export async function abandonTask(id: string): Promise<TaskActionResult> {
 
   if (error) {
     return { error: "Impossible d'abandonner cette tâche. Réessaie." };
+  }
+
+  revalidatePath("/");
+  return { error: null };
+}
+
+// US-19 : reparente une tâche par drag & drop. `parentId: null` = replacer en racine.
+export async function nestTask(
+  taskId: string,
+  parentId: string | null,
+): Promise<TaskActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Session expirée. Reconnecte-toi." };
+  }
+
+  const { data: allTasks, error: fetchError } = await supabase
+    .from("tasks")
+    .select("id, parent_id, is_abandoned, position")
+    .eq("user_id", user.id);
+
+  if (fetchError || !allTasks) {
+    return { error: "Impossible de reparenter cette quête. Réessaie." };
+  }
+
+  const taskToNest = allTasks.find((task) => task.id === taskId);
+  if (!taskToNest || taskToNest.is_abandoned) {
+    return { error: "Cette quête est introuvable." };
+  }
+
+  if (parentId !== null) {
+    const targetParent = allTasks.find((task) => task.id === parentId);
+    if (!targetParent || targetParent.is_abandoned) {
+      return { error: "Cette quête est introuvable." };
+    }
+
+    const check = canNestTask(taskToNest, targetParent, allTasks);
+    if (!check.allowed) {
+      return { error: check.reason ?? "Imbrication impossible." };
+    }
+  }
+
+  const siblings = allTasks.filter((task) => task.parent_id === parentId);
+  const position = nextSiblingPosition(siblings);
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ parent_id: parentId, position })
+    .eq("id", taskId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return { error: "Impossible de reparenter cette quête. Réessaie." };
   }
 
   revalidatePath("/");

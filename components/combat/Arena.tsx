@@ -1,18 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import type { Profile, Task } from "@/types";
 import {
   applyXpDelta,
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
+  canNestTask,
   HERO_MAX_HP,
+  nextSiblingPosition,
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import {
   addTask as addTaskAction,
+  addSubtask as addSubtaskAction,
   abandonTask as abandonTaskAction,
+  nestTask as nestTaskAction,
   setTaskCompleted as setTaskCompletedAction,
 } from "@/app/actions/tasks";
 import BottomNav from "@/components/ui/BottomNav";
@@ -63,8 +78,16 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [addingSubtaskParentId, setAddingSubtaskParentId] = useState<string | null>(null);
+  const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const xpPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
 
   const maxHp = calculateBossMaxHp(tasks);
   const currentHp = calculateBossCurrentHp(tasks);
@@ -108,6 +131,7 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
 
   function handleAdd(title: string) {
     optimisticIdCounter += 1;
+    const roots = tasks.filter((task) => task.parent_id === null);
     const optimisticTask: Task = {
       id: `optimistic-${optimisticIdCounter}`,
       user_id: profile.id,
@@ -118,7 +142,7 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       is_recurring: false,
       deadline_at: null,
       day_date: todayIso(),
-      position: tasks.length,
+      position: nextSiblingPosition(roots),
       created_at: new Date().toISOString(),
     };
 
@@ -128,6 +152,36 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
 
     void addTaskAction(title).then((result) => {
       setIsAdding(false);
+      if (result.error) {
+        setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
+        setBanner(result.error);
+      }
+    });
+  }
+
+  function handleAddSubtask(parentId: string, title: string) {
+    optimisticIdCounter += 1;
+    const siblings = tasks.filter((task) => task.parent_id === parentId);
+    const optimisticTask: Task = {
+      id: `optimistic-${optimisticIdCounter}`,
+      user_id: profile.id,
+      parent_id: parentId,
+      title,
+      is_completed: false,
+      is_abandoned: false,
+      is_recurring: false,
+      deadline_at: null,
+      day_date: todayIso(),
+      position: nextSiblingPosition(siblings),
+      created_at: new Date().toISOString(),
+    };
+
+    setTasks((prev) => [...prev, optimisticTask]);
+    triggerPulse(10, "heal");
+    setAddingSubtaskParentId(parentId);
+
+    void addSubtaskAction(parentId, title).then((result) => {
+      setAddingSubtaskParentId(null);
       if (result.error) {
         setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
         setBanner(result.error);
@@ -185,6 +239,46 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       const { level, xp } = result;
       if (level !== undefined && xp !== undefined) {
         setProfile((current) => ({ ...current, level, xp }));
+      }
+    });
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveDragTaskId(String(event.active.id));
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveDragTaskId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const taskToNest = tasks.find((task) => task.id === active.id);
+    const targetParent = tasks.find((task) => task.id === over.id);
+    if (!taskToNest || !targetParent) return;
+
+    const check = canNestTask(taskToNest, targetParent, tasks);
+    if (!check.allowed) {
+      setBanner(check.reason ?? "Imbrication impossible.");
+      return;
+    }
+
+    const previousSnapshot = tasks;
+    const siblings = tasks.filter(
+      (task) => task.parent_id === targetParent.id && task.id !== taskToNest.id,
+    );
+    const position = nextSiblingPosition(siblings);
+    const nextTasks = tasks.map((task) =>
+      task.id === taskToNest.id
+        ? { ...task, parent_id: targetParent.id, position }
+        : task,
+    );
+
+    setTasks(nextTasks);
+
+    void nestTaskAction(taskToNest.id, targetParent.id).then((result) => {
+      if (result.error) {
+        setTasks(previousSnapshot);
+        setBanner(result.error);
       }
     });
   }
@@ -274,11 +368,26 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
           </p>
         </div>
       ) : (
-        <TaskList
-          tasks={activeTasks}
-          onToggle={handleToggle}
-          onAbandon={handleAbandon}
-        />
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <TaskList
+            tasks={activeTasks}
+            onToggle={handleToggle}
+            onAbandon={handleAbandon}
+            onAddSubtask={handleAddSubtask}
+            addingSubtaskParentId={addingSubtaskParentId}
+          />
+          <DragOverlay>
+            {activeDragTaskId && (
+              <div className="rounded-md border border-hp bg-surface px-3 py-2 text-sm text-ink shadow-lg">
+                {tasks.find((task) => task.id === activeDragTaskId)?.title}
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
 
       <AddTaskForm onAdd={handleAdd} pending={isAdding} />

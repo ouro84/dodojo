@@ -7,6 +7,77 @@ export function taskHpValue(task: Pick<Task, "parent_id">): number {
   return task.parent_id === null ? HP_PER_TASK : HP_PER_SUBTASK;
 }
 
+// RG-01 : 2 niveaux max — seule une tâche racine peut recevoir une sous-tâche.
+export function isNestableParent(task: Pick<Task, "parent_id">): boolean {
+  return task.parent_id === null;
+}
+
+export function nextSiblingPosition<T extends Pick<Task, "position">>(
+  siblings: T[],
+): number {
+  return siblings.length === 0
+    ? 0
+    : Math.max(...siblings.map((task) => task.position)) + 1;
+}
+
+export type HierarchyTask = Pick<Task, "id" | "parent_id" | "position">;
+
+export function sortTasksHierarchically<T extends HierarchyTask>(tasks: T[]): T[] {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const childrenByParent = new Map<string, T[]>();
+  const roots: T[] = [];
+
+  for (const task of tasks) {
+    const hasKnownParent = task.parent_id !== null && byId.has(task.parent_id);
+    if (!hasKnownParent) {
+      roots.push(task);
+      continue;
+    }
+    const siblings = childrenByParent.get(task.parent_id as string) ?? [];
+    siblings.push(task);
+    childrenByParent.set(task.parent_id as string, siblings);
+  }
+
+  const byPosition = (a: T, b: T) => a.position - b.position;
+  roots.sort(byPosition);
+
+  return roots.flatMap((root) => [
+    root,
+    ...(childrenByParent.get(root.id) ?? []).sort(byPosition),
+  ]);
+}
+
+export interface NestingCheck {
+  allowed: boolean;
+  reason?: string;
+}
+
+const NESTING_REJECTED_SELF: NestingCheck = {
+  allowed: false,
+  reason: "Une quête ne peut pas s'imbriquer sous elle-même.",
+};
+const NESTING_REJECTED_DEPTH: NestingCheck = {
+  allowed: false,
+  reason: "Deux niveaux, pas plus — cette quête est déjà une sous-quête.",
+};
+const NESTING_REJECTED_HAS_CHILDREN: NestingCheck = {
+  allowed: false,
+  reason: "Cette quête a déjà des sous-quêtes, elle ne peut pas devenir une sous-quête.",
+};
+const NESTING_ALLOWED: NestingCheck = { allowed: true };
+
+export function canNestTask(
+  taskToNest: Pick<Task, "id" | "parent_id">,
+  targetParent: Pick<Task, "id" | "parent_id">,
+  allTasks: Pick<Task, "id" | "parent_id">[],
+): NestingCheck {
+  if (taskToNest.id === targetParent.id) return NESTING_REJECTED_SELF;
+  if (!isNestableParent(targetParent)) return NESTING_REJECTED_DEPTH;
+  const hasChildren = allTasks.some((task) => task.parent_id === taskToNest.id);
+  if (hasChildren) return NESTING_REJECTED_HAS_CHILDREN;
+  return NESTING_ALLOWED;
+}
+
 export type HpTask = Pick<Task, "parent_id" | "is_abandoned" | "is_completed">;
 
 export function calculateBossMaxHp(tasks: HpTask[]): number {
