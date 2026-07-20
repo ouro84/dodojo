@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { createProfile, type CreateProfileState } from "./actions";
 
 const initialState: CreateProfileState = { error: null };
@@ -10,9 +10,19 @@ export default function OnboardingForm() {
     createProfile,
     initialState,
   );
+  const tzRef = useRef<HTMLInputElement>(null);
+
+  // Le fuseau n'existe que côté client ; on le capture après hydratation pour
+  // que tous les calculs de "jour local" (RG-03) partent de la bonne zone.
+  useEffect(() => {
+    if (tzRef.current) {
+      tzRef.current.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    }
+  }, []);
 
   return (
     <form action={formAction} className="flex w-full max-w-xs flex-col gap-4">
+      <input ref={tzRef} type="hidden" name="timezone" defaultValue="UTC" />
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="username"
