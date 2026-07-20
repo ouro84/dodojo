@@ -87,6 +87,9 @@ boss-de-la-journee/
 ### Langue d'échange
 Toute communication avec l'utilisateur se fait en français, sans exception. Les termes techniques, noms d'API, de librairies, de variables, de commandes et le vocabulaire spécifique (ex: "commit", "fetch", "hook", "state") restent en anglais quand c'est l'usage naturel du domaine.
 
+### Changelog (`CHANGELOG.md`)
+Toute PR qui livre une feature (produit ou technique) ajoute sa ligne sous `## [Unreleased]` de `CHANGELOG.md`, dans le même commit que l'implémentation — jamais après coup. Format des versions : `XX.YY.ZZ` (Majeure.Mineure.Fix), aligné sur les releases GitHub. À chaque release GitHub effective, le contenu d'`[Unreleased]` est basculé dans une nouvelle section versionnée et datée.
+
 ### Commits (Conventional Commits)
 Format strict : `type: description courte`
 - `feat:` Nouvelle fonctionnalité (ex: `feat: add screen shake animation on damage`)
@@ -120,6 +123,10 @@ Format strict : `type: description courte`
 **Pas de trigger d'auto-création de profil** — Aucun trigger sur `auth.users` ne crée automatiquement une ligne `profiles` à l'inscription. Le pseudo doit être défini explicitement par l'utilisateur (voir tone of voice : pas de fallback générique type "Héros"), donc la création de la ligne `profiles` fait partie du flow d'onboarding applicatif (US-14), pas de la migration SQL.
 
 **Jauge de HP du Héros sans conséquence tant que US-08 n'existe pas** — L'Arène (direction "Street Fighter" retenue, cf. `feat/arena-street-fighter-challenger`) affiche une jauge de HP du Héros calculée depuis les tâches en retard (`calculateHeroHp` dans `lib/game-engine.ts`, -20 HP par tâche non résolue d'un jour précédent, plancher à 0). C'est une pénalité **visuelle uniquement** pour l'instant : rien ne se passe quand elle atteint 0, aucune action n'est proposée sur les tâches en retard depuis l'Arène. Le vrai traitement (overlay bloquant "Annihiler"/"Reporter") est le Rituel du Réveil (US-08), pas encore implémenté. Ne pas être surpris que la jauge puisse rester à 0 indéfiniment — c'est attendu tant que US-08 n'est pas livré, décision produit assumée (cf. `docs/superpowers/specs/2026-07-19-arena-versus-design.md`).
+
+**Profondeur des sous-tâches (RG-01) appliquée uniquement côté applicatif** — La colonne `parent_id` de `tasks` n'a aucune contrainte SQL (check/trigger) limitant la profondeur à 2 niveaux. La garde repose entièrement sur `isNestableParent`/`canNestTask` (`lib/game-engine.ts`), revérifiés à la fois côté UI (bouton "+" et zone de drop absents sur une sous-tâche) et côté server actions (`addSubtask`, `nestTask` dans `app/actions/tasks.ts`). Dette assumée pour le Sprint 1 : une action serveur appelée directement (hors UI) reste la seule ligne de défense, pas de filet base de données.
+
+**Web Speech API : geste utilisateur direct obligatoire** — `SpeechRecognition.start()` (`hooks/useSpeechToText.ts`) doit être appelée de façon synchrone dans le handler `onClick` du bouton micro, sans détour asynchrone avant l'appel. Safari/iOS rejette silencieusement l'activation du micro si `.start()` n'est pas directement dans la pile d'un geste utilisateur. La détection de support navigateur (`SpeechRecognition` absent de `lib.dom.d.ts`, typé dans `types/speech-recognition.d.ts`) passe par `useSyncExternalStore` avec un snapshot serveur toujours `false`, pour éviter un mismatch d'hydratation Next.js entre le rendu serveur (pas de `window`) et le rendu client.
 
 ---
 
