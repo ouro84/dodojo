@@ -1,10 +1,14 @@
 # US-18 Échoppe & Économie d'Or — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **RÉVISION 2026-07-20 (après revue du code réel)** : l'idle héros se rend via le composant existant `components/combat/IdleSprite.tsx` (frames PNG individuelles, `framePrefix` + index 4 chiffres, convention `/sprites/mc/<slug>/idle/frameNNNN.png`). On le réutilise (pas de nouveau composant spritesheet). `VersusScene.tsx` hardcode `fire-knight` → à câbler sur `equipped_hero_id`.
+>
+> **Environnement (2026-07-20)** : Docker/Supabase local **éteint** → les migrations sont **écrites** ici mais `supabase migration up` et l'e2e Playwright (serveur prod) sont **différés** jusqu'à `supabase start`. Le reset e2e utilise la clé secrète existante `NEXT_PRIVATE_KEY_SUPABASE` (pas de `SUPABASE_SERVICE_ROLE_KEY` dans `.env.local`).
 
 **Goal:** Livrer la monnaie d'or (gagnée à la clôture du jour, solde dérivé) et l'Échoppe façon Character Select où l'on débloque/équipe des héros.
 
-**Architecture:** Logique pure dans `lib/game-engine.ts` (barème d'or) et `lib/heroes.ts` (catalogue statique). L'or est écrit dans `day_results.gold_earned` par `closeDay`/`backfillMissedDays` (idempotent, recalculé). La possession vit dans une table `unlocked_heroes` (jamais de DELETE) ; le solde est dérivé `SUM(gold_earned) − SUM(price_paid)`. L'écran `app/echoppe/page.tsx` consomme catalogue + possession + solde, muté par les server actions `purchaseHero`/`equipHero`.
+**Architecture:** Logique pure dans `lib/game-engine.ts` (barème d'or) et `lib/heroes.ts` (catalogue statique). L'or est écrit dans `day_results.gold_earned` par `closeDay`/`backfillMissedDays` (idempotent, recalculé). La possession vit dans une table `unlocked_heroes` (jamais de DELETE) ; le solde est dérivé `SUM(gold_earned) − SUM(price_paid)`. L'écran `app/echoppe/page.tsx` consomme catalogue + possession + solde, muté par les server actions `purchaseHero`/`equipHero`. Le rendu idle réutilise `IdleSprite`.
 
 **Tech Stack:** Next.js 16 (App Router, server actions), Supabase (PostgreSQL + RLS), TypeScript strict, Vitest (logique pure), Playwright (e2e série, serveur prod).
 
@@ -12,14 +16,16 @@
 
 - **TypeScript strict — interdiction de `any`.** Tout type explicite.
 - **Logique de jeu dans `lib/game-engine.ts`** (testable sans UI). Catalogue héros dans `lib/heroes.ts`.
+- **Rendu idle = réutiliser `components/combat/IdleSprite.tsx`** (frames PNG, `framePrefix`+`frameCount`). Convention publique `/sprites/mc/<slug>/idle/frameNNNN.png` (index sur 4 chiffres, base 0).
 - **RG-04 — jamais de DELETE.** `unlocked_heroes` sans policy DELETE ; achat idempotent.
 - **3 états UI** (Loading / Error / Empty) obligatoires sur tout écran.
 - **Solde d'or dérivé, jamais accumulé** : `SUM(day_results.gold_earned) − SUM(unlocked_heroes.price_paid)`. `profiles.gold` = cache.
 - **Chiffres recalculés, jamais accumulés** dans `day_results` (idempotence sur reclose).
 - **Commits Conventional Commits** ; toute PR feature ajoute sa ligne sous `## [Unreleased]` de `CHANGELOG.md` dans le même commit.
-- **e2e Playwright** : `fullyParallel: false`, serveur prod, compte fixe unique → isoler l'état muté (achats) via fixture de reset.
+- **e2e Playwright** : `fullyParallel: false`, serveur prod, compte fixe unique → isoler l'état muté (achats) via helper de reset service-role (`NEXT_PRIVATE_KEY_SUPABASE`).
 - **Barème d'or (tunable, constantes)** : `GOLD_BASE = { victory: 50, retreat: 10, defeat: 0 }`, `GOLD_PER_DAMAGE_UNIT = 1` (par 20 dégâts), `GOLD_STREAK_BONUS_PER_DAY = 5`, `GOLD_STREAK_BONUS_CAP = 50`.
-- **Héros par défaut** : `fire_knight`, possédé d'office (`price_paid = 0`), toujours considéré comme possédé sans ligne obligatoire.
+- **Héros par défaut** : `fire_knight` (slug `fire-knight`), possédé d'office (`price_paid = 0`), toujours considéré comme possédé sans ligne obligatoire.
+- **DB différée** : écrire les migrations ; `supabase migration up` et l'e2e seront lancés quand Docker/Supabase tournera.
 
 ---
 
@@ -31,15 +37,16 @@
 - `types/index.ts` — étend `DayResult`, `Profile` ; ajoute `Hero`, `UnlockedHero`.
 - `lib/game-engine.ts` — constantes `GOLD_*`, `computeGoldEarned`, `goldBalance`.
 - `lib/heroes.ts` — catalogue statique `HEROES`, `DEFAULT_HERO_ID`, `getHero`, `isHeroOwned`.
-- `lib/game-engine.test.ts` — tests `computeGoldEarned`, `goldBalance`.
-- `lib/heroes.test.ts` — tests catalogue/possession.
+- `lib/game-engine.test.ts`, `lib/heroes.test.ts` — tests purs.
 - `app/actions/day.ts` — écrit `gold_earned` dans `closeDay` + `backfillMissedDays`.
 - `app/actions/shop.ts` — `purchaseHero`, `equipHero`.
-- `components/shop/HeroSprite.tsx` — sprite idle (CSS steps) + variante grayscale.
+- `components/combat/HeroIdle.tsx` — wrapper mince sur `IdleSprite` (verrouillé = grayscale).
 - `components/shop/CharacterSelect.tsx` — stage + matrice + modale d'achat.
-- `app/echoppe/page.tsx` — écran Échoppe (3 états UI).
+- `components/combat/VersusScene.tsx` — accepte le héros équipé (frames dynamiques).
+- `app/echoppe/page.tsx` + `app/echoppe/loading.tsx` — écran Échoppe (3 états UI).
 - `app/qg/page.tsx` — lien vers l'Échoppe (nav QG hub).
-- `e2e/echoppe.spec.ts` — parcours achat/équipement.
+- `scripts/copy-hero-sprites.sh` — copie/renomme les frames idle depuis `assets/MC`.
+- `e2e/fixtures.ts` + `e2e/echoppe.spec.ts` — reset service-role + parcours achat/équip.
 - `CLAUDE.md`, `CHANGELOG.md`, `ASSETS.md` — docs.
 
 ---
@@ -61,10 +68,10 @@ alter table public.day_results
   add column gold_earned integer not null default 0;
 ```
 
-- [ ] **Step 2: Appliquer en local**
+- [ ] **Step 2: (Différé Docker) Appliquer en local**
 
 Run: `supabase migration up`
-Expected: migration appliquée sans erreur ; `\d day_results` montre `gold_earned`.
+Expected: migration appliquée ; `\d day_results` montre `gold_earned`. **Différé tant que Docker est éteint.**
 
 - [ ] **Step 3: Commit**
 
@@ -111,10 +118,10 @@ create policy "unlocked_heroes_insert_own"
 -- Volontairement aucune policy UPDATE ni DELETE (RG-04).
 ```
 
-- [ ] **Step 2: Appliquer en local**
+- [ ] **Step 2: (Différé Docker) Appliquer en local**
 
 Run: `supabase migration up`
-Expected: table `unlocked_heroes` créée, RLS active.
+Expected: table `unlocked_heroes` créée, RLS active. **Différé.**
 
 - [ ] **Step 3: Commit**
 
@@ -141,10 +148,10 @@ alter table public.profiles
   add column equipped_hero_id text not null default 'fire_knight';
 ```
 
-- [ ] **Step 2: Appliquer en local**
+- [ ] **Step 2: (Différé Docker) Appliquer en local**
 
 Run: `supabase migration up`
-Expected: colonne présente, défaut `fire_knight`.
+Expected: colonne présente, défaut `fire_knight`. **Différé.**
 
 - [ ] **Step 3: Commit**
 
@@ -161,22 +168,20 @@ git commit -m "feat: add equipped_hero_id to profiles (US-18)"
 - Modify: `types/index.ts`
 
 **Interfaces:**
-- Consumes: rien.
 - Produces: `DayResult.gold_earned: number` ; `Profile.equipped_hero_id: string` ; `interface Hero` ; `interface UnlockedHero`.
 
 - [ ] **Step 1: Étendre `DayResult` et `Profile`, ajouter `Hero` et `UnlockedHero`**
 
-Dans `types/index.ts`, ajouter `gold_earned: number;` à `DayResult` (après `xp_earned`), `equipped_hero_id: string;` à `Profile` (après `timezone`), et à la fin du fichier :
+Ajouter `gold_earned: number;` à `DayResult` (après `xp_earned`), `equipped_hero_id: string;` à `Profile` (après `timezone`), et à la fin du fichier :
 
 ```ts
 export interface Hero {
-  id: string;
+  id: string; // id logique/base, ex. "fire_knight"
   name: string;
   element: string;
-  spriteBasePath: string; // ex. "/sprites/heroes/fire_knight"
-  idleFrames: number; // nombre de frames de l'anim idle
-  frameWidth: number;
-  frameHeight: number;
+  slug: string; // segment de chemin public, ex. "fire-knight"
+  idleFramePrefix: string; // ex. "/sprites/mc/fire-knight/idle/frame"
+  idleFrameCount: number;
   price: number; // 0 pour le héros par défaut
   isDefault: boolean;
 }
@@ -193,7 +198,7 @@ export interface UnlockedHero {
 - [ ] **Step 2: Vérifier la compilation**
 
 Run: `npx tsc --noEmit`
-Expected: aucune erreur (les usages de `DayResult`/`Profile` restent valides).
+Expected: aucune erreur.
 
 - [ ] **Step 3: Commit**
 
@@ -211,35 +216,29 @@ git commit -m "feat: add Hero/UnlockedHero types + gold_earned/equipped_hero_id 
 - Test: `lib/game-engine.test.ts`
 
 **Interfaces:**
-- Consumes: `DayOutcome` (déjà importé dans game-engine).
-- Produces: `computeGoldEarned(outcome: DayOutcome, damageDealt: number, streakOnThatDay: number): number` + constantes `GOLD_BASE`, `GOLD_PER_DAMAGE_UNIT`, `GOLD_STREAK_BONUS_PER_DAY`, `GOLD_STREAK_BONUS_CAP`.
+- Consumes: `DayOutcome`.
+- Produces: `computeGoldEarned(outcome: DayOutcome, damageDealt: number, streakOnThatDay: number): number` + constantes `GOLD_*`.
 
 - [ ] **Step 1: Écrire les tests (échouants)**
 
-Ajouter dans `lib/game-engine.test.ts` (et importer `computeGoldEarned` depuis `./game-engine`) :
+Ajouter dans `lib/game-engine.test.ts` (importer `computeGoldEarned` depuis `./game-engine`) :
 
 ```ts
 describe("computeGoldEarned", () => {
   it("victoire sans dégât ni streak = base 50", () => {
     expect(computeGoldEarned("victory", 0, 0)).toBe(50);
   });
-
   it("retreat = base 10, defeat = 0", () => {
     expect(computeGoldEarned("retreat", 0, 0)).toBe(10);
     expect(computeGoldEarned("defeat", 0, 0)).toBe(0);
   });
-
   it("ajoute +1 or par tranche de 20 dégâts", () => {
-    // 120 dégâts -> floor(120/20)=6 or
     expect(computeGoldEarned("victory", 120, 0)).toBe(50 + 6);
   });
-
   it("ajoute le bonus streak (+5 par jour de série)", () => {
     expect(computeGoldEarned("victory", 0, 3)).toBe(50 + 15);
   });
-
   it("plafonne le bonus streak à GOLD_STREAK_BONUS_CAP", () => {
-    // streak 100 -> 500 brut, plafonné à 50
     expect(computeGoldEarned("victory", 0, 100)).toBe(50 + 50);
   });
 });
@@ -250,9 +249,7 @@ describe("computeGoldEarned", () => {
 Run: `npx vitest run lib/game-engine.test.ts -t computeGoldEarned`
 Expected: FAIL (`computeGoldEarned is not a function`).
 
-- [ ] **Step 3: Implémenter dans `lib/game-engine.ts`**
-
-Ajouter (près des constantes XP) :
+- [ ] **Step 3: Implémenter dans `lib/game-engine.ts`** (près des constantes XP)
 
 ```ts
 export const GOLD_BASE: Record<DayOutcome, number> = {
@@ -301,7 +298,7 @@ git commit -m "feat: add computeGoldEarned gold formula (US-18)"
 - Test: `lib/game-engine.test.ts`
 
 **Interfaces:**
-- Consumes: `DayResult` (import type), `UnlockedHero`.
+- Consumes: `DayResult`, `UnlockedHero` (import type).
 - Produces: `goldBalance(dayResults: Pick<DayResult, "gold_earned">[], unlockedHeroes: Pick<UnlockedHero, "price_paid">[]): number`.
 
 - [ ] **Step 1: Écrire les tests (échouants)**
@@ -309,15 +306,11 @@ git commit -m "feat: add computeGoldEarned gold formula (US-18)"
 ```ts
 describe("goldBalance", () => {
   it("solde = somme des gains moins somme des achats", () => {
-    const gains = [{ gold_earned: 50 }, { gold_earned: 60 }];
-    const achats = [{ price_paid: 40 }];
-    expect(goldBalance(gains, achats)).toBe(70);
+    expect(goldBalance([{ gold_earned: 50 }, { gold_earned: 60 }], [{ price_paid: 40 }])).toBe(70);
   });
-
-  it("nouvel utilisateur (aucun jour, aucun achat) = 0", () => {
+  it("nouvel utilisateur = 0", () => {
     expect(goldBalance([], [])).toBe(0);
   });
-
   it("héros par défaut price_paid 0 n'affecte pas le solde", () => {
     expect(goldBalance([{ gold_earned: 50 }], [{ price_paid: 0 }])).toBe(50);
   });
@@ -331,10 +324,9 @@ Expected: FAIL.
 
 - [ ] **Step 3: Implémenter dans `lib/game-engine.ts`**
 
-```ts
-import type { DayOutcome, DayResult, Task, UnlockedHero } from "../types";
-// (ajouter UnlockedHero à l'import type existant en tête de fichier)
+Ajouter `UnlockedHero` à l'import type en tête (`import type { DayOutcome, DayResult, Task, UnlockedHero } from "../types";`), puis :
 
+```ts
 // US-18 : solde d'or dérivé (source de vérité). Jamais accumulé.
 export function goldBalance(
   dayResults: Pick<DayResult, "gold_earned">[],
@@ -367,7 +359,7 @@ git commit -m "feat: add goldBalance derived-balance helper (US-18)"
 - Test: `lib/heroes.test.ts`
 
 **Interfaces:**
-- Consumes: `Hero` (type).
+- Consumes: `Hero`.
 - Produces: `HEROES: Hero[]`, `DEFAULT_HERO_ID = "fire_knight"`, `getHero(id: string): Hero | undefined`, `isHeroOwned(heroId: string, ownedIds: string[]): boolean`.
 
 - [ ] **Step 1: Écrire les tests (échouants)**
@@ -383,20 +375,18 @@ describe("heroes catalogue", () => {
     expect(defaults[0].id).toBe(DEFAULT_HERO_ID);
     expect(defaults[0].price).toBe(0);
   });
-
-  it("tous les autres héros ont un prix > 0 et un id unique", () => {
-    const ids = HEROES.map((h) => h.id);
-    expect(new Set(ids).size).toBe(ids.length);
+  it("ids et slugs uniques ; autres héros price > 0", () => {
+    expect(new Set(HEROES.map((h) => h.id)).size).toBe(HEROES.length);
+    expect(new Set(HEROES.map((h) => h.slug)).size).toBe(HEROES.length);
     for (const h of HEROES.filter((x) => !x.isDefault)) {
       expect(h.price).toBeGreaterThan(0);
+      expect(h.idleFrameCount).toBeGreaterThan(0);
     }
   });
-
   it("getHero retrouve par id, undefined sinon", () => {
     expect(getHero(DEFAULT_HERO_ID)?.id).toBe(DEFAULT_HERO_ID);
     expect(getHero("inconnu")).toBeUndefined();
   });
-
   it("isHeroOwned : défaut toujours possédé, autres selon la liste", () => {
     expect(isHeroOwned(DEFAULT_HERO_ID, [])).toBe(true);
     expect(isHeroOwned("water_priestess", [])).toBe(false);
@@ -412,21 +402,23 @@ Expected: FAIL (module introuvable).
 
 - [ ] **Step 3: Implémenter `lib/heroes.ts`**
 
-> Chemins/`idleFrames` provisoires : à ajuster quand les frames MC seront copiées dans `public/sprites/heroes/<id>/` (voir Task 12 / ASSETS.md §1). Les valeurs de frames ci-dessous sont des placeholders **structurels** à confirmer à l'intégration des sprites.
+> `idleFrameCount` par héros = nombre réel de frames `01_idle` copiées (Task 12). `fire-knight` = 8 (confirmé dans `VersusScene`/assets). Confirmer les autres au moment de la copie et ajuster ici.
 
 ```ts
 import type { Hero } from "../types";
 
 export const DEFAULT_HERO_ID = "fire_knight";
 
+const idlePrefix = (slug: string) => `/sprites/mc/${slug}/idle/frame`;
+
 export const HEROES: Hero[] = [
-  { id: "fire_knight", name: "Fire Knight", element: "Feu", spriteBasePath: "/sprites/heroes/fire_knight", idleFrames: 8, frameWidth: 288, frameHeight: 128, price: 0, isDefault: true },
-  { id: "water_priestess", name: "Water Priestess", element: "Eau", spriteBasePath: "/sprites/heroes/water_priestess", idleFrames: 8, frameWidth: 288, frameHeight: 128, price: 200, isDefault: false },
-  { id: "ground_monk", name: "Ground Monk", element: "Terre", spriteBasePath: "/sprites/heroes/ground_monk", idleFrames: 8, frameWidth: 288, frameHeight: 128, price: 200, isDefault: false },
-  { id: "wind_hashashin", name: "Wind Hashashin", element: "Vent", spriteBasePath: "/sprites/heroes/wind_hashashin", idleFrames: 8, frameWidth: 288, frameHeight: 128, price: 300, isDefault: false },
-  { id: "leaf_ranger", name: "Leaf Ranger", element: "Feuille", spriteBasePath: "/sprites/heroes/leaf_ranger", idleFrames: 8, frameWidth: 288, frameHeight: 128, price: 300, isDefault: false },
-  { id: "crystal_mauler", name: "Crystal Mauler", element: "Cristal", spriteBasePath: "/sprites/heroes/crystal_mauler", idleFrames: 8, frameWidth: 288, frameHeight: 128, price: 350, isDefault: false },
-  { id: "metal_bladekeeper", name: "Metal Bladekeeper", element: "Métal", spriteBasePath: "/sprites/heroes/metal_bladekeeper", idleFrames: 8, frameWidth: 288, frameHeight: 128, price: 350, isDefault: false },
+  { id: "fire_knight", name: "Fire Knight", element: "Feu", slug: "fire-knight", idleFramePrefix: idlePrefix("fire-knight"), idleFrameCount: 8, price: 0, isDefault: true },
+  { id: "water_priestess", name: "Water Priestess", element: "Eau", slug: "water-priestess", idleFramePrefix: idlePrefix("water-priestess"), idleFrameCount: 8, price: 200, isDefault: false },
+  { id: "ground_monk", name: "Ground Monk", element: "Terre", slug: "ground-monk", idleFramePrefix: idlePrefix("ground-monk"), idleFrameCount: 8, price: 200, isDefault: false },
+  { id: "wind_hashashin", name: "Wind Hashashin", element: "Vent", slug: "wind-hashashin", idleFramePrefix: idlePrefix("wind-hashashin"), idleFrameCount: 8, price: 300, isDefault: false },
+  { id: "leaf_ranger", name: "Leaf Ranger", element: "Feuille", slug: "leaf-ranger", idleFramePrefix: idlePrefix("leaf-ranger"), idleFrameCount: 8, price: 300, isDefault: false },
+  { id: "crystal_mauler", name: "Crystal Mauler", element: "Cristal", slug: "crystal-mauler", idleFramePrefix: idlePrefix("crystal-mauler"), idleFrameCount: 8, price: 350, isDefault: false },
+  { id: "metal_bladekeeper", name: "Metal Bladekeeper", element: "Métal", slug: "metal-bladekeeper", idleFramePrefix: idlePrefix("metal-bladekeeper"), idleFrameCount: 8, price: 350, isDefault: false },
 ];
 
 export function getHero(id: string): Hero | undefined {
@@ -462,17 +454,15 @@ git commit -m "feat: add static hero catalogue (US-18)"
 
 **Interfaces:**
 - Consumes: `computeGoldEarned`, `currentStreak` (existant, retourne `number`), `summarizeDay`, `dayKey`.
-- Produces: `day_results.gold_earned` peuplé (idempotent). Aucune nouvelle signature exportée.
+- Produces: `day_results.gold_earned` peuplé (idempotent).
 
-> Note : `currentStreak(dayResults, today)` renvoie aujourd'hui un `number`. US-12 le fera évoluer vers un objet `{ length, ... }` ; à ce moment-là, remplacer `currentStreak(...)` par `currentStreak(...).length` sur les 2 sites ci-dessous (le reste du code d'or est découplé via `computeGoldEarned`).
+> Note : `currentStreak(dayResults, today)` renvoie aujourd'hui un `number`. US-12 le fera évoluer vers `{ length, ... }` ; à ce moment-là, remplacer `currentStreak(...)` par `currentStreak(...).length` sur les 2 sites ci-dessous.
 
 - [ ] **Step 1: `closeDay` — calculer streak + gold_earned**
 
-Dans `app/actions/day.ts`, importer `computeGoldEarned` et `currentStreak` depuis `@/lib/game-engine`. Après le calcul de `summary` et avant l'upsert, insérer :
+Importer `computeGoldEarned` et `currentStreak` depuis `@/lib/game-engine`. Après le calcul de `summary` et avant l'upsert :
 
 ```ts
-// Streak au jour courant = série incluant l'issue du jour, calculée depuis
-// les day_results passés (source de vérité). Sert au bonus d'or (US-18).
 const { data: priorResults } = await supabase
   .from("day_results")
   .select("day_date, outcome")
@@ -486,15 +476,13 @@ const streakToday = currentStreak(
 const goldEarned = computeGoldEarned(summary.outcome, summary.damageDealt, streakToday);
 ```
 
-Puis ajouter `gold_earned: goldEarned,` dans l'objet passé à `.upsert(...)`.
+Ajouter `gold_earned: goldEarned,` dans l'objet `.upsert(...)`.
 
 - [ ] **Step 2: `backfillMissedDays` — gold_earned chronologique**
 
-Remplacer le bloc `const rows = Array.from(byDay, ...)` par un calcul **chronologique** qui accumule les issues pour que le streak de chaque jour lise les jours antérieurs :
+Remplacer le bloc `const rows = Array.from(byDay, ...)` par :
 
 ```ts
-// Base connue = day_results déjà présents (issues) ; on y ajoute les jours
-// backfillés dans l'ordre chronologique pour un streak correct par jour.
 const { data: knownResults } = await supabase
   .from("day_results")
   .select("day_date, outcome")
@@ -525,12 +513,12 @@ const rows = Array.from(byDay.entries())
   });
 ```
 
-- [ ] **Step 3: Vérifier la compilation + tests existants**
+- [ ] **Step 3: Vérifier compilation + tests**
 
 Run: `npx tsc --noEmit && npx vitest run`
-Expected: aucune erreur TS ; suite Vitest verte.
+Expected: aucune erreur TS ; Vitest vert.
 
-- [ ] **Step 4: Vérifier le build**
+- [ ] **Step 4: Vérifier build**
 
 Run: `npm run build`
 Expected: build OK.
@@ -550,10 +538,10 @@ git commit -m "feat: write gold_earned at day close/backfill (US-18)"
 - Create: `app/actions/shop.ts`
 
 **Interfaces:**
-- Consumes: `createClient` (`@/lib/supabase/server`), `getHero`, `isHeroOwned`, `DEFAULT_HERO_ID` (`@/lib/heroes`), `goldBalance` (`@/lib/game-engine`).
+- Consumes: `createClient` (`@/lib/supabase/server`), `getHero`, `isHeroOwned` (`@/lib/heroes`), `goldBalance` (`@/lib/game-engine`).
 - Produces: `purchaseHero(heroId: string): Promise<{ error: string | null }>`, `equipHero(heroId: string): Promise<{ error: string | null }>`.
 
-- [ ] **Step 1: Écrire `app/actions/shop.ts`** (patron des actions existantes)
+- [ ] **Step 1: Écrire `app/actions/shop.ts`**
 
 ```ts
 "use server";
@@ -561,18 +549,18 @@ git commit -m "feat: write gold_earned at day close/backfill (US-18)"
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { goldBalance } from "@/lib/game-engine";
-import { DEFAULT_HERO_ID, getHero, isHeroOwned } from "@/lib/heroes";
+import { getHero, isHeroOwned } from "@/lib/heroes";
 
 interface ShopActionResult {
   error: string | null;
 }
 
-// US-18 : achat autoritaire côté serveur (B4). Idempotent : re-acheter un héros
-// possédé = no-op. Refus si solde insuffisant. Jamais de DELETE (RG-04).
+// US-18 : achat autoritaire côté serveur. Idempotent (re-achat = no-op),
+// refus si solde insuffisant. Jamais de DELETE (RG-04).
 export async function purchaseHero(heroId: string): Promise<ShopActionResult> {
   const hero = getHero(heroId);
   if (!hero) return { error: "Ce combattant n'existe pas." };
-  if (hero.isDefault) return { error: null }; // déjà possédé d'office
+  if (hero.isDefault) return { error: null };
 
   const supabase = await createClient();
   const {
@@ -586,7 +574,7 @@ export async function purchaseHero(heroId: string): Promise<ShopActionResult> {
     .eq("user_id", user.id);
   const ownedIds = (owned ?? []).map((r) => r.hero_id);
 
-  if (isHeroOwned(heroId, ownedIds)) return { error: null }; // idempotent
+  if (isHeroOwned(heroId, ownedIds)) return { error: null };
 
   const { data: results } = await supabase
     .from("day_results")
@@ -603,13 +591,12 @@ export async function purchaseHero(heroId: string): Promise<ShopActionResult> {
     hero_id: hero.id,
     price_paid: hero.price,
   });
-  // Course concurrente : la contrainte unique (user_id, hero_id) protège du
-  // double achat ; un conflit d'unicité est traité comme un no-op idempotent.
+  // Contrainte unique (user_id, hero_id) protège du double achat concurrent :
+  // un conflit d'unicité (23505) est traité comme no-op idempotent.
   if (error && error.code !== "23505") {
     return { error: "L'achat a échoué. Réessaie." };
   }
 
-  // Rafraîchit le cache profiles.gold (source = solde dérivé).
   await supabase
     .from("profiles")
     .update({ gold: balance - hero.price })
@@ -667,78 +654,60 @@ git commit -m "feat: add purchaseHero/equipHero server actions (US-18)"
 
 ---
 
-## Task 10: Sprite héros — `HeroSprite.tsx`
+## Task 10: Wrapper idle verrouillable — `HeroIdle.tsx`
 
 **Files:**
-- Create: `components/shop/HeroSprite.tsx`
+- Create: `components/combat/HeroIdle.tsx`
 
 **Interfaces:**
-- Consumes: `Hero` (type).
-- Produces: `<HeroSprite hero locked?={boolean} size?={number} />` — rend l'idle en boucle (CSS `steps()`), variante grayscale si `locked`.
+- Consumes: `IdleSprite` (default export `@/components/combat/IdleSprite`), `Hero`.
+- Produces: `<HeroIdle hero locked?={boolean} className?={string} />`.
 
-> Prérequis d'asset : une spritesheet idle `<spriteBasePath>/idle.png` (frames horizontales) dans `public/` (copiée en Task 12). Respecte `prefers-reduced-motion` (fige la 1ʳᵉ frame).
+> Réutilise `IdleSprite` (gère déjà `prefers-reduced-motion`). Le verrou = filtre grayscale sur un wrapper.
 
 - [ ] **Step 1: Écrire le composant**
 
 ```tsx
+import IdleSprite from "./IdleSprite";
 import type { Hero } from "@/types";
 
-export function HeroSprite({
+export default function HeroIdle({
   hero,
   locked = false,
-  size = 1,
+  className,
 }: {
   hero: Hero;
   locked?: boolean;
-  size?: number;
+  className?: string;
 }) {
-  const w = hero.frameWidth * size;
-  const h = hero.frameHeight * size;
-  const style: React.CSSProperties = {
-    width: w,
-    height: h,
-    backgroundImage: `url(${hero.spriteBasePath}/idle.png)`,
-    backgroundRepeat: "no-repeat",
-    backgroundSize: `${w * hero.idleFrames}px ${h}px`,
-    imageRendering: "pixelated",
-    animation: `hero-idle-${hero.idleFrames} 0.9s steps(${hero.idleFrames}) infinite`,
-    filter: locked ? "grayscale(1) brightness(0.4)" : undefined,
-  };
   return (
     <div
-      role="img"
-      aria-label={locked ? `${hero.name} (verrouillé)` : hero.name}
-      style={style}
+      className={className}
+      style={locked ? { filter: "grayscale(1) brightness(0.4)" } : undefined}
       data-hero={hero.id}
-    />
+      data-locked={locked}
+    >
+      <IdleSprite
+        framePrefix={hero.idleFramePrefix}
+        frameCount={hero.idleFrameCount}
+        alt={locked ? `${hero.name} (verrouillé)` : hero.name}
+        className="h-full w-auto [image-rendering:pixelated]"
+      />
+    </div>
   );
 }
 ```
 
-- [ ] **Step 2: Ajouter les keyframes + reduced-motion (global CSS)**
-
-Dans `app/globals.css`, ajouter (le pas d'animation translate la spritesheet ; générer une règle par nombre de frames utilisé, ici 8) :
-
-```css
-@keyframes hero-idle-8 {
-  from { background-position: 0 0; }
-  to { background-position: -100% 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-hero] { animation: none !important; background-position: 0 0 !important; }
-}
-```
-
-- [ ] **Step 3: Vérifier la compilation**
+- [ ] **Step 2: Vérifier la compilation**
 
 Run: `npx tsc --noEmit`
 Expected: aucune erreur.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add components/shop/HeroSprite.tsx app/globals.css
-git commit -m "feat: add HeroSprite idle component (US-18)"
+git add components/combat/HeroIdle.tsx
+git commit -m "feat: add HeroIdle lockable idle wrapper (US-18)"
 ```
 
 ---
@@ -749,8 +718,8 @@ git commit -m "feat: add HeroSprite idle component (US-18)"
 - Create: `components/shop/CharacterSelect.tsx`
 
 **Interfaces:**
-- Consumes: `HEROES`, `getHero`, `isHeroOwned`, `DEFAULT_HERO_ID` (`@/lib/heroes`), `HeroSprite`, `purchaseHero`, `equipHero` (`@/app/actions/shop`).
-- Produces: `<CharacterSelect ownedIds equippedId balance />` (client component) — stage + matrice + modale de confirmation.
+- Consumes: `HEROES`, `getHero`, `isHeroOwned`, `DEFAULT_HERO_ID` (`@/lib/heroes`), `HeroIdle` (`@/components/combat/HeroIdle`), `purchaseHero`, `equipHero` (`@/app/actions/shop`).
+- Produces: `<CharacterSelect ownedIds equippedId balance />` (client component).
 
 - [ ] **Step 1: Écrire le composant client**
 
@@ -760,7 +729,7 @@ git commit -m "feat: add HeroSprite idle component (US-18)"
 import { useState, useTransition } from "react";
 import { HEROES, getHero, isHeroOwned, DEFAULT_HERO_ID } from "@/lib/heroes";
 import { equipHero, purchaseHero } from "@/app/actions/shop";
-import { HeroSprite } from "./HeroSprite";
+import HeroIdle from "@/components/combat/HeroIdle";
 
 export function CharacterSelect({
   ownedIds,
@@ -806,18 +775,20 @@ export function CharacterSelect({
 
   return (
     <div data-testid="character-select">
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
+      <div className="flex justify-between">
         <span>⚔️ CHOISIS TON COMBATTANT</span>
         <span data-testid="gold-balance">🪙 {balance}</span>
       </div>
 
-      {/* Stage */}
-      <div style={{ textAlign: "center" }}>
-        <HeroSprite hero={selected} locked={!owned} size={1} />
+      <div className="text-center">
+        <HeroIdle hero={selected} locked={!owned} className="mx-auto h-28" />
         <div>{selected.name}</div>
         <div>Élément : {selected.element}</div>
         {error && <p role="alert">{error}</p>}
-        <button onClick={onAction} disabled={pending || (equipped) || (!owned && !affordable)}>
+        <button
+          onClick={onAction}
+          disabled={pending || equipped || (!owned && !affordable)}
+        >
           {equipped
             ? "✓ ÉQUIPÉ"
             : owned
@@ -828,8 +799,7 @@ export function CharacterSelect({
         </button>
       </div>
 
-      {/* Matrice */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center" }}>
+      <div className="flex flex-wrap justify-center gap-1">
         {HEROES.map((h) => {
           const hOwned = isHeroOwned(h.id, ownedIds);
           return (
@@ -838,8 +808,11 @@ export function CharacterSelect({
               data-hero-cell={h.id}
               data-owned={hOwned}
               aria-pressed={h.id === selectedId}
-              onClick={() => { setSelectedId(h.id); setError(null); }}
-              style={{ filter: hOwned ? undefined : "grayscale(1) brightness(0.4)" }}
+              onClick={() => {
+                setSelectedId(h.id);
+                setError(null);
+              }}
+              style={hOwned ? undefined : { filter: "grayscale(1) brightness(0.4)" }}
             >
               {h.element.slice(0, 1)}
             </button>
@@ -847,10 +820,11 @@ export function CharacterSelect({
         })}
       </div>
 
-      {/* Modale de confirmation */}
       {confirmId && (
         <div role="dialog" aria-label="Confirmer l'achat">
-          <p>Débloquer {getHero(confirmId)?.name} pour {getHero(confirmId)?.price} or ?</p>
+          <p>
+            Débloquer {getHero(confirmId)?.name} pour {getHero(confirmId)?.price} or ?
+          </p>
           <button onClick={confirmPurchase}>Confirmer</button>
           <button onClick={() => setConfirmId(null)}>Annuler</button>
         </div>
@@ -874,25 +848,78 @@ git commit -m "feat: add CharacterSelect component (US-18)"
 
 ---
 
-## Task 12: Écran Échoppe + assets + nav QG
+## Task 12: Copie des sprites idle
 
 **Files:**
-- Create: `app/echoppe/page.tsx`
+- Create: `scripts/copy-hero-sprites.sh`
+- Assets produits: `public/sprites/mc/<slug>/idle/frameNNNN.png`
+
+**Interfaces:**
+- Produces: frames idle des héros achetables dans `public/`, nommées `frame0000.png…` (base 0, 4 chiffres) — compatibles `IdleSprite`.
+
+> `fire-knight` est déjà dans `public/sprites/mc/fire-knight/idle/`. Ce script copie les 6 autres depuis `assets/MC/.../png/<hero>/01_idle/idle_N.png` (base 1) vers `frame(N-1 sur 4 chiffres).png`.
+
+- [ ] **Step 1: Écrire le script**
+
+```bash
+#!/usr/bin/env bash
+# US-18 : copie/renomme les frames idle des héros achetables vers public/.
+# Source : assets/MC/<pack>/png/<hero>/01_idle/idle_N.png (base 1)
+# Cible  : public/sprites/mc/<slug>/idle/frameNNNN.png (base 0, 4 chiffres)
+set -euo pipefail
+
+# slug|dossier source du pack|nom du sous-dossier hero
+map=(
+  "water-priestess|Elementals_water_priestess_FREE_v1.1|water_priestess"
+  "ground-monk|Elementals_ground_monk_FREE_v1.3.1|ground_monk"
+  "wind-hashashin|elementals_wind_hashashin_FREE_v1.1|wind_hashashin"
+  "crystal-mauler|Elementals_Crystal_Mauler_Free_v1.0|crystal_mauler"
+  "leaf-ranger|Elementals_Leaf_ranger_Free_v1.0|leaf_ranger"
+  "metal-bladekeeper|Elementals_metal_bladekeeper_FREE_v1.1|metal_bladekeeper"
+)
+
+for entry in "${map[@]}"; do
+  IFS='|' read -r slug pack hero <<< "$entry"
+  # Recherche tolérante du dossier idle (casse/chemins variables entre packs).
+  src=$(find "assets/MC/$pack" -type d -iname "*idle*" | head -n1 || true)
+  if [[ -z "$src" ]]; then echo "SKIP $slug (idle introuvable dans $pack)"; continue; fi
+  dest="public/sprites/mc/$slug/idle"
+  mkdir -p "$dest"
+  i=0
+  for f in $(ls "$src"/*.png | sort -V); do
+    printf -v n "%04d" "$i"
+    cp "$f" "$dest/frame$n.png"
+    i=$((i+1))
+  done
+  echo "$slug : $i frames -> $dest"
+done
+```
+
+- [ ] **Step 2: Lancer le script + confirmer les compteurs de frames**
+
+Run: `bash scripts/copy-hero-sprites.sh && ls public/sprites/mc/water-priestess/idle`
+Expected: chaque héros affiche son nombre de frames ; `frame0000.png…` présents. **Ajuster `idleFrameCount` dans `lib/heroes.ts` si un héros n'a pas 8 frames**, puis `npx vitest run lib/heroes.test.ts` (toujours vert).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add scripts/copy-hero-sprites.sh public/sprites/mc lib/heroes.ts
+git commit -m "feat: copy hero idle sprites to public (US-18)"
+```
+
+---
+
+## Task 13: Écran Échoppe + nav QG
+
+**Files:**
+- Create: `app/echoppe/page.tsx`, `app/echoppe/loading.tsx`
 - Modify: `app/qg/page.tsx`
-- Assets: copier les spritesheets idle vers `public/sprites/heroes/<id>/idle.png`
 
 **Interfaces:**
 - Consumes: `createClient`, `goldBalance`, `CharacterSelect`.
 - Produces: route `/echoppe` (3 états UI) ; lien QG → Échoppe.
 
-- [ ] **Step 1: Copier les sprites idle**
-
-Depuis `assets/MC/<pack>/` (voir ASSETS.md §1), exporter/copier la spritesheet **idle** de chaque héros du catalogue vers `public/sprites/heroes/<id>/idle.png` (frames horizontales). Ajuster `idleFrames`/`frameWidth`/`frameHeight` dans `lib/heroes.ts` selon les fichiers réels, et la règle `@keyframes hero-idle-<n>` si le nombre de frames diffère de 8.
-
-Run: `ls public/sprites/heroes/fire_knight/idle.png`
-Expected: le fichier existe.
-
-- [ ] **Step 2: Écrire `app/echoppe/page.tsx`** (Server Component, 3 états UI)
+- [ ] **Step 1: Écrire `app/echoppe/page.tsx`** (Server Component, états Error/Empty)
 
 ```tsx
 import { redirect } from "next/navigation";
@@ -917,7 +944,7 @@ export default async function EchoppePage() {
   if (pErr || rErr || oErr || !profile) {
     return (
       <main>
-        <p role="alert">L'Échoppe est fermée un instant. Réessaie.</p>
+        <p role="alert">L&apos;Échoppe est fermée un instant. Réessaie.</p>
         <a href="/qg">← Retour au QG</a>
       </main>
     );
@@ -939,113 +966,196 @@ export default async function EchoppePage() {
 }
 ```
 
-> État Loading : géré par un `app/echoppe/loading.tsx` (squelette) — Next.js App Router l'affiche pendant le fetch du Server Component. État « roster complet » (variante d'Empty) : quand `ownedIds` couvre tout le catalogue, le solde reste affiché et aucune carte n'a de prix (comportement naturel de `CharacterSelect`).
+> État Empty : le catalogue a toujours ≥1 héros ; le cas « roster complet » est géré naturellement par `CharacterSelect` (aucune carte à prix). État Loading = `loading.tsx` ci-dessous.
 
-- [ ] **Step 3: Ajouter `app/echoppe/loading.tsx`**
+- [ ] **Step 2: `app/echoppe/loading.tsx`**
 
 ```tsx
 export default function Loading() {
-  return <main aria-busy="true">Ouverture de l'Échoppe…</main>;
+  return <main aria-busy="true">Ouverture de l&apos;Échoppe…</main>;
 }
 ```
 
-- [ ] **Step 4: Lien QG → Échoppe**
+- [ ] **Step 3: Lien QG → Échoppe**
 
-Dans `app/qg/page.tsx`, ajouter un lien de navigation (nav QG hub) :
+Dans `app/qg/page.tsx`, ajouter un lien de navigation :
 
 ```tsx
-<a href="/echoppe">🛒 L'Échoppe</a>
+<a href="/echoppe">🛒 L&apos;Échoppe</a>
 ```
 
-- [ ] **Step 5: Vérifier build + lint**
+- [ ] **Step 4: Vérifier build + lint**
 
 Run: `npm run build && npm run lint`
 Expected: build OK, lint propre.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app/echoppe/page.tsx app/echoppe/loading.tsx app/qg/page.tsx lib/heroes.ts app/globals.css public/sprites/heroes
-git commit -m "feat: add Echoppe screen + hero sprites + QG nav (US-18)"
+git add app/echoppe/page.tsx app/echoppe/loading.tsx app/qg/page.tsx
+git commit -m "feat: add Echoppe screen + QG nav (US-18)"
 ```
 
 ---
 
-## Task 13: e2e — `echoppe.spec.ts`
+## Task 14: Swap live du héros dans l'Arène
 
 **Files:**
+- Modify: `components/combat/VersusScene.tsx`, `app/page.tsx` (ou le parent qui monte `VersusScene`)
+
+**Interfaces:**
+- Consumes: `getHero`, `DEFAULT_HERO_ID` (`@/lib/heroes`), `profiles.equipped_hero_id`.
+- Produces: `VersusScene` affiche le héros équipé (frames dynamiques) au lieu du `fire-knight` hardcodé.
+
+- [ ] **Step 1: Paramétrer `VersusScene`**
+
+Ajouter deux props et remplacer l'`IdleSprite` du héros hardcodé :
+
+```tsx
+// props ajoutées à VersusSceneProps :
+heroFramePrefix: string;
+heroFrameCount: number;
+// remplacer le <IdleSprite framePrefix="/sprites/mc/fire-knight/idle/frame" frameCount={8} ... />
+// du héros par :
+<IdleSprite
+  framePrefix={heroFramePrefix}
+  frameCount={heroFrameCount}
+  alt={`Ton héros : ${heroName}`}
+  className="absolute bottom-2 left-4 h-28 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+/>
+```
+
+- [ ] **Step 2: Passer le héros équipé depuis le parent**
+
+Là où `VersusScene` est monté (l'Arène — `app/page.tsx`), lire `profiles.equipped_hero_id`, résoudre via le catalogue, et passer les frames :
+
+```tsx
+import { getHero, DEFAULT_HERO_ID } from "@/lib/heroes";
+// ...
+const equipped = getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;
+// <VersusScene ... heroFramePrefix={equipped.idleFramePrefix} heroFrameCount={equipped.idleFrameCount} />
+```
+
+> Vérifier le select du profil dans l'Arène : ajouter `equipped_hero_id` aux colonnes lues.
+
+- [ ] **Step 3: Vérifier build + lint**
+
+Run: `npm run build && npm run lint`
+Expected: build OK, lint propre.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add components/combat/VersusScene.tsx app/page.tsx
+git commit -m "feat: render equipped hero in Arena versus scene (US-18)"
+```
+
+---
+
+## Task 15: e2e — reset service-role + `echoppe.spec.ts` (différé Docker)
+
+**Files:**
+- Modify: `e2e/fixtures.ts`
 - Create: `e2e/echoppe.spec.ts`
 
 **Interfaces:**
-- Consumes: le compte e2e fixe (ADR-04), les routes `/echoppe` et `/qg`.
+- Consumes: `login` (existant), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PRIVATE_KEY_SUPABASE`, `E2E_TEST_EMAIL`.
+- Produces: `resetShopState(): Promise<void>` (purge `unlocked_heroes`, `equipped_hero_id='fire_knight'`, sème un `day_result` victory pour l'or).
 
-> ⚠️ Compte unique en série : ce spec **mute** l'état (achat persistant). Nettoyer en amont l'`unlocked_heroes` du compte de test et remettre `equipped_hero_id='fire_knight'` via un helper de fixture (server-side Supabase admin, comme les fixtures existantes), sinon un 2ᵉ run n'est pas déterministe. S'aligner sur le helper de reset déjà utilisé par `wake-up-ritual.spec.ts`.
+> ⚠️ **Exécution différée** : nécessite Docker/Supabase + serveur prod. Écrire maintenant, lancer quand la stack tourne. Le reset **DELETE** ici vise **la table `unlocked_heroes` via service-role hors RLS pour le compte de test uniquement** — c'est un utilitaire de test, pas le flux applicatif (l'app ne DELETE jamais, RG-04).
 
-- [ ] **Step 1: Écrire le test e2e**
+- [ ] **Step 1: Ajouter le helper de reset dans `e2e/fixtures.ts`**
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+
+export async function resetShopState(): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error("Reset e2e : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.");
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+
+  const { data: users } = await admin.auth.admin.listUsers();
+  const testUser = users?.users.find((u) => u.email === email);
+  if (!testUser) throw new Error("Reset e2e : utilisateur de test introuvable.");
+  const uid = testUser.id;
+
+  await admin.from("unlocked_heroes").delete().eq("user_id", uid);
+  await admin.from("profiles").update({ equipped_hero_id: "fire_knight" }).eq("id", uid);
+  // Sème un day_result victory (or suffisant pour acheter) — idempotent (upsert).
+  await admin.from("day_results").upsert(
+    {
+      user_id: uid,
+      day_date: "2000-01-01",
+      outcome: "victory",
+      damage_dealt: 200,
+      boss_max_hp: 200,
+      tasks_completed: 10,
+      tasks_abandoned: 0,
+      xp_earned: 300,
+      gold_earned: 500,
+      closed_manually: true,
+    },
+    { onConflict: "user_id,day_date" },
+  );
+}
+```
+
+- [ ] **Step 2: Écrire `e2e/echoppe.spec.ts`**
 
 ```ts
 import { expect, test } from "@playwright/test";
-// Réutiliser le helper d'auth + reset des specs existants (cf. combat-loop.spec.ts).
+import { login, resetShopState } from "./fixtures";
 
 test.describe("US-18 Échoppe", () => {
   test.beforeEach(async ({ page }) => {
-    // login compte fixe + reset unlocked_heroes + equipped_hero_id='fire_knight'
-    // + garantir un solde d'or suffisant (semer un day_result victory).
+    await resetShopState();
+    await login(page);
   });
 
   test("débloque puis équipe un héros", async ({ page }) => {
     await page.goto("/echoppe");
-    // Fire Knight équipé par défaut
     await expect(page.getByRole("button", { name: /ÉQUIPÉ/ })).toBeVisible();
 
-    // Sélectionner un héros verrouillé et l'acheter
     await page.locator('[data-hero-cell="water_priestess"]').click();
     await page.getByRole("button", { name: /Débloquer/ }).click();
     await page.getByRole("button", { name: "Confirmer" }).click();
 
-    // Devient possédé → bouton Équiper, solde décrémenté
     await expect(page.getByRole("button", { name: "Équiper" })).toBeVisible();
-
-    // Équiper
     await page.getByRole("button", { name: "Équiper" }).click();
     await expect(page.getByRole("button", { name: /ÉQUIPÉ/ })).toBeVisible();
-  });
-
-  test("refuse l'achat sans or suffisant", async ({ page }) => {
-    // reset solde à 0 dans le beforeEach de ce test
-    await page.goto("/echoppe");
-    await page.locator('[data-hero-cell="metal_bladekeeper"]').click();
-    // Bouton grisé (pas de "Débloquer" cliquable)
-    await expect(page.getByRole("button", { name: /🪙 350$/ })).toBeDisabled();
   });
 });
 ```
 
-- [ ] **Step 2: Lancer le e2e en local (série, prod)**
+- [ ] **Step 3: (Différé Docker) Lancer le e2e**
 
 Run: `npx playwright test e2e/echoppe.spec.ts`
-Expected: PASS (build prod démarré par la config).
+Expected: PASS (build prod démarré par la config). **Différé tant que Docker est éteint.**
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add e2e/echoppe.spec.ts
-git commit -m "test: add echoppe e2e (US-18)"
+git add e2e/fixtures.ts e2e/echoppe.spec.ts
+git commit -m "test: add echoppe e2e + shop reset helper (US-18)"
 ```
 
 ---
 
-## Task 14: Documentation
+## Task 16: Documentation
 
 **Files:**
 - Modify: `CLAUDE.md`, `CHANGELOG.md`, `ASSETS.md`
 
 - [ ] **Step 1: `CLAUDE.md` — piège/décision**
 
-Ajouter une entrée sous « Pièges et décisions non-évidentes » :
+Ajouter sous « Pièges et décisions non-évidentes » :
 
 ```markdown
-**Économie d'or dérivée (US-18)** — L'or n'est jamais accumulé : `gold` = `SUM(day_results.gold_earned) − SUM(unlocked_heroes.price_paid)` (`goldBalance`, `lib/game-engine.ts`). `gold_earned` est écrit à la clôture (`closeDay`) et au backfill (chronologique, pour un bonus streak correct) via `computeGoldEarned` (base par issue + part dégâts + bonus streak cappé). `profiles.gold` n'est qu'un cache. L'Échoppe vend des **héros** (catalogue statique `lib/heroes.ts`, pas de table admin) ; possession dans `unlocked_heroes` (unique `(user_id, hero_id)`, **aucune policy DELETE**, RG-04). `fire_knight` possédé d'office sans ligne. `profiles.equipped_hero_id` = héros affiché dans l'Arène.
+**Économie d'or dérivée (US-18)** — L'or n'est jamais accumulé : `gold` = `SUM(day_results.gold_earned) − SUM(unlocked_heroes.price_paid)` (`goldBalance`, `lib/game-engine.ts`). `gold_earned` est écrit à la clôture (`closeDay`) et au backfill (chronologique, pour un bonus streak correct) via `computeGoldEarned` (base par issue + part dégâts + bonus streak cappé). `profiles.gold` n'est qu'un cache. L'Échoppe vend des **héros** (catalogue statique `lib/heroes.ts`, pas de table admin ; rendu idle via `IdleSprite`, frames `/sprites/mc/<slug>/idle/frameNNNN.png`) ; possession dans `unlocked_heroes` (unique `(user_id, hero_id)`, **aucune policy DELETE**, RG-04). `fire_knight` possédé d'office sans ligne. `profiles.equipped_hero_id` = héros affiché dans l'Arène (`VersusScene`).
 ```
 
 - [ ] **Step 2: `CHANGELOG.md` — ligne sous `[Unreleased]`**
@@ -1056,7 +1166,7 @@ Ajouter une entrée sous « Pièges et décisions non-évidentes » :
 
 - [ ] **Step 3: `ASSETS.md` — sprites copiés**
 
-Noter les spritesheets idle copiées dans `public/sprites/heroes/<id>/idle.png` et rappeler le point licences (packs MC « sans licence documentée localement » à vérifier avant prod monétisée).
+Noter les frames idle copiées dans `public/sprites/mc/<slug>/idle/` (via `scripts/copy-hero-sprites.sh`) et rappeler le point licences (packs MC « sans licence documentée localement » à vérifier avant prod monétisée).
 
 - [ ] **Step 4: Commit**
 
@@ -1069,15 +1179,15 @@ git commit -m "docs: document gold economy + Echoppe (US-18)"
 
 ## Self-Review (rempli)
 
-- **Couverture spec** : économie d'or (T5/T6/T8), catalogue (T7), possession/achat/équip (T2/T3/T9), écran Character Select 3 états (T10/T11/T12), nav QG hub (T12), tests purs (T5/T6/T7) + e2e (T13), docs + licences (T14). Skins/décors = hors scope (spec §10) — non planifiés, correct.
-- **Placeholders** : les `idleFrames`/chemins sprites sont marqués comme à confirmer à l'intégration (T7/T12) — dépendance d'asset réelle, pas un flou de logique. Le helper de reset e2e réutilise l'existant (T13).
-- **Cohérence des types** : `computeGoldEarned(outcome, damageDealt, streakOnThatDay)`, `goldBalance(dayResults, unlockedHeroes)`, `isHeroOwned(heroId, ownedIds)`, `purchaseHero/equipHero(heroId)` — noms/signatures constants entre tâches et avec la spec.
-- **Couplage US-12** : `currentStreak` renvoie un `number` aujourd'hui ; note explicite en T8 pour basculer sur `.length` quand US-12 le fera évoluer (formule d'or découplée).
+- **Couverture spec** : économie d'or (T5/T6/T8), catalogue (T7), possession/achat/équip (T2/T3/T9), rendu idle réutilisant IdleSprite (T10), Character Select 3 états (T11/T13), copie assets (T12), swap Arène (T14), nav QG (T13), tests purs (T5/T6/T7) + e2e différé (T15), docs + licences (T16). Skins/décors = hors scope (spec §10).
+- **Placeholders** : `idleFrameCount` par héros confirmé à la copie (T12) — dépendance d'asset réelle. e2e/migrations marqués **différés Docker** explicitement.
+- **Cohérence des types** : `Hero {id,name,element,slug,idleFramePrefix,idleFrameCount,price,isDefault}` cohérent entre T4/T7/T10/T11/T14 ; `computeGoldEarned(outcome,damageDealt,streakOnThatDay)`, `goldBalance(dayResults,unlockedHeroes)`, `isHeroOwned(heroId,ownedIds)`, `purchaseHero/equipHero(heroId)` constants.
+- **Couplage US-12** : `currentStreak` renvoie `number` aujourd'hui ; note T8 pour basculer sur `.length` après US-12.
 
 ## Vérification finale (après toutes les tâches)
 
 1. `npx vitest run` vert (or + catalogue).
 2. `npx tsc --noEmit` + `npm run build` + `npm run lint` propres.
-3. `npx playwright test e2e/echoppe.spec.ts` vert en local (série, prod).
+3. **(Docker requis)** `supabase migration up` OK ; `npx playwright test e2e/echoppe.spec.ts` vert en local (série, prod).
 4. Manuel : gagner un jour → or crédité ; acheter un héros → solde décrémenté, carte en couleur ; équiper → sprite Arène change ; re-achat = no-op.
 5. Base : `unlocked_heroes` sans DELETE ; `day_results.gold_earned` peuplé ; solde = formule dérivée.
