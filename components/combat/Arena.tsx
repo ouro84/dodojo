@@ -418,7 +418,7 @@ export default function Arena({
           tasksAbandoned={recap.tasksAbandoned}
           xpEarned={recap.xpEarned}
           remainingMonsters={activeTasks.filter((task) => !task.is_completed).length}
-          streak={currentStreak(dayResults, today)}
+          streak={currentStreak(dayResults, today).length}
           onDismiss={() => setRecap(null)}
         />
       )}
