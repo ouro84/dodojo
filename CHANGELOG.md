@@ -22,6 +22,7 @@ nouvelle section versionnée et datée.
 - Cascade de complétion parent/sous-tâches : cocher toutes les sous-tâches coche automatiquement la tâche parente, et inversement décocher l'une d'elles la décoche ; cocher/décocher la tâche parente coche/décoche toutes ses sous-tâches
 - US-08 : Rituel du Réveil (overlay bloquant au démarrage pour traiter les restes de la veille : Terminé / Reporter / Annihiler + actions groupées, backfill de l'historique)
 - US-07 : Rituel du Crépuscule (ex-"Obi-Wan", clôture cérémonielle non-bloquante avec récap type carte de score arcade et streak preview)
+- US-18 : L'Échoppe façon Character Select (débloquer/équiper des héros) + économie d'or (or gagné à la clôture du jour, solde dérivé, possession `unlocked_heroes`, héros affiché dans l'Arène via `equipped_hero_id`)
 
 ### Technique
 - Initialisation du projet (Next.js 16, Supabase, Tailwind v4, Vitest, Playwright)
