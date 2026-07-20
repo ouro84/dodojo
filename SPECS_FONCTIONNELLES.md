@@ -1,7 +1,8 @@
 # SPECS_FONCTIONNELLES.md — "Boss de la Journée" (Projet Arcade To-Do)
 
-> Dernière mise à jour : 2026-07-17
+> Dernière mise à jour : 2026-07-20
 > Statut : Document de Référence Produit Spécifié (22/22 US) — Validé
+> Sprint 2 affiné (specs détaillées) : US-10, US-12, US-15, US-16, US-17, US-18 dans `docs/superpowers/specs/2026-07-20-us*.md`. Navigation Sprint 2 = **QG hub** (Arène = accueil ; Panthéon & Échoppe accessibles depuis le QG).
 
 ---
 
@@ -143,6 +144,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
 ### 🏆 SPRINT 2 : RÉTENTION & DOPAMINE
 
 #### US-15 : Le "Rage Quit" de tâche (Micro-punition)
+> Design détaillé : `docs/superpowers/specs/2026-07-20-us15-rage-quit-design.md`. Le Boss rétrécit (`is_abandoned`), malus −5 XP **sans de-level**, undo même-jour, `abandon_reason` distingue du "Annihiler" serein du Réveil.
 *   **Standard :** En tant que Héros réaliste, je veux abandonner une tâche en cours de route quitte à subir un malus.
 *   **BDD :**
     ```gherkin
@@ -152,6 +154,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-16 : Animation du "Perfect" (Boss terrassé à 0 HP)
+> Design détaillé : `docs/superpowers/specs/2026-07-20-us16-perfect-ko-design.md`. Déclenché sur la transition HP→0 ; **PERFECT** si Héros à 100 HP, sinon **K.O./VICTOIRE** ; CTA Crépuscule (clôture manuelle) ; variante `prefers-reduced-motion`.
 *   **Standard :** En tant que Héros d'élite, je veux une célébration majeure si je vide la jauge du Boss à 0 HP.
 *   **BDD :**
     ```gherkin
@@ -161,6 +164,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-17 : Mode Entraînement (Tâches récurrentes)
+> Design détaillé : `docs/superpowers/specs/2026-07-20-us17-taches-recurrentes-design.md`. **Jours de la semaine sélectionnables** (pas seulement quotidien), génération au Réveil du jour courant, instance non faite = reste à résoudre, anti-doublon (1/routine/jour) + pas de génération rétroactive.
 *   **Standard :** En tant que Héros routinier, je veux que mes quêtes quotidiennes se réinitialisent automatiquement chaque matin.
 *   **BDD :**
     ```gherkin
@@ -170,15 +174,18 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-18 : L'Échoppe & Monnaie Virtuelle (Pièces d'Or)
-*   **Standard :** En tant que Héros économe, je veux gagner de l'or pour acheter des skins de Boss dans une boutique.
+> Design détaillé : `docs/superpowers/specs/2026-07-20-us18-echoppe-heros-design.md`. **Révisé au Sprint 2** : la boutique vend des **héros (combattants)** façon *Character Select* de jeu de combat, plus des skins de Boss. L'or est gagné à la clôture du jour (`day_results.gold_earned`) ; le solde est dérivé (`SUM(gold_earned) − SUM(price_paid)`). Les skins/tenues (recolors) sont repoussés à une US dédiée.
+*   **Standard :** En tant que Héros économe, je veux gagner de l'or pour débloquer de nouveaux combattants dans une boutique façon écran de sélection de personnage.
 *   **BDD :**
     ```gherkin
-    Given Un profil avec 500 pièces d'or
-    When L'utilisateur achète le skin "Mecha-Boss" à 400 pièces dans l'Échoppe
-    Then Le solde passe à 100 et le skin est débloqué pour l'Arène
+    Given Un profil avec 300 pièces d'or et Fire Knight équipé
+    When L'utilisateur débloque le combattant "Water Priestess" à 200 pièces dans l'Échoppe
+    Then Le solde passe à 100, le combattant passe en couleur dans la matrice
+    And Il peut l'équiper librement pour l'afficher dans l'Arène
     ```
 
 #### US-12 : Système de Streaks (Séries de Boss abattus)
+> Design détaillé : `docs/superpowers/specs/2026-07-20-us12-streaks-design.md`. Série = victoires consécutives avec **budget de 2 non-victoires tolérées par semaine calendaire locale** (la 3e casse) ; `best_streak` persisté ; badge "série en danger" ; jalons → titres.
 *   **Standard :** En tant que Héros assidu, je veux voir mon compteur de jours consécutifs de victoires pour rester motivé.
 *   **BDD :**
     ```gherkin
@@ -188,6 +195,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-10 : Le Panthéon (Écran des Statistiques de combat)
+> Design détaillé : `docs/superpowers/specs/2026-07-20-us10-pantheon-design.md`. Écran lecture seule (dérivé de `day_results` + `profiles`), accessible depuis le QG : blocs Héros / Trophées / Trésor / Titres / Journal + sparkline dégâts & win-rate ring.
 *   **Standard :** En tant que Héros nostalgique, je veux un écran pour contempler mes faits d'armes passés.
 *   **BDD :**
     ```gherkin

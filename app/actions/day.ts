@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { dayKey, summarizeDay, type SummaryTask } from "@/lib/game-engine";
+import {
+  computeGoldEarned,
+  currentStreak,
+  dayKey,
+  summarizeDay,
+  type SummaryTask,
+} from "@/lib/game-engine";
 import type { DayOutcome } from "@/types";
 
 interface CloseDayResult {
@@ -44,6 +50,24 @@ export async function closeDay(): Promise<CloseDayResult> {
 
   const summary = summarizeDay((tasks ?? []) as SummaryTask[], "manual");
 
+  // US-18 : streak au jour courant (série incluant l'issue du jour, depuis les
+  // day_results passés) → bonus d'or. Or recalculé, jamais accumulé (B3).
+  const { data: priorResults } = await supabase
+    .from("day_results")
+    .select("day_date, outcome")
+    .eq("user_id", user.id)
+    .lt("day_date", today);
+
+  const streakToday = currentStreak(
+    [...(priorResults ?? []), { day_date: today, outcome: summary.outcome }],
+    today,
+  );
+  const goldEarned = computeGoldEarned(
+    summary.outcome,
+    summary.damageDealt,
+    streakToday,
+  );
+
   const { error: upsertError } = await supabase.from("day_results").upsert(
     {
       user_id: user.id,
@@ -54,6 +78,7 @@ export async function closeDay(): Promise<CloseDayResult> {
       tasks_completed: summary.tasksCompleted,
       tasks_abandoned: summary.tasksAbandoned,
       xp_earned: summary.xpEarned,
+      gold_earned: goldEarned,
       closed_manually: true,
     },
     { onConflict: "user_id,day_date" },
@@ -101,20 +126,37 @@ export async function backfillMissedDays(): Promise<{ error: string | null }> {
     byDay.set(task.day_date, bucket);
   }
 
-  const rows = Array.from(byDay, ([day_date, tasks]) => {
-    const s = summarizeDay(tasks, "backfill");
-    return {
-      user_id: user.id,
-      day_date,
-      outcome: s.outcome,
-      damage_dealt: s.damageDealt,
-      boss_max_hp: s.bossMaxHp,
-      tasks_completed: s.tasksCompleted,
-      tasks_abandoned: s.tasksAbandoned,
-      xp_earned: s.xpEarned,
-      closed_manually: false,
-    };
-  });
+  // US-18 : base connue des issues (day_results existants) + jours backfillés
+  // ajoutés dans l'ordre chronologique, pour que le bonus streak de chaque jour
+  // lise correctement les jours antérieurs.
+  const { data: knownResults } = await supabase
+    .from("day_results")
+    .select("day_date, outcome")
+    .eq("user_id", user.id);
+
+  const timeline: { day_date: string; outcome: DayOutcome }[] = [
+    ...(knownResults ?? []),
+  ];
+
+  const rows = Array.from(byDay.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([day_date, tasks]) => {
+      const s = summarizeDay(tasks, "backfill");
+      timeline.push({ day_date, outcome: s.outcome });
+      const streakThatDay = currentStreak(timeline, day_date);
+      return {
+        user_id: user.id,
+        day_date,
+        outcome: s.outcome,
+        damage_dealt: s.damageDealt,
+        boss_max_hp: s.bossMaxHp,
+        tasks_completed: s.tasksCompleted,
+        tasks_abandoned: s.tasksAbandoned,
+        xp_earned: s.xpEarned,
+        gold_earned: computeGoldEarned(s.outcome, s.damageDealt, streakThatDay),
+        closed_manually: false,
+      };
+    });
 
   if (rows.length === 0) return { error: null };
 

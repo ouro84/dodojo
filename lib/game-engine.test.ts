@@ -4,8 +4,10 @@ import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
+  computeGoldEarned,
   computeToggleCascade,
   currentStreak,
+  goldBalance,
   dayKey,
   isNestableParent,
   isOptimisticTask,
@@ -37,6 +39,39 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     ...overrides,
   };
 }
+
+describe("computeGoldEarned", () => {
+  it("victoire sans dégât ni streak = base 50", () => {
+    expect(computeGoldEarned("victory", 0, 0)).toBe(50);
+  });
+  it("retreat = base 10, defeat = 0", () => {
+    expect(computeGoldEarned("retreat", 0, 0)).toBe(10);
+    expect(computeGoldEarned("defeat", 0, 0)).toBe(0);
+  });
+  it("ajoute +1 or par tranche de 20 dégâts", () => {
+    expect(computeGoldEarned("victory", 120, 0)).toBe(50 + 6);
+  });
+  it("ajoute le bonus streak (+5 par jour de série)", () => {
+    expect(computeGoldEarned("victory", 0, 3)).toBe(50 + 15);
+  });
+  it("plafonne le bonus streak à GOLD_STREAK_BONUS_CAP", () => {
+    expect(computeGoldEarned("victory", 0, 100)).toBe(50 + 50);
+  });
+});
+
+describe("goldBalance", () => {
+  it("solde = somme des gains moins somme des achats", () => {
+    expect(
+      goldBalance([{ gold_earned: 50 }, { gold_earned: 60 }], [{ price_paid: 40 }]),
+    ).toBe(70);
+  });
+  it("nouvel utilisateur = 0", () => {
+    expect(goldBalance([], [])).toBe(0);
+  });
+  it("héros par défaut price_paid 0 n'affecte pas le solde", () => {
+    expect(goldBalance([{ gold_earned: 50 }], [{ price_paid: 0 }])).toBe(50);
+  });
+});
 
 describe("taskHpValue (RG-01)", () => {
   test("une tâche principale vaut 20 HP", () => {

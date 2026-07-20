@@ -10,6 +10,12 @@ export default function QgPage() {
         Le QG du Héros arrive bientôt — profil, titres et Panthéon.
       </p>
       <Link
+        href="/echoppe"
+        className="text-sm text-gold underline underline-offset-4"
+      >
+        🛒 L&apos;Échoppe
+      </Link>
+      <Link
         href="/"
         className="text-sm text-xp underline underline-offset-4"
       >

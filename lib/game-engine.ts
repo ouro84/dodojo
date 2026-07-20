@@ -1,4 +1,4 @@
-import type { DayOutcome, DayResult, Task } from "../types";
+import type { DayOutcome, DayResult, Task, UnlockedHero } from "../types";
 
 const HP_PER_TASK = 20;
 const HP_PER_SUBTASK = 10;
@@ -209,6 +209,41 @@ export function calculateHeroHp(overdueTasks: OverdueTask[]): number {
 
 export const XP_PER_TASK = 30;
 export const XP_THRESHOLD_PER_LEVEL = 100;
+
+// US-18 : barème d'or (tunable). Gagné à la clôture du jour.
+export const GOLD_BASE: Record<DayOutcome, number> = {
+  victory: 50,
+  retreat: 10,
+  defeat: 0,
+};
+export const GOLD_PER_DAMAGE_UNIT = 1; // par tranche de 20 dégâts (≈ 1 tâche)
+export const GOLD_STREAK_BONUS_PER_DAY = 5;
+export const GOLD_STREAK_BONUS_CAP = 50;
+
+// US-18 : or gagné pour un jour. Pur & idempotent. `streakOnThatDay` = longueur
+// de streak au jour concerné, fournie par l'action appelante (qui lit day_results).
+export function computeGoldEarned(
+  outcome: DayOutcome,
+  damageDealt: number,
+  streakOnThatDay: number,
+): number {
+  const damageBonus = Math.floor(damageDealt / 20) * GOLD_PER_DAMAGE_UNIT;
+  const streakBonus = Math.min(
+    streakOnThatDay * GOLD_STREAK_BONUS_PER_DAY,
+    GOLD_STREAK_BONUS_CAP,
+  );
+  return GOLD_BASE[outcome] + damageBonus + streakBonus;
+}
+
+// US-18 : solde d'or dérivé (source de vérité). Jamais accumulé.
+export function goldBalance(
+  dayResults: Pick<DayResult, "gold_earned">[],
+  unlockedHeroes: Pick<UnlockedHero, "price_paid">[],
+): number {
+  const earned = dayResults.reduce((sum, r) => sum + r.gold_earned, 0);
+  const spent = unlockedHeroes.reduce((sum, h) => sum + h.price_paid, 0);
+  return earned - spent;
+}
 
 export function xpThresholdForLevel(level: number): number {
   return level * XP_THRESHOLD_PER_LEVEL;

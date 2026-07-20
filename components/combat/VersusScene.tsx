@@ -6,6 +6,8 @@ import MidnightTimer from "./MidnightTimer";
 
 interface VersusSceneProps {
   heroName: string;
+  heroFramePrefix: string;
+  heroFrameCount: number;
   heroHp: number;
   heroMaxHp: number;
   bossName: string;
@@ -19,6 +21,8 @@ interface VersusSceneProps {
 // Boss : assets/Boss/Frost_Guardian_FREE_v1.0 (licence non documentée localement, cf. ASSETS.md)
 export default function VersusScene({
   heroName,
+  heroFramePrefix,
+  heroFrameCount,
   heroHp,
   heroMaxHp,
   bossName,
@@ -52,9 +56,9 @@ export default function VersusScene({
         </div>
       </div>
       <IdleSprite
-        framePrefix="/sprites/mc/fire-knight/idle/frame"
-        frameCount={8}
-        alt="Ton héros : le Chevalier de Feu"
+        framePrefix={heroFramePrefix}
+        frameCount={heroFrameCount}
+        alt={`Ton héros : ${heroName}`}
         className="absolute bottom-2 left-4 h-28 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
       <IdleSprite

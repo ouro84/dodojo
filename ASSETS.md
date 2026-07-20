@@ -48,6 +48,8 @@ Format dominant : la plupart des packs fournissent le **même contenu sous 3 for
 
 **Recommandation** : **Fire Knight** comme héros par défaut (MVP). La cohérence structurelle de la série permet d'envisager plus tard un système de **classe élémentaire à débloquer** (skin de héros = récompense de streak/niveau) sans travail d'art supplémentaire.
 
+**Intégration US-18 (Échoppe)** : les frames `01_idle` des 7 héros sont copiées/renommées vers `public/sprites/mc/<slug>/idle/frameNNNN.png` (base 0, 4 chiffres) via `scripts/copy-hero-sprites.sh`, consommées par `components/combat/IdleSprite`. Compteurs de frames réels : la plupart 8, mais **ground-monk = 6**, **leaf-ranger = 12** (reflétés dans `lib/heroes.ts`). Un **portrait** par héros (`public/sprites/mc/<slug>/portrait.png`, perso rogné) est généré depuis la 1re frame idle via `scripts/generate-hero-portraits.mjs` (sharp `.trim()`) — utilisé dans la matrice de l'Échoppe. ⚠️ Ces packs MC sont « sans licence documentée localement » — vérifier les pages source **avant toute prod monétisée** (le déblocage via or virtuel reste OK côté produit).
+
 **Points d'attention** : noms de dossiers d'animations incohérents entre persos (`animations/PNG` vs `png` vs `PNG animations`, casse variable) — normaliser si le chargement est scripté. Un seul (`Ground Monk`) place son `.aseprite` à la racine au lieu de `aseprite/`.
 
 ---

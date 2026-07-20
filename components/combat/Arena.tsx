@@ -29,6 +29,7 @@ import {
   summarizeDay,
   XP_PER_TASK,
 } from "@/lib/game-engine";
+import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
@@ -49,7 +50,6 @@ import CrepusculeRecap from "./CrepusculeRecap";
 import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
 
 const BOSS_NAME = "Le Gardien de Glace";
-const HERO_NAME = "Le Chevalier de Feu";
 
 interface ArenaProps {
   initialProfile: Profile;
@@ -123,6 +123,9 @@ export default function Arena({
   const maxHp = calculateBossMaxHp(tasks);
   const currentHp = calculateBossCurrentHp(tasks);
   const heroHp = calculateHeroHp(overdueTasks);
+  // US-18 : héros affiché = celui équipé (fallback défaut si id inconnu).
+  const equippedHero =
+    getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;
   const activeTasks = tasks.filter((task) => !task.is_abandoned);
   const isEmpty = activeTasks.length === 0;
 
@@ -430,7 +433,9 @@ export default function Arena({
         )}
         <div className="relative">
           <VersusScene
-            heroName={HERO_NAME}
+            heroName={equippedHero.name}
+            heroFramePrefix={equippedHero.idleFramePrefix}
+            heroFrameCount={equippedHero.idleFrameCount}
             heroHp={heroHp}
             heroMaxHp={HERO_MAX_HP}
             bossName={BOSS_NAME}
