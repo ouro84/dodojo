@@ -7,6 +7,7 @@ export interface Profile {
   current_title: string;
   streak_days: number;
   timezone: string;
+  equipped_hero_id: string;
   created_at: string;
 }
 
@@ -22,6 +23,7 @@ export interface DayResult {
   tasks_completed: number;
   tasks_abandoned: number;
   xp_earned: number;
+  gold_earned: number;
   closed_manually: boolean;
   closed_at: string;
 }
@@ -38,4 +40,23 @@ export interface Task {
   day_date: string;
   position: number;
   created_at: string;
+}
+
+export interface Hero {
+  id: string; // id logique/base, ex. "fire_knight"
+  name: string;
+  element: string;
+  slug: string; // segment de chemin public, ex. "fire-knight"
+  idleFramePrefix: string; // ex. "/sprites/mc/fire-knight/idle/frame"
+  idleFrameCount: number;
+  price: number; // 0 pour le héros par défaut
+  isDefault: boolean;
+}
+
+export interface UnlockedHero {
+  id: string;
+  user_id: string;
+  hero_id: string;
+  price_paid: number;
+  unlocked_at: string;
 }
