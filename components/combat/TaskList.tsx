@@ -1,6 +1,6 @@
 import type { Task } from "@/types";
 import { sortTasksHierarchically } from "@/lib/game-engine";
-import TaskRow from "./TaskRow";
+import TaskRow, { type DragOverInfo } from "./TaskRow";
 
 interface TaskListProps {
   tasks: Task[];
@@ -8,6 +8,7 @@ interface TaskListProps {
   onAbandon: (id: string) => void;
   onAddSubtask: (parentId: string, title: string) => void;
   addingSubtaskParentId?: string | null;
+  dragOverInfo?: DragOverInfo | null;
 }
 
 export default function TaskList({
@@ -16,6 +17,7 @@ export default function TaskList({
   onAbandon,
   onAddSubtask,
   addingSubtaskParentId = null,
+  dragOverInfo = null,
 }: TaskListProps) {
   const orderedTasks = sortTasksHierarchically(tasks);
 
@@ -29,6 +31,7 @@ export default function TaskList({
             onAbandon={onAbandon}
             onAddSubtask={onAddSubtask}
             isAddingSubtask={addingSubtaskParentId === task.id}
+            dropIndicator={dragOverInfo?.overTaskId === task.id ? dragOverInfo : null}
           />
         </li>
       ))}

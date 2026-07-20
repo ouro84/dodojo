@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  closestCenter,
   DndContext,
   DragOverlay,
   KeyboardSensor,
@@ -9,7 +10,9 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  type ClientRect,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import type { Profile, Task } from "@/types";
@@ -18,16 +21,17 @@ import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
-  canNestTask,
+  computeToggleCascade,
   HERO_MAX_HP,
   nextSiblingPosition,
+  planReorder,
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
   abandonTask as abandonTaskAction,
-  nestTask as nestTaskAction,
+  reorderSiblings as reorderSiblingsAction,
   setTaskCompleted as setTaskCompletedAction,
 } from "@/app/actions/tasks";
 import BottomNav from "@/components/ui/BottomNav";
@@ -61,12 +65,26 @@ interface XpPulse {
   kind: "damage" | "heal";
 }
 
+interface DragOverInfo {
+  overTaskId: string;
+  isTopHalf: boolean;
+}
+
 let pulseCounter = 0;
 let xpPulseCounter = 0;
 let optimisticIdCounter = 0;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// La cible de drop est le rect mesuré de la ligne survolée ; le rect
+// "traduit" du dragged suit le pointeur en direct (dnd-kit translate tout
+// l'élément par le delta de pointeur, pas seulement le point de saisie).
+function isTopHalfDrop(activeRect: ClientRect | null, overRect: ClientRect): boolean {
+  if (!activeRect) return false;
+  const activeCenterY = activeRect.top + activeRect.height / 2;
+  return activeCenterY < overRect.top + overRect.height / 2;
 }
 
 export default function Arena({ initialProfile, initialTasks, overdueTasks }: ArenaProps) {
@@ -80,6 +98,7 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
   const [isAdding, setIsAdding] = useState(false);
   const [addingSubtaskParentId, setAddingSubtaskParentId] = useState<string | null>(null);
   const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
+  const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const xpPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -209,93 +228,126 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
     });
   }
 
-  function handleToggle(id: string, isCompleted: boolean) {
-    const target = tasks.find((task) => task.id === id);
-    if (!target || target.is_completed === isCompleted) return;
+  async function handleToggle(id: string, isCompleted: boolean) {
+    const cascade = computeToggleCascade(id, isCompleted, tasks);
+    if (cascade.length === 0) return;
 
     const previousTasksSnapshot = tasks;
     const previousProfileSnapshot = profile;
     const previousHp = currentHp;
-    const nextTasks = tasks.map((task) =>
-      task.id === id ? { ...task, is_completed: isCompleted } : task,
-    );
+
+    const nextCompletionById = new Map(cascade.map((c) => [c.taskId, c.isCompleted]));
+    const nextTasks = tasks.map((task) => {
+      const nextCompleted = nextCompletionById.get(task.id);
+      return nextCompleted === undefined ? task : { ...task, is_completed: nextCompleted };
+    });
 
     setTasks(nextTasks);
 
     const nextHp = calculateBossCurrentHp(nextTasks);
-    const delta = previousHp - nextHp;
+    const hpDelta = previousHp - nextHp;
 
-    if (isCompleted) {
-      triggerPulse(delta, "damage");
+    if (hpDelta > 0) {
+      triggerPulse(hpDelta, "damage");
       if (nextHp === 0 && calculateBossMaxHp(nextTasks) > 0) {
         setShowPerfect(true);
       }
-    } else {
-      triggerPulse(-delta, "heal");
+    } else if (hpDelta < 0) {
+      triggerPulse(-hpDelta, "heal");
     }
 
-    if (!target.is_abandoned) {
-      const xpDelta = isCompleted ? XP_PER_TASK : -XP_PER_TASK;
+    const xpDelta = cascade.reduce((total, change) => {
+      const task = tasks.find((t) => t.id === change.taskId);
+      if (!task || task.is_abandoned) return total;
+      return total + (change.isCompleted ? XP_PER_TASK : -XP_PER_TASK);
+    }, 0);
+
+    if (xpDelta !== 0) {
       const nextProfile = applyXpDelta(profile, xpDelta);
       const didLevelUp = nextProfile.level > profile.level;
 
       setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
-      triggerXpPulse(XP_PER_TASK, isCompleted ? "heal" : "damage");
+      triggerXpPulse(Math.abs(xpDelta), xpDelta > 0 ? "heal" : "damage");
       if (didLevelUp) {
         setLevelUpValue(nextProfile.level);
       }
     }
 
-    void setTaskCompletedAction(id, isCompleted).then((result) => {
-      if (result.error) {
-        setTasks(previousTasksSnapshot);
-        setProfile(previousProfileSnapshot);
-        setLevelUpValue(null);
-        if (isCompleted) setShowPerfect(false);
-        setBanner(result.error);
-        return;
-      }
+    // Appels séquentiels (pas Promise.all) : chaque appel recalcule le
+    // niveau/XP à partir du profil déjà persisté par le précédent — en
+    // parallèle, chacun partirait du même profil pas encore à jour et
+    // écraserait le gain d'XP des autres.
+    let lastResult: Awaited<ReturnType<typeof setTaskCompletedAction>> | null = null;
+    for (const change of cascade) {
+      lastResult = await setTaskCompletedAction(change.taskId, change.isCompleted);
+      if (lastResult.error) break;
+    }
 
-      const { level, xp } = result;
-      if (level !== undefined && xp !== undefined) {
-        setProfile((current) => ({ ...current, level, xp }));
-      }
-    });
+    if (lastResult?.error) {
+      setTasks(previousTasksSnapshot);
+      setProfile(previousProfileSnapshot);
+      setLevelUpValue(null);
+      if (hpDelta > 0) setShowPerfect(false);
+      setBanner(lastResult.error);
+      return;
+    }
+
+    const { level, xp } = lastResult ?? {};
+    if (level !== undefined && xp !== undefined) {
+      setProfile((current) => ({ ...current, level, xp }));
+    }
   }
 
   function handleDragStart(event: DragStartEvent) {
     setActiveDragTaskId(String(event.active.id));
   }
 
+  function handleDragOver(event: DragOverEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      setDragOverInfo(null);
+      return;
+    }
+    const isTopHalf = isTopHalfDrop(active.rect.current.translated, over.rect);
+    setDragOverInfo({
+      overTaskId: String(over.id),
+      isTopHalf,
+    });
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     setActiveDragTaskId(null);
+    setDragOverInfo(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const taskToNest = tasks.find((task) => task.id === active.id);
-    const targetParent = tasks.find((task) => task.id === over.id);
-    if (!taskToNest || !targetParent) return;
+    const isTopHalf = isTopHalfDrop(active.rect.current.translated, over.rect);
 
-    const check = canNestTask(taskToNest, targetParent, tasks);
-    if (!check.allowed) {
-      setBanner(check.reason ?? "Imbrication impossible.");
+    const plan = planReorder(
+      String(active.id),
+      {
+        overTaskId: String(over.id),
+        isTopHalf,
+      },
+      tasks,
+    );
+
+    if (!plan) {
+      setBanner("Ce déplacement n'est pas autorisé.");
       return;
     }
 
     const previousSnapshot = tasks;
-    const siblings = tasks.filter(
-      (task) => task.parent_id === targetParent.id && task.id !== taskToNest.id,
-    );
-    const position = nextSiblingPosition(siblings);
-    const nextTasks = tasks.map((task) =>
-      task.id === taskToNest.id
-        ? { ...task, parent_id: targetParent.id, position }
-        : task,
-    );
+    const positionById = new Map(plan.orderedTaskIds.map((id, index) => [id, index]));
+    const nextTasks = tasks.map((task) => {
+      const newPosition = positionById.get(task.id);
+      if (newPosition === undefined) return task;
+      return { ...task, parent_id: plan.parentId, position: newPosition };
+    });
 
     setTasks(nextTasks);
 
-    void nestTaskAction(taskToNest.id, targetParent.id).then((result) => {
+    void reorderSiblingsAction(plan.parentId, plan.orderedTaskIds).then((result) => {
       if (result.error) {
         setTasks(previousSnapshot);
         setBanner(result.error);
@@ -390,7 +442,10 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       ) : (
         <DndContext
           sensors={sensors}
+          collisionDetection={closestCenter}
+          autoScroll={false}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <TaskList
@@ -399,6 +454,7 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
             onAbandon={handleAbandon}
             onAddSubtask={handleAddSubtask}
             addingSubtaskParentId={addingSubtaskParentId}
+            dragOverInfo={dragOverInfo}
           />
           <DragOverlay>
             {activeDragTaskId && (

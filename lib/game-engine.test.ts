@@ -4,10 +4,11 @@ import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
-  canNestTask,
+  computeToggleCascade,
   isNestableParent,
   isOptimisticTask,
   nextSiblingPosition,
+  planReorder,
   sortTasksHierarchically,
   taskHpValue,
   xpThresholdForLevel,
@@ -186,30 +187,155 @@ describe("sortTasksHierarchically (US-04)", () => {
   });
 });
 
-describe("canNestTask (US-19, RG-01)", () => {
-  test("cas nominal : deux tâches racines simples, imbrication autorisée", () => {
-    const a = makeTask({ id: "a", parent_id: null });
-    const b = makeTask({ id: "b", parent_id: null });
-    expect(canNestTask(b, a, [a, b])).toEqual({ allowed: true });
+describe("planReorder (US-19, RG-01)", () => {
+  test("moitié basse d'une tâche racine nestable : imbrique (append)", () => {
+    const a = makeTask({ id: "a", parent_id: null, position: 0 });
+    const b = makeTask({ id: "b", parent_id: null, position: 1 });
+    const plan = planReorder("b", { overTaskId: "a", isTopHalf: false }, [a, b]);
+    expect(plan).toEqual({ parentId: "a", orderedTaskIds: ["b"] });
   });
 
-  test("refuse l'auto-nesting", () => {
-    const a = makeTask({ id: "a", parent_id: null });
-    expect(canNestTask(a, a, [a]).allowed).toBe(false);
+  test("moitié basse d'une tâche racine ayant déjà un enfant : ajoute à la fin", () => {
+    const a = makeTask({ id: "a", parent_id: null, position: 0 });
+    const a1 = makeTask({ id: "a1", parent_id: "a", position: 0 });
+    const b = makeTask({ id: "b", parent_id: null, position: 1 });
+    const plan = planReorder("b", { overTaskId: "a", isTopHalf: false }, [a, a1, b]);
+    expect(plan).toEqual({ parentId: "a", orderedTaskIds: ["a1", "b"] });
   });
 
-  test("refuse si la cible est déjà une sous-tâche (profondeur 3)", () => {
-    const a = makeTask({ id: "a", parent_id: null });
-    const b = makeTask({ id: "b", parent_id: "a" });
-    const c = makeTask({ id: "c", parent_id: null });
-    expect(canNestTask(c, b, [a, b, c]).allowed).toBe(false);
+  test("moitié haute d'une tâche racine : réordonne avant elle, pas d'imbrication", () => {
+    const a = makeTask({ id: "a", parent_id: null, position: 0 });
+    const b = makeTask({ id: "b", parent_id: null, position: 1 });
+    const plan = planReorder("b", { overTaskId: "a", isTopHalf: true }, [a, b]);
+    expect(plan).toEqual({ parentId: null, orderedTaskIds: ["b", "a"] });
   });
 
-  test("refuse si la tâche source a déjà des enfants", () => {
+  test("moitié haute d'une tâche racine promeut une sous-tâche en tâche (dé-nesting)", () => {
+    const a = makeTask({ id: "a", parent_id: null, position: 0 });
+    const a1 = makeTask({ id: "a1", parent_id: "a", position: 0 });
+    const c = makeTask({ id: "c", parent_id: null, position: 1 });
+    const plan = planReorder("a1", { overTaskId: "c", isTopHalf: true }, [a, a1, c]);
+    expect(plan).toEqual({ parentId: null, orderedTaskIds: ["a", "a1", "c"] });
+  });
+
+  test("moitié haute d'une sous-tâche : réordonne avant elle, même parent", () => {
+    const a = makeTask({ id: "a", parent_id: null, position: 0 });
+    const a1 = makeTask({ id: "a1", parent_id: "a", position: 0 });
+    const a2 = makeTask({ id: "a2", parent_id: "a", position: 1 });
+    const plan = planReorder("a2", { overTaskId: "a1", isTopHalf: true }, [a, a1, a2]);
+    expect(plan).toEqual({ parentId: "a", orderedTaskIds: ["a2", "a1"] });
+  });
+
+  test("moitié basse d'une sous-tâche : réordonne après elle (pas d'imbrication à 3 niveaux)", () => {
+    const a = makeTask({ id: "a", parent_id: null, position: 0 });
+    const a1 = makeTask({ id: "a1", parent_id: "a", position: 0 });
+    const a2 = makeTask({ id: "a2", parent_id: "a", position: 1 });
+    const plan = planReorder("a2", { overTaskId: "a1", isTopHalf: false }, [a, a1, a2]);
+    expect(plan).toEqual({ parentId: "a", orderedTaskIds: ["a1", "a2"] });
+  });
+
+  test("refuse d'imbriquer une tâche qui a déjà des enfants", () => {
+    const a = makeTask({ id: "a", parent_id: null, position: 0 });
+    const a1 = makeTask({ id: "a1", parent_id: "a", position: 0 });
+    const b = makeTask({ id: "b", parent_id: null, position: 1 });
+    const plan = planReorder("a", { overTaskId: "b", isTopHalf: false }, [a, a1, b]);
+    expect(plan).toBeNull();
+  });
+
+  test("dépose sur soi-même : aucun plan", () => {
+    const a = makeTask({ id: "a", parent_id: null, position: 0 });
+    expect(planReorder("a", { overTaskId: "a", isTopHalf: false }, [a])).toBeNull();
+  });
+});
+
+describe("computeToggleCascade (sous-tâches — cocher en cascade)", () => {
+  test("cocher une tâche racine sans sous-tâche : aucune cascade", () => {
+    const a = makeTask({ id: "a", parent_id: null });
+    expect(computeToggleCascade("a", true, [a])).toEqual([
+      { taskId: "a", isCompleted: true },
+    ]);
+  });
+
+  test("cocher une tâche racine coche toutes ses sous-tâches actives", () => {
     const a = makeTask({ id: "a", parent_id: null });
     const a1 = makeTask({ id: "a1", parent_id: "a" });
-    const b = makeTask({ id: "b", parent_id: null });
-    expect(canNestTask(a, b, [a, a1, b]).allowed).toBe(false);
+    const a2 = makeTask({ id: "a2", parent_id: "a" });
+    const cascade = computeToggleCascade("a", true, [a, a1, a2]);
+    expect(cascade).toEqual(
+      expect.arrayContaining([
+        { taskId: "a", isCompleted: true },
+        { taskId: "a1", isCompleted: true },
+        { taskId: "a2", isCompleted: true },
+      ]),
+    );
+    expect(cascade).toHaveLength(3);
+  });
+
+  test("cocher une tâche racine ignore les sous-tâches abandonnées", () => {
+    const a = makeTask({ id: "a", parent_id: null });
+    const a1 = makeTask({ id: "a1", parent_id: "a", is_abandoned: true });
+    expect(computeToggleCascade("a", true, [a, a1])).toEqual([
+      { taskId: "a", isCompleted: true },
+    ]);
+  });
+
+  test("décocher une tâche racine décoche toutes ses sous-tâches", () => {
+    const a = makeTask({ id: "a", parent_id: null, is_completed: true });
+    const a1 = makeTask({ id: "a1", parent_id: "a", is_completed: true });
+    const cascade = computeToggleCascade("a", false, [a, a1]);
+    expect(cascade).toEqual(
+      expect.arrayContaining([
+        { taskId: "a", isCompleted: false },
+        { taskId: "a1", isCompleted: false },
+      ]),
+    );
+    expect(cascade).toHaveLength(2);
+  });
+
+  test("cocher la dernière sous-tâche incomplète coche automatiquement le parent", () => {
+    const a = makeTask({ id: "a", parent_id: null });
+    const a1 = makeTask({ id: "a1", parent_id: "a", is_completed: true });
+    const a2 = makeTask({ id: "a2", parent_id: "a", is_completed: false });
+    const cascade = computeToggleCascade("a2", true, [a, a1, a2]);
+    expect(cascade).toEqual(
+      expect.arrayContaining([
+        { taskId: "a2", isCompleted: true },
+        { taskId: "a", isCompleted: true },
+      ]),
+    );
+    expect(cascade).toHaveLength(2);
+  });
+
+  test("cocher une sous-tâche sans compléter toutes les autres ne touche pas le parent", () => {
+    const a = makeTask({ id: "a", parent_id: null });
+    const a1 = makeTask({ id: "a1", parent_id: "a", is_completed: false });
+    const a2 = makeTask({ id: "a2", parent_id: "a", is_completed: false });
+    expect(computeToggleCascade("a1", true, [a, a1, a2])).toEqual([
+      { taskId: "a1", isCompleted: true },
+    ]);
+  });
+
+  test("décocher une sous-tâche décoche automatiquement un parent déjà complété", () => {
+    const a = makeTask({ id: "a", parent_id: null, is_completed: true });
+    const a1 = makeTask({ id: "a1", parent_id: "a", is_completed: true });
+    const a2 = makeTask({ id: "a2", parent_id: "a", is_completed: true });
+    const cascade = computeToggleCascade("a1", false, [a, a1, a2]);
+    expect(cascade).toEqual(
+      expect.arrayContaining([
+        { taskId: "a1", isCompleted: false },
+        { taskId: "a", isCompleted: false },
+      ]),
+    );
+    expect(cascade).toHaveLength(2);
+  });
+
+  test("déjà dans l'état demandé : aucune cascade", () => {
+    const a = makeTask({ id: "a", parent_id: null, is_completed: true });
+    expect(computeToggleCascade("a", true, [a])).toEqual([]);
+  });
+
+  test("tâche introuvable : aucune cascade", () => {
+    expect(computeToggleCascade("ghost", true, [])).toEqual([]);
   });
 });
 

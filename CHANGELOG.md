@@ -17,8 +17,9 @@ nouvelle section versionnée et datée.
 - US-14 : Authentification & compte e2e fixe
 - Refonte de l'Arène façon versus street-fighter (héros vs boss)
 - US-04 : Sous-tâches à 2 niveaux (dégâts partagés, 10 HP au lieu de 20)
-- US-19 : Drag & Drop d'imbrication (glisser une tâche sous une autre pour l'imbriquer)
+- US-19 : Drag & Drop d'imbrication et de réordonnancement (glisser une tâche sous une autre pour l'imbriquer, réordonner des tâches au même niveau, ou repromouvoir une sous-tâche en tâche racine)
 - US-02 : Bouton Micro In-App (dictée vocale, Web Speech API)
+- Cascade de complétion parent/sous-tâches : cocher toutes les sous-tâches coche automatiquement la tâche parente, et inversement décocher l'une d'elles la décoche ; cocher/décocher la tâche parente coche/décoche toutes ses sous-tâches
 
 ### Technique
 - Initialisation du projet (Next.js 16, Supabase, Tailwind v4, Vitest, Playwright)

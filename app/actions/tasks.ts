@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   applyXpDelta,
-  canNestTask,
   isNestableParent,
   nextSiblingPosition,
   XP_PER_TASK,
@@ -236,10 +235,13 @@ export async function abandonTask(id: string): Promise<TaskActionResult> {
   return { error: null };
 }
 
-// US-19 : reparente une tâche par drag & drop. `parentId: null` = replacer en racine.
-export async function nestTask(
-  taskId: string,
+// US-19 : reparente et/ou réordonne un groupe de tâches (drag & drop). Le
+// client a déjà décidé le plan (lib/game-engine.ts, planReorder) ; le
+// serveur revalide juste les invariants (RG-01) avant de persister position
+// et parent_id pour chaque id de la liste, dans l'ordre donné.
+export async function reorderSiblings(
   parentId: string | null,
+  orderedTaskIds: string[],
 ): Promise<TaskActionResult> {
   const supabase = await createClient();
   const {
@@ -252,41 +254,49 @@ export async function nestTask(
 
   const { data: allTasks, error: fetchError } = await supabase
     .from("tasks")
-    .select("id, parent_id, is_abandoned, position")
+    .select("id, parent_id, is_abandoned")
     .eq("user_id", user.id);
 
   if (fetchError || !allTasks) {
-    return { error: "Impossible de reparenter cette tâche. Réessaie." };
+    return { error: "Impossible de réorganiser ces tâches. Réessaie." };
   }
 
-  const taskToNest = allTasks.find((task) => task.id === taskId);
-  if (!taskToNest || taskToNest.is_abandoned) {
-    return { error: "Cette tâche est introuvable." };
-  }
+  const byId = new Map(allTasks.map((task) => [task.id, task]));
 
   if (parentId !== null) {
-    const targetParent = allTasks.find((task) => task.id === parentId);
-    if (!targetParent || targetParent.is_abandoned) {
+    const targetParent = byId.get(parentId);
+    if (!targetParent || targetParent.is_abandoned || !isNestableParent(targetParent)) {
+      return { error: "Cette tâche est introuvable." };
+    }
+  }
+
+  for (const id of orderedTaskIds) {
+    const task = byId.get(id);
+    if (!task || task.is_abandoned) {
       return { error: "Cette tâche est introuvable." };
     }
 
-    const check = canNestTask(taskToNest, targetParent, allTasks);
-    if (!check.allowed) {
-      return { error: check.reason ?? "Imbrication impossible." };
+    const isChangingParent = task.parent_id !== parentId;
+    if (isChangingParent && parentId !== null) {
+      const hasChildren = allTasks.some((other) => other.parent_id === id);
+      if (hasChildren) {
+        return {
+          error: "Cette tâche a déjà des sous-tâches, elle ne peut pas devenir une sous-tâche.",
+        };
+      }
     }
   }
 
-  const siblings = allTasks.filter((task) => task.parent_id === parentId);
-  const position = nextSiblingPosition(siblings);
+  for (let i = 0; i < orderedTaskIds.length; i += 1) {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ parent_id: parentId, position: i })
+      .eq("id", orderedTaskIds[i])
+      .eq("user_id", user.id);
 
-  const { error } = await supabase
-    .from("tasks")
-    .update({ parent_id: parentId, position })
-    .eq("id", taskId)
-    .eq("user_id", user.id);
-
-  if (error) {
-    return { error: "Impossible de reparenter cette tâche. Réessaie." };
+    if (error) {
+      return { error: "Impossible de réorganiser ces tâches. Réessaie." };
+    }
   }
 
   revalidatePath("/");
