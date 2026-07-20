@@ -6,6 +6,7 @@ export interface Profile {
   gold: number;
   current_title: string;
   streak_days: number;
+  best_streak: number;
   timezone: string;
   equipped_hero_id: string;
   created_at: string;
