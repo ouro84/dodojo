@@ -21,6 +21,7 @@ import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
+  computeToggleCascade,
   HERO_MAX_HP,
   nextSiblingPosition,
   planReorder,
@@ -227,58 +228,74 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
     });
   }
 
-  function handleToggle(id: string, isCompleted: boolean) {
-    const target = tasks.find((task) => task.id === id);
-    if (!target || target.is_completed === isCompleted) return;
+  async function handleToggle(id: string, isCompleted: boolean) {
+    const cascade = computeToggleCascade(id, isCompleted, tasks);
+    if (cascade.length === 0) return;
 
     const previousTasksSnapshot = tasks;
     const previousProfileSnapshot = profile;
     const previousHp = currentHp;
-    const nextTasks = tasks.map((task) =>
-      task.id === id ? { ...task, is_completed: isCompleted } : task,
-    );
+
+    const nextCompletionById = new Map(cascade.map((c) => [c.taskId, c.isCompleted]));
+    const nextTasks = tasks.map((task) => {
+      const nextCompleted = nextCompletionById.get(task.id);
+      return nextCompleted === undefined ? task : { ...task, is_completed: nextCompleted };
+    });
 
     setTasks(nextTasks);
 
     const nextHp = calculateBossCurrentHp(nextTasks);
-    const delta = previousHp - nextHp;
+    const hpDelta = previousHp - nextHp;
 
-    if (isCompleted) {
-      triggerPulse(delta, "damage");
+    if (hpDelta > 0) {
+      triggerPulse(hpDelta, "damage");
       if (nextHp === 0 && calculateBossMaxHp(nextTasks) > 0) {
         setShowPerfect(true);
       }
-    } else {
-      triggerPulse(-delta, "heal");
+    } else if (hpDelta < 0) {
+      triggerPulse(-hpDelta, "heal");
     }
 
-    if (!target.is_abandoned) {
-      const xpDelta = isCompleted ? XP_PER_TASK : -XP_PER_TASK;
+    const xpDelta = cascade.reduce((total, change) => {
+      const task = tasks.find((t) => t.id === change.taskId);
+      if (!task || task.is_abandoned) return total;
+      return total + (change.isCompleted ? XP_PER_TASK : -XP_PER_TASK);
+    }, 0);
+
+    if (xpDelta !== 0) {
       const nextProfile = applyXpDelta(profile, xpDelta);
       const didLevelUp = nextProfile.level > profile.level;
 
       setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
-      triggerXpPulse(XP_PER_TASK, isCompleted ? "heal" : "damage");
+      triggerXpPulse(Math.abs(xpDelta), xpDelta > 0 ? "heal" : "damage");
       if (didLevelUp) {
         setLevelUpValue(nextProfile.level);
       }
     }
 
-    void setTaskCompletedAction(id, isCompleted).then((result) => {
-      if (result.error) {
-        setTasks(previousTasksSnapshot);
-        setProfile(previousProfileSnapshot);
-        setLevelUpValue(null);
-        if (isCompleted) setShowPerfect(false);
-        setBanner(result.error);
-        return;
-      }
+    // Appels séquentiels (pas Promise.all) : chaque appel recalcule le
+    // niveau/XP à partir du profil déjà persisté par le précédent — en
+    // parallèle, chacun partirait du même profil pas encore à jour et
+    // écraserait le gain d'XP des autres.
+    let lastResult: Awaited<ReturnType<typeof setTaskCompletedAction>> | null = null;
+    for (const change of cascade) {
+      lastResult = await setTaskCompletedAction(change.taskId, change.isCompleted);
+      if (lastResult.error) break;
+    }
 
-      const { level, xp } = result;
-      if (level !== undefined && xp !== undefined) {
-        setProfile((current) => ({ ...current, level, xp }));
-      }
-    });
+    if (lastResult?.error) {
+      setTasks(previousTasksSnapshot);
+      setProfile(previousProfileSnapshot);
+      setLevelUpValue(null);
+      if (hpDelta > 0) setShowPerfect(false);
+      setBanner(lastResult.error);
+      return;
+    }
+
+    const { level, xp } = lastResult ?? {};
+    if (level !== undefined && xp !== undefined) {
+      setProfile((current) => ({ ...current, level, xp }));
+    }
   }
 
   function handleDragStart(event: DragStartEvent) {

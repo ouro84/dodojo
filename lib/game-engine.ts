@@ -124,6 +124,60 @@ export function planReorder(
   };
 }
 
+export interface ToggleCascadeEntry {
+  taskId: string;
+  isCompleted: boolean;
+}
+
+export type CascadeTask = Pick<Task, "id" | "parent_id" | "is_completed" | "is_abandoned">;
+
+// Coche/décoche une tâche et propage la conséquence sur la hiérarchie
+// parent/sous-tâches (2 niveaux, RG-01) :
+// - Cocher/décocher une tâche racine coche/décoche toutes ses sous-tâches
+//   actives.
+// - Cocher/décocher une sous-tâche recalcule si le parent doit suivre :
+//   auto-coché quand toutes ses sous-tâches actives sont cochées, auto-décoché
+//   dès qu'une ne l'est plus — pour ne jamais laisser un parent "terminé" avec
+//   une sous-tâche encore active.
+// Ne retourne que les tâches dont l'état change réellement.
+export function computeToggleCascade(
+  targetId: string,
+  isCompleted: boolean,
+  tasks: CascadeTask[],
+): ToggleCascadeEntry[] {
+  const target = tasks.find((task) => task.id === targetId);
+  if (!target || target.is_completed === isCompleted) return [];
+
+  const changes = new Map<string, boolean>([[targetId, isCompleted]]);
+
+  if (target.parent_id === null) {
+    const children = tasks.filter(
+      (task) => task.parent_id === targetId && !task.is_abandoned,
+    );
+    for (const child of children) {
+      if (child.is_completed !== isCompleted) {
+        changes.set(child.id, isCompleted);
+      }
+    }
+  } else {
+    const siblings = tasks.filter(
+      (task) => task.parent_id === target.parent_id && !task.is_abandoned,
+    );
+    const allCompleteAfter = siblings.every((task) =>
+      task.id === targetId ? isCompleted : task.is_completed,
+    );
+    const parent = tasks.find((task) => task.id === target.parent_id);
+    if (parent && parent.is_completed !== allCompleteAfter) {
+      changes.set(parent.id, allCompleteAfter);
+    }
+  }
+
+  return Array.from(changes, ([taskId, completed]) => ({
+    taskId,
+    isCompleted: completed,
+  }));
+}
+
 export type HpTask = Pick<Task, "parent_id" | "is_abandoned" | "is_completed">;
 
 export function calculateBossMaxHp(tasks: HpTask[]): number {
