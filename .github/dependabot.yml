@@ -15,6 +15,19 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # TypeScript 7 (portage natif tsgo) non supporté par la toolchain : le build
+      # Next.js 16 ne détecte pas cette version et crashe, et typescript-eslint@8
+      # (via eslint-config-next) exige typescript <6.1.0. Réactiver quand Next +
+      # typescript-eslint supporteront TS7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # ESLint 10 supprime l'API context.getFilename() utilisée par eslint-plugin-react
+      # (dépendance de eslint-config-next). eslint-plugin-react@7.37.5, dernière version
+      # publiée, a pour peer eslint <=^9.7 : aucune release compatible ESLint 10 n'existe.
+      # Réactiver quand eslint-plugin-react supportera ESLint 10.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
 
   # Actions utilisées dans les workflows GitHub (.github/workflows/*)
   - package-ecosystem: github-actions
