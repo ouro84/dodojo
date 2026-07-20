@@ -26,3 +26,6 @@ nouvelle section versionnée et datée.
 - Schéma BDD initial (`profiles`, `tasks`) avec RLS appliquant RG-04 (pas de suppression destructive)
 - Premier test e2e Playwright (ADR-04, boucle de combat quotidienne)
 - Ajout de `@dnd-kit/core` / `@dnd-kit/utilities` pour le drag & drop (US-19)
+- Intégration continue GitHub Actions (`.github/workflows/ci.yml`) : lint + Vitest + build, puis e2e Playwright, sur chaque PR et push `main`
+- `CONTRIBUTING.md` : procédure de vérification locale obligatoire avant toute PR et liste des secrets CI requis
+- Stabilisation des e2e Playwright : exécution en série (`workers: 1`, compte e2e fixe partagé) sur serveur de production (`build && start`), fiabilisant le run parallèle qui échouait ; ignore ESLint du dossier `assets/` (packs tiers)

@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    # PR/push purement documentaires : pas de CI (aucun code touché).
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+
+# Annule les runs obsolètes quand on repousse sur la même branche/PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Vars publiques Supabase requises au build ET par les clients (lib/supabase/*).
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_KEY_SUPABASE: ${{ secrets.NEXT_PUBLIC_KEY_SUPABASE }}
+
+jobs:
+  checks:
+    name: Lint · Vitest · Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests unitaires (Vitest)
+        run: npm test
+
+      - name: Build Next.js
+        run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    # Inutile de lancer les e2e si le build/les tests unitaires échouent déjà.
+    needs: checks
+    env:
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright (chromium + deps système)
+        run: npx playwright install --with-deps chromium
+
+      - name: Tests e2e (Playwright)
+        # webServer (playwright.config.ts) lance `npm run dev` ; CI=true force
+        # reuseExistingServer=false et active les retries.
+        run: npm run e2e
+
+      - name: Upload rapport Playwright
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

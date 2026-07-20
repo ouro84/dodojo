@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Packs de sprites/démos tiers (Phaser, junk __MACOSX) — hors périmètre projet.
+    "assets/**",
   ]),
 ]);
 
