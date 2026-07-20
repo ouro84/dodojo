@@ -113,16 +113,12 @@ export function CharacterSelect({
               }`}
               style={hOwned ? undefined : { filter: "grayscale(1) brightness(0.4)" }}
             >
-              {/* Portrait : haut du sprite idle recadré, façon VS Fighting */}
-              <span
-                aria-hidden
-                className="block h-full w-full [image-rendering:pixelated]"
-                style={{
-                  backgroundImage: `url(${h.idleFramePrefix}0000.png)`,
-                  backgroundRepeat: "no-repeat",
-                  backgroundPosition: "50% 12%",
-                  backgroundSize: "300%",
-                }}
+              {/* Portrait : sprite rogné (vide transparent retiré), perso entier. */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- mini-portrait pixel, next/image inutile */}
+              <img
+                src={`/sprites/mc/${h.slug}/portrait.png`}
+                alt=""
+                className="h-full w-full object-contain p-0.5 [image-rendering:pixelated]"
               />
             </button>
           );
