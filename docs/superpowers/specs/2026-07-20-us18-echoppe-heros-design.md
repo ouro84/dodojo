@@ -181,6 +181,7 @@ Migrations Supabase dédiées (une par table/altération).
 ## 10. Hors scope (repoussé)
 
 - **Skins / tenues** (recolors 3-4 couleurs par héros) → US dédiée. Modèle anticipé (`equipped` deviendra `hero_id + skin_id`).
+- **Art de portrait dédié (têtes) pour la matrice de l'Échoppe** → **US skins/UI future**. En attendant, la matrice affiche le perso entier rogné (`portrait.png` via `scripts/generate-hero-portraits.mjs`, sharp `.trim()`) : les poses idle (armes qui dépassent) rendent un cadrage « tête seule » uniforme peu fiable sans art dédié. Le vrai portrait (face) sera livré avec l'US skins/UI.
 - Héros comme récompense de streak/niveau (ASSETS le suggère) → possible via jalons US-12, pas ici.
 - Décors d'Arène & VFX achetables → plus tard.
 
