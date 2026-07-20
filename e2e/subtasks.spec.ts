@@ -36,7 +36,7 @@ test.describe("Sous-tâches à 2 niveaux (US-04)", () => {
     await expect(bossBar).toHaveAttribute("aria-valuemax", String(initialMaxHp + 20));
 
     const rootRow = page.locator("li", { hasText: rootTitle });
-    await rootRow.getByLabel("Diviser en sous-quête").click();
+    await rootRow.getByLabel("Diviser en sous-tâche").click();
     await page.getByLabel("Ajouter une sous-tâche").fill(subtaskTitle);
     await page.getByLabel("Ajouter une sous-tâche").press("Enter");
 

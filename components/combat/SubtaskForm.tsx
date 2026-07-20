@@ -5,9 +5,14 @@ import { useState, type FormEvent } from "react";
 interface SubtaskFormProps {
   onAdd: (title: string) => void;
   pending?: boolean;
+  disabled?: boolean;
 }
 
-export default function SubtaskForm({ onAdd, pending = false }: SubtaskFormProps) {
+export default function SubtaskForm({
+  onAdd,
+  pending = false,
+  disabled = false,
+}: SubtaskFormProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
 
@@ -25,8 +30,9 @@ export default function SubtaskForm({ onAdd, pending = false }: SubtaskFormProps
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Diviser en sous-quête"
-        className="shrink-0 rounded px-1.5 py-0.5 text-xs text-faint hover:text-ink focus-visible:text-ink"
+        disabled={disabled}
+        aria-label="Diviser en sous-tâche"
+        className="shrink-0 rounded px-1.5 py-0.5 text-xs text-faint hover:text-ink focus-visible:text-ink disabled:cursor-wait disabled:opacity-40"
       >
         +
       </button>
@@ -48,7 +54,7 @@ export default function SubtaskForm({ onAdd, pending = false }: SubtaskFormProps
         autoFocus
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        placeholder="Sous-quête…"
+        placeholder="Sous-tâche…"
         maxLength={140}
         className="flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-faint"
       />

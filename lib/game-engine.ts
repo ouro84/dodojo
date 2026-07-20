@@ -7,6 +7,13 @@ export function taskHpValue(task: Pick<Task, "parent_id">): number {
   return task.parent_id === null ? HP_PER_TASK : HP_PER_SUBTASK;
 }
 
+// Une tâche affichée de façon optimiste (id client provisoire, en attente de
+// confirmation serveur) ne peut pas encore servir de cible à une autre action
+// (sous-tâche, drag & drop) : le serveur ne connaît pas encore son vrai id.
+export function isOptimisticTask(task: Pick<Task, "id">): boolean {
+  return task.id.startsWith("optimistic-");
+}
+
 // RG-01 : 2 niveaux max — seule une tâche racine peut recevoir une sous-tâche.
 export function isNestableParent(task: Pick<Task, "parent_id">): boolean {
   return task.parent_id === null;
@@ -54,15 +61,15 @@ export interface NestingCheck {
 
 const NESTING_REJECTED_SELF: NestingCheck = {
   allowed: false,
-  reason: "Une quête ne peut pas s'imbriquer sous elle-même.",
+  reason: "Une tâche ne peut pas s'imbriquer sous elle-même.",
 };
 const NESTING_REJECTED_DEPTH: NestingCheck = {
   allowed: false,
-  reason: "Deux niveaux, pas plus — cette quête est déjà une sous-quête.",
+  reason: "Deux niveaux, pas plus — cette tâche est déjà une sous-tâche.",
 };
 const NESTING_REJECTED_HAS_CHILDREN: NestingCheck = {
   allowed: false,
-  reason: "Cette quête a déjà des sous-quêtes, elle ne peut pas devenir une sous-quête.",
+  reason: "Cette tâche a déjà des sous-tâches, elle ne peut pas devenir une sous-tâche.",
 };
 const NESTING_ALLOWED: NestingCheck = { allowed: true };
 

@@ -155,6 +155,17 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       if (result.error) {
         setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
         setBanner(result.error);
+        return;
+      }
+      // Remplace l'id optimiste par l'id réel : toute action ultérieure sur
+      // cette tâche (sous-tâche, drag & drop) a besoin du vrai UUID côté serveur.
+      if (result.id) {
+        const realId = result.id;
+        setTasks((prev) =>
+          prev.map((task) =>
+            task.id === optimisticTask.id ? { ...task, id: realId } : task,
+          ),
+        );
       }
     });
   }
@@ -185,6 +196,15 @@ export default function Arena({ initialProfile, initialTasks, overdueTasks }: Ar
       if (result.error) {
         setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
         setBanner(result.error);
+        return;
+      }
+      if (result.id) {
+        const realId = result.id;
+        setTasks((prev) =>
+          prev.map((task) =>
+            task.id === optimisticTask.id ? { ...task, id: realId } : task,
+          ),
+        );
       }
     });
   }

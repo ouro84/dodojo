@@ -3,7 +3,7 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task } from "@/types";
-import { isNestableParent } from "@/lib/game-engine";
+import { isNestableParent, isOptimisticTask } from "@/lib/game-engine";
 import SubtaskForm from "./SubtaskForm";
 
 interface TaskRowProps {
@@ -21,8 +21,12 @@ export default function TaskRow({
   onAddSubtask,
   isAddingSubtask,
 }: TaskRowProps) {
-  const draggable = useDraggable({ id: task.id });
-  const droppable = useDroppable({ id: task.id, disabled: !isNestableParent(task) });
+  const isPending = isOptimisticTask(task);
+  const draggable = useDraggable({ id: task.id, disabled: isPending });
+  const droppable = useDroppable({
+    id: task.id,
+    disabled: !isNestableParent(task) || isPending,
+  });
 
   const style = draggable.transform
     ? {
@@ -48,8 +52,9 @@ export default function TaskRow({
     >
       <button
         type="button"
+        disabled={isPending}
         aria-label={`Déplacer "${task.title}"`}
-        className="shrink-0 cursor-grab touch-none px-1 text-faint hover:text-ink focus-visible:text-ink active:cursor-grabbing"
+        className="shrink-0 cursor-grab touch-none px-1 text-faint hover:text-ink focus-visible:text-ink active:cursor-grabbing disabled:cursor-wait disabled:opacity-40"
         {...draggable.listeners}
         {...draggable.attributes}
       >
@@ -75,6 +80,7 @@ export default function TaskRow({
         <SubtaskForm
           onAdd={(title) => onAddSubtask(task.id, title)}
           pending={isAddingSubtask}
+          disabled={isPending}
         />
       )}
       <button

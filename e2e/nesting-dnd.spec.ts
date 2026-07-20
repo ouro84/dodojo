@@ -42,28 +42,36 @@ test.describe("Drag & Drop d'imbrication (US-19)", () => {
     await expect(bossBar).toHaveAttribute("aria-valuemax", String(initialMaxHp + 40));
 
     const rowA = page.locator("li", { hasText: titleA });
+    const rowB = page.locator("li", { hasText: titleB });
     const handleB = page.getByLabel(`Déplacer "${titleB}"`);
 
-    const targetBox = await rowA.boundingBox();
-    const sourceBox = await handleB.boundingBox();
-    if (!targetBox || !sourceBox) {
+    // La poignée reste désactivée tant que l'id optimiste de la tâche n'a pas
+    // été remplacé par le vrai id serveur (US-04/US-19, cf. isOptimisticTask).
+    await expect(handleB).toBeEnabled();
+
+    const rowABox = await rowA.boundingBox();
+    const rowBBox = await rowB.boundingBox();
+    const handleBox = await handleB.boundingBox();
+    if (!rowABox || !rowBBox || !handleBox) {
       throw new Error("Impossible de localiser les lignes de tâches pour le drag & drop.");
     }
 
+    // Déplacement purement vertical (delta = distance entre les deux lignes),
+    // en partant du centre de la poignée de B. Un déplacement horizontal vers
+    // le centre de la ligne A désaligne le rect traduit de la ligne draguée
+    // (dnd-kit translate tout le rect de B par ce delta, pas seulement la
+    // poignée) et fait échouer la détection de collision.
     const sourceCenter = {
-      x: sourceBox.x + sourceBox.width / 2,
-      y: sourceBox.y + sourceBox.height / 2,
+      x: handleBox.x + handleBox.width / 2,
+      y: handleBox.y + handleBox.height / 2,
     };
-    const targetCenter = {
-      x: targetBox.x + targetBox.width / 2,
-      y: targetBox.y + targetBox.height / 2,
-    };
+    const deltaY = rowBBox.y - rowABox.y;
 
     await page.mouse.move(sourceCenter.x, sourceCenter.y);
     await page.mouse.down();
     // Dépasse le seuil d'activation (distance: 8px) du PointerSensor dnd-kit.
-    await page.mouse.move(sourceCenter.x, sourceCenter.y + 20, { steps: 5 });
-    await page.mouse.move(targetCenter.x, targetCenter.y, { steps: 10 });
+    await page.mouse.move(sourceCenter.x, sourceCenter.y - 10, { steps: 5 });
+    await page.mouse.move(sourceCenter.x, sourceCenter.y - deltaY, { steps: 15 });
     await page.mouse.up();
 
     await expect(bossBar).toHaveAttribute("aria-valuemax", String(initialMaxHp + 30));

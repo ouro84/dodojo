@@ -6,6 +6,7 @@ import {
   calculateHeroHp,
   canNestTask,
   isNestableParent,
+  isOptimisticTask,
   nextSiblingPosition,
   sortTasksHierarchically,
   taskHpValue,
@@ -125,6 +126,18 @@ describe("isNestableParent (US-04, RG-01)", () => {
 
   test("une sous-tâche n'est pas nestable (2 niveaux max)", () => {
     expect(isNestableParent(makeTask({ parent_id: "parent-1" }))).toBe(false);
+  });
+});
+
+describe("isOptimisticTask (US-04/US-19)", () => {
+  test("id client provisoire (optimistic-N) détecté", () => {
+    expect(isOptimisticTask(makeTask({ id: "optimistic-3" }))).toBe(true);
+  });
+
+  test("vrai UUID serveur non détecté comme optimiste", () => {
+    expect(isOptimisticTask(makeTask({ id: "9f6d9ad2-28a2-4e94-aa58-b73ca74641b5" }))).toBe(
+      false,
+    );
   });
 });
 

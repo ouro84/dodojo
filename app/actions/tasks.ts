@@ -12,6 +12,7 @@ import {
 
 export interface TaskActionResult {
   error: string | null;
+  id?: string;
   level?: number;
   xp?: number;
   leveledUp?: boolean;
@@ -49,19 +50,23 @@ export async function addTask(title: string): Promise<TaskActionResult> {
     return { error: "Le monstre a résisté à l'invocation. Réessaie." };
   }
 
-  const { error } = await supabase.from("tasks").insert({
-    user_id: user.id,
-    title: trimmed,
-    day_date: today,
-    position: nextSiblingPosition(roots ?? []),
-  });
+  const { data: inserted, error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: user.id,
+      title: trimmed,
+      day_date: today,
+      position: nextSiblingPosition(roots ?? []),
+    })
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !inserted) {
     return { error: "Le monstre a résisté à l'invocation. Réessaie." };
   }
 
   revalidatePath("/");
-  return { error: null };
+  return { error: null, id: inserted.id };
 }
 
 export async function addSubtask(
@@ -71,7 +76,7 @@ export async function addSubtask(
   const trimmed = title.trim();
 
   if (!trimmed) {
-    return { error: "Nomme ta sous-quête avant de l'invoquer." };
+    return { error: "Nomme ta sous-tâche avant de l'invoquer." };
   }
 
   const supabase = await createClient();
@@ -91,15 +96,15 @@ export async function addSubtask(
     .maybeSingle();
 
   if (parentError || !parent) {
-    return { error: "Cette quête est introuvable." };
+    return { error: "Cette tâche est introuvable." };
   }
 
   if (parent.is_abandoned) {
-    return { error: "Cette quête a été abandonnée, pas de sous-quête possible." };
+    return { error: "Cette tâche a été abandonnée, pas de sous-tâche possible." };
   }
 
   if (!isNestableParent(parent)) {
-    return { error: "Deux niveaux, pas plus — cette quête est déjà une sous-quête." };
+    return { error: "Deux niveaux, pas plus — cette tâche est déjà une sous-tâche." };
   }
 
   const { data: siblings, error: siblingsError } = await supabase
@@ -108,23 +113,27 @@ export async function addSubtask(
     .eq("parent_id", parentId);
 
   if (siblingsError) {
-    return { error: "La sous-quête a résisté à l'invocation. Réessaie." };
+    return { error: "La sous-tâche a résisté à l'invocation. Réessaie." };
   }
 
-  const { error } = await supabase.from("tasks").insert({
-    user_id: user.id,
-    parent_id: parentId,
-    title: trimmed,
-    day_date: todayIso(),
-    position: nextSiblingPosition(siblings ?? []),
-  });
+  const { data: inserted, error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: user.id,
+      parent_id: parentId,
+      title: trimmed,
+      day_date: todayIso(),
+      position: nextSiblingPosition(siblings ?? []),
+    })
+    .select("id")
+    .single();
 
-  if (error) {
-    return { error: "La sous-quête a résisté à l'invocation. Réessaie." };
+  if (error || !inserted) {
+    return { error: "La sous-tâche a résisté à l'invocation. Réessaie." };
   }
 
   revalidatePath("/");
-  return { error: null };
+  return { error: null, id: inserted.id };
 }
 
 export async function setTaskCompleted(
@@ -247,18 +256,18 @@ export async function nestTask(
     .eq("user_id", user.id);
 
   if (fetchError || !allTasks) {
-    return { error: "Impossible de reparenter cette quête. Réessaie." };
+    return { error: "Impossible de reparenter cette tâche. Réessaie." };
   }
 
   const taskToNest = allTasks.find((task) => task.id === taskId);
   if (!taskToNest || taskToNest.is_abandoned) {
-    return { error: "Cette quête est introuvable." };
+    return { error: "Cette tâche est introuvable." };
   }
 
   if (parentId !== null) {
     const targetParent = allTasks.find((task) => task.id === parentId);
     if (!targetParent || targetParent.is_abandoned) {
-      return { error: "Cette quête est introuvable." };
+      return { error: "Cette tâche est introuvable." };
     }
 
     const check = canNestTask(taskToNest, targetParent, allTasks);
@@ -277,7 +286,7 @@ export async function nestTask(
     .eq("user_id", user.id);
 
   if (error) {
-    return { error: "Impossible de reparenter cette quête. Réessaie." };
+    return { error: "Impossible de reparenter cette tâche. Réessaie." };
   }
 
   revalidatePath("/");
