@@ -63,3 +63,5 @@ gh secret set NEXT_PUBLIC_KEY_SUPABASE
 gh secret set E2E_TEST_EMAIL
 gh secret set E2E_TEST_PASSWORD
 ```
+
+<!-- ci-skip-test -->
