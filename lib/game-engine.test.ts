@@ -1,9 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
+  applyXpDelta,
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
   taskHpValue,
+  xpThresholdForLevel,
+  XP_PER_TASK,
+  XP_THRESHOLD_PER_LEVEL,
 } from "./game-engine";
 import type { Task } from "../types";
 
@@ -107,5 +111,64 @@ describe("calculateHeroHp (pénalité procrastination)", () => {
   test("plafonne à 0, jamais négatif", () => {
     const tasks = Array.from({ length: 10 }, (_, i) => makeTask({ id: `t${i}` }));
     expect(calculateHeroHp(tasks)).toBe(0);
+  });
+});
+
+describe("xpThresholdForLevel (US-09)", () => {
+  test("le seuil du niveau 1 est 100 XP", () => {
+    expect(xpThresholdForLevel(1)).toBe(100);
+  });
+
+  test("le seuil croît avec le niveau (niveau × 100)", () => {
+    expect(xpThresholdForLevel(2)).toBe(200);
+    expect(xpThresholdForLevel(3)).toBe(300);
+  });
+});
+
+describe("applyXpDelta (US-09)", () => {
+  test("gain simple, sans franchissement de seuil", () => {
+    const result = applyXpDelta({ level: 1, xp: 0 }, XP_PER_TASK);
+    expect(result).toEqual({ level: 1, xp: 30 });
+  });
+
+  test("gain qui franchit exactement un seuil (exemple du spec : 80 + 30 → niveau 2, xp 10)", () => {
+    const result = applyXpDelta({ level: 1, xp: 80 }, XP_PER_TASK);
+    expect(result).toEqual({ level: 2, xp: 10 });
+  });
+
+  test("gain qui franchit plusieurs seuils en cascade", () => {
+    const result = applyXpDelta({ level: 1, xp: 0 }, 350);
+    expect(result).toEqual({ level: 3, xp: 50 });
+  });
+
+  test("perte simple, sans passage sous 0", () => {
+    const result = applyXpDelta({ level: 2, xp: 50 }, -XP_PER_TASK);
+    expect(result).toEqual({ level: 2, xp: 20 });
+  });
+
+  test("perte qui fait redescendre un niveau (symétrique au gain qui l'a franchi)", () => {
+    const result = applyXpDelta({ level: 2, xp: 10 }, -XP_PER_TASK);
+    expect(result).toEqual({ level: 1, xp: 80 });
+  });
+
+  test("perte qui fait redescendre plusieurs niveaux en cascade", () => {
+    const result = applyXpDelta({ level: 3, xp: 50 }, -350);
+    expect(result).toEqual({ level: 1, xp: 0 });
+  });
+
+  test("plancher : niveau 1 / xp 0, jamais négatif", () => {
+    const result = applyXpDelta({ level: 1, xp: 10 }, -50);
+    expect(result).toEqual({ level: 1, xp: 0 });
+  });
+
+  test("symétrie stricte : gagner puis perdre le même montant restitue l'état de départ", () => {
+    const initial = { level: 1, xp: 80 };
+    const afterGain = applyXpDelta(initial, XP_PER_TASK);
+    const afterLoss = applyXpDelta(afterGain, -XP_PER_TASK);
+    expect(afterLoss).toEqual(initial);
+  });
+
+  test("XP_THRESHOLD_PER_LEVEL vaut 100", () => {
+    expect(XP_THRESHOLD_PER_LEVEL).toBe(100);
   });
 });
