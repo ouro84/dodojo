@@ -136,7 +136,7 @@ Format strict : `type: description courte`
 
 ## URL de production
 
-*En attente du premier déploiement Vercel.*
+**Production (Vercel) : https://dodojo.vercel.app** — déploiement automatique sur push `main` (projet Vercel `dodojo`, Node 24.x). Preview automatique par PR. Autres domaines actifs : `dodojo-git-main-ouro84s-projects.vercel.app`, `dodojo-ouro84s-projects.vercel.app`.
 
 ---
 
