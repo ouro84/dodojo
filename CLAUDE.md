@@ -1,6 +1,6 @@
 # Contexte projet — Boss de la Journée (Projet Arcade To-Do)
 
-> Dernière mise à jour : 2026-07-08
+> Dernière mise à jour : 2026-07-20
 > Stack : Next.js 16 (App Router) + Supabase + Tailwind CSS v4 + Vercel (Hobby)
 
 ---
@@ -116,13 +116,15 @@ Format strict : `type: description courte`
 
 ## Pièges et décisions non-évidentes
 
-**Décalage horaire et Étanchéité du jour** — Le Boss est calculé uniquement sur les tâches du jour J. Lors du changement de fuseau horaire ou à minuit pile, les calculs ne doivent pas planter. Toute tâche historique non validée doit passer par le processus bloquant du "Rituel du Réveil" avant toute nouvelle action.
+**Décalage horaire et Étanchéité du jour** — Le "jour" du jeu est le **jour local** de l'utilisateur, pas l'UTC. Il est calculé via `dayKey(date, timezone)` (`lib/game-engine.ts`) à partir de la colonne `profiles.timezone` (IANA, captée à l'onboarding via `Intl`). Toutes les requêtes/écritures `day_date` (server actions, `app/page.tsx`) passent par ce jour local. Ceci corrige le bug UTC de l'ancien `todayIso()` (à 01h à Paris on était encore "hier" en UTC) et le cas voyage/changement de fuseau. Le Boss est calculé uniquement sur les tâches du jour local courant (RG-03) ; les restes d'un jour local passé passent par le processus bloquant du Rituel du Réveil (US-08) avant toute nouvelle action.
 
 **Pas de policy DELETE en RLS** — Les tables `profiles` et `tasks` n'ont volontairement aucune policy Supabase RLS pour `DELETE`. Ceci applique RG-04 au niveau base de données, en plus de la convention côté application (colonnes `is_abandoned` / `is_completed`).
 
 **Pas de trigger d'auto-création de profil** — Aucun trigger sur `auth.users` ne crée automatiquement une ligne `profiles` à l'inscription. Le pseudo doit être défini explicitement par l'utilisateur (voir tone of voice : pas de fallback générique type "Héros"), donc la création de la ligne `profiles` fait partie du flow d'onboarding applicatif (US-14), pas de la migration SQL.
 
-**Jauge de HP du Héros sans conséquence tant que US-08 n'existe pas** — L'Arène (direction "Street Fighter" retenue, cf. `feat/arena-street-fighter-challenger`) affiche une jauge de HP du Héros calculée depuis les tâches en retard (`calculateHeroHp` dans `lib/game-engine.ts`, -20 HP par tâche non résolue d'un jour précédent, plancher à 0). C'est une pénalité **visuelle uniquement** pour l'instant : rien ne se passe quand elle atteint 0, aucune action n'est proposée sur les tâches en retard depuis l'Arène. Le vrai traitement (overlay bloquant "Annihiler"/"Reporter") est le Rituel du Réveil (US-08), pas encore implémenté. Ne pas être surpris que la jauge puisse rester à 0 indéfiniment — c'est attendu tant que US-08 n'est pas livré, décision produit assumée (cf. `docs/superpowers/specs/2026-07-19-arena-versus-design.md`).
+**Jauge de HP du Héros — dette soldée par le Rituel du Réveil (US-08)** — La jauge de HP du Héros (`calculateHeroHp` dans `lib/game-engine.ts`, -20 HP par tâche en retard non résolue, plancher à 0) n'est plus purement décorative. Le Rituel du Réveil (`components/combat/WakeUpRitual.tsx`, US-08) traite les restes au démarrage via un overlay **bloquant** : Terminé / Reporter / Annihiler (+ actions groupées). Résoudre les restes fait remonter la jauge. La jauge ne peut donc plus rester à 0 indéfiniment sans action proposée. Voir le spec unifié `docs/superpowers/specs/2026-07-20-cycle-journee-design.md`.
+
+**Cycle de la Journée & table `day_results`** — Les deux bornes du jour sont le Rituel du Réveil (US-08, ouverture, traitement des restes) et le Rituel du Crépuscule (US-07, ex-"Obi-Wan", clôture cérémonielle non-bloquante). La table `day_results` (une ligne par `(user_id, day_date)`, contrainte unique) enregistre l'issue du jour (`victory` / `retreat` / `defeat`), les dégâts, l'XP, etc. — fondation du Panthéon (US-10), des Streaks (US-12) et du partage (US-20). Écriture **idempotente** (upsert, chiffres recalculés depuis les tâches, jamais accumulés) via `app/actions/day.ts` (`closeDay` au Crépuscule, `backfillMissedDays` en fin de Réveil pour l'historique sans trous). **Aucune policy DELETE** sur `day_results` (RG-04). "Annihiler" un reste = `is_abandoned = true`, jamais un DELETE.
 
 **Profondeur des sous-tâches (RG-01) appliquée uniquement côté applicatif** — La colonne `parent_id` de `tasks` n'a aucune contrainte SQL (check/trigger) limitant la profondeur à 2 niveaux. La garde repose entièrement sur `isNestableParent`/`planReorder` (`lib/game-engine.ts`), revérifiés à la fois côté UI (bouton "+" absent sur une sous-tâche, `planReorder` refuse d'imbriquer une tâche qui a déjà des enfants) et côté server action (`reorderSiblings` dans `app/actions/tasks.ts`). Dette assumée pour le Sprint 1 : une action serveur appelée directement (hors UI) reste la seule ligne de défense, pas de filet base de données.
 

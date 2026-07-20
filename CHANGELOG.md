@@ -20,6 +20,8 @@ nouvelle section versionnée et datée.
 - US-19 : Drag & Drop d'imbrication et de réordonnancement (glisser une tâche sous une autre pour l'imbriquer, réordonner des tâches au même niveau, ou repromouvoir une sous-tâche en tâche racine)
 - US-02 : Bouton Micro In-App (dictée vocale, Web Speech API)
 - Cascade de complétion parent/sous-tâches : cocher toutes les sous-tâches coche automatiquement la tâche parente, et inversement décocher l'une d'elles la décoche ; cocher/décocher la tâche parente coche/décoche toutes ses sous-tâches
+- US-08 : Rituel du Réveil (overlay bloquant au démarrage pour traiter les restes de la veille : Terminé / Reporter / Annihiler + actions groupées, backfill de l'historique)
+- US-07 : Rituel du Crépuscule (ex-"Obi-Wan", clôture cérémonielle non-bloquante avec récap type carte de score arcade et streak preview)
 
 ### Technique
 - Initialisation du projet (Next.js 16, Supabase, Tailwind v4, Vitest, Playwright)
@@ -30,3 +32,4 @@ nouvelle section versionnée et datée.
 - `CONTRIBUTING.md` : procédure de vérification locale obligatoire avant toute PR et liste des secrets CI requis
 - Stabilisation des e2e Playwright : exécution en série (`workers: 1`, compte e2e fixe partagé) sur serveur de production (`build && start`), fiabilisant le run parallèle qui échouait ; ignore ESLint du dossier `assets/` (packs tiers)
 - Dependabot (`.github/dependabot.yml`) : mises à jour mensuelles des dépendances npm et des actions GitHub (bumps mineurs/patch regroupés)
+- Table `day_results` (issue du jour, dégâts, XP ; fondation Panthéon/streak/partage) + colonne `profiles.timezone` ; le "jour" devient le jour local de l'utilisateur (`dayKey`) au lieu de l'UTC (RG-03)
