@@ -9,22 +9,41 @@ try {
   // .env.local absent (CI) — les variables sont déjà dans process.env.
 }
 
+// Port du serveur e2e. Défaut 3000 ; surchargeable (E2E_PORT) pour ne pas
+// entrer en conflit avec un `next dev` déjà ouvert en local.
+const PORT = process.env.E2E_PORT ?? "3000";
+const baseURL = `http://localhost:${PORT}`;
+
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  // Exécution SÉRIE volontaire. Tous les tests partagent l'unique compte e2e
+  // fixe (ADR-04) : en parallèle ils muteraient le même état (tâches, boss du
+  // jour) et interféreraient (nav qui traîne sous charge, contrôles restés
+  // disabled). Bug reproduit : 9/9 vert en série, ~6-8/9 KO dès 4 workers.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
+    // Serveur de PRODUCTION (routes précompilées) et non `next dev`. En CI le
+    // serveur démarre à froid : `next dev` compilerait `/login` à la demande sur
+    // la 1re navigation et dépasserait le timeout. Un serveur prod sert des
+    // routes déjà compilées, donc la 1re nav est immédiate.
+    command: `npm run build && npm run start -- -p ${PORT}`,
+    url: baseURL,
+    // Local : réutilise un serveur déjà lancé sur ce port (itération rapide,
+    // pas de rebuild). CI : toujours un serveur frais.
     reuseExistingServer: !process.env.CI,
+    // Le build Next tourne pendant ce démarrage (plus lent en CI sans cache
+    // .next) : timeout large.
+    timeout: 240_000,
   },
 });
