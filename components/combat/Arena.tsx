@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { Profile, Task } from "@/types";
 import {
+  applyXpDelta,
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
   HERO_MAX_HP,
+  XP_PER_TASK,
 } from "@/lib/game-engine";
 import {
   addTask as addTaskAction,
@@ -19,13 +21,14 @@ import TaskList from "./TaskList";
 import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
 import PerfectOverlay from "./PerfectOverlay";
+import LevelUpOverlay from "./LevelUpOverlay";
 import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
 
 const BOSS_NAME = "Le Gardien de Glace";
 const HERO_NAME = "Le Chevalier de Feu";
 
 interface ArenaProps {
-  profile: Profile;
+  initialProfile: Profile;
   initialTasks: Task[];
   overdueTasks: Task[];
 }
@@ -37,20 +40,31 @@ interface Pulse {
   impactVariant?: ImpactVariantId;
 }
 
+interface XpPulse {
+  key: number;
+  amount: number;
+  kind: "damage" | "heal";
+}
+
 let pulseCounter = 0;
+let xpPulseCounter = 0;
 let optimisticIdCounter = 0;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProps) {
+export default function Arena({ initialProfile, initialTasks, overdueTasks }: ArenaProps) {
+  const [profile, setProfile] = useState<Profile>(initialProfile);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
+  const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
   const [showPerfect, setShowPerfect] = useState(false);
+  const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const xpPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const maxHp = calculateBossMaxHp(tasks);
   const currentHp = calculateBossCurrentHp(tasks);
@@ -61,6 +75,7 @@ export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProp
   useEffect(() => {
     return () => {
       if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+      if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
     };
   }, []);
 
@@ -77,6 +92,17 @@ export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProp
     if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
     pulseTimeoutRef.current = setTimeout(() => {
       setPulse((current) => (current?.key === key ? null : current));
+    }, 1400);
+  }
+
+  function triggerXpPulse(amount: number, kind: XpPulse["kind"]) {
+    xpPulseCounter += 1;
+    const key = xpPulseCounter;
+    setXpPulse({ key, amount, kind });
+
+    if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
+    xpPulseTimeoutRef.current = setTimeout(() => {
+      setXpPulse((current) => (current?.key === key ? null : current));
     }, 1400);
   }
 
@@ -113,7 +139,8 @@ export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProp
     const target = tasks.find((task) => task.id === id);
     if (!target || target.is_completed === isCompleted) return;
 
-    const previousSnapshot = tasks;
+    const previousTasksSnapshot = tasks;
+    const previousProfileSnapshot = profile;
     const previousHp = currentHp;
     const nextTasks = tasks.map((task) =>
       task.id === id ? { ...task, is_completed: isCompleted } : task,
@@ -133,11 +160,31 @@ export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProp
       triggerPulse(-delta, "heal");
     }
 
+    if (!target.is_abandoned) {
+      const xpDelta = isCompleted ? XP_PER_TASK : -XP_PER_TASK;
+      const nextProfile = applyXpDelta(profile, xpDelta);
+      const didLevelUp = nextProfile.level > profile.level;
+
+      setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
+      triggerXpPulse(XP_PER_TASK, isCompleted ? "heal" : "damage");
+      if (didLevelUp) {
+        setLevelUpValue(nextProfile.level);
+      }
+    }
+
     void setTaskCompletedAction(id, isCompleted).then((result) => {
       if (result.error) {
-        setTasks(previousSnapshot);
+        setTasks(previousTasksSnapshot);
+        setProfile(previousProfileSnapshot);
+        setLevelUpValue(null);
         if (isCompleted) setShowPerfect(false);
         setBanner(result.error);
+        return;
+      }
+
+      const { level, xp } = result;
+      if (level !== undefined && xp !== undefined) {
+        setProfile((current) => ({ ...current, level, xp }));
       }
     });
   }
@@ -183,10 +230,19 @@ export default function Arena({ profile, initialTasks, overdueTasks }: ArenaProp
             <ImpactVfx key={pulse.key} variant={pulse.impactVariant} />
           )}
           {pulse && <FloatingText amount={pulse.amount} kind={pulse.kind} />}
+          {xpPulse && (
+            <FloatingText amount={xpPulse.amount} kind={xpPulse.kind} unit="XP" />
+          )}
           {showPerfect && (
             <PerfectOverlay
               bossName={BOSS_NAME}
               onDismiss={() => setShowPerfect(false)}
+            />
+          )}
+          {levelUpValue !== null && (
+            <LevelUpOverlay
+              newLevel={levelUpValue}
+              onDismiss={() => setLevelUpValue(null)}
             />
           )}
         </div>

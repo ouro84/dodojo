@@ -56,7 +56,7 @@ export default async function ArenePage() {
 
   return (
     <Arena
-      profile={profile}
+      initialProfile={profile}
       initialTasks={tasks ?? []}
       overdueTasks={overdueTasks ?? []}
     />
