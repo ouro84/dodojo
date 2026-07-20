@@ -4,6 +4,11 @@ import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
+  canNestTask,
+  isNestableParent,
+  isOptimisticTask,
+  nextSiblingPosition,
+  sortTasksHierarchically,
   taskHpValue,
   xpThresholdForLevel,
   XP_PER_TASK,
@@ -111,6 +116,100 @@ describe("calculateHeroHp (pénalité procrastination)", () => {
   test("plafonne à 0, jamais négatif", () => {
     const tasks = Array.from({ length: 10 }, (_, i) => makeTask({ id: `t${i}` }));
     expect(calculateHeroHp(tasks)).toBe(0);
+  });
+});
+
+describe("isNestableParent (US-04, RG-01)", () => {
+  test("une tâche racine est nestable", () => {
+    expect(isNestableParent(makeTask({ parent_id: null }))).toBe(true);
+  });
+
+  test("une sous-tâche n'est pas nestable (2 niveaux max)", () => {
+    expect(isNestableParent(makeTask({ parent_id: "parent-1" }))).toBe(false);
+  });
+});
+
+describe("isOptimisticTask (US-04/US-19)", () => {
+  test("id client provisoire (optimistic-N) détecté", () => {
+    expect(isOptimisticTask(makeTask({ id: "optimistic-3" }))).toBe(true);
+  });
+
+  test("vrai UUID serveur non détecté comme optimiste", () => {
+    expect(isOptimisticTask(makeTask({ id: "9f6d9ad2-28a2-4e94-aa58-b73ca74641b5" }))).toBe(
+      false,
+    );
+  });
+});
+
+describe("nextSiblingPosition (US-04/US-19)", () => {
+  test("0 pour une fratrie vide", () => {
+    expect(nextSiblingPosition([])).toBe(0);
+  });
+
+  test("max + 1 pour une fratrie non vide", () => {
+    const siblings = [makeTask({ position: 0 }), makeTask({ position: 3 })];
+    expect(nextSiblingPosition(siblings)).toBe(4);
+  });
+});
+
+describe("sortTasksHierarchically (US-04)", () => {
+  test("tableau vide", () => {
+    expect(sortTasksHierarchically([])).toEqual([]);
+  });
+
+  test("racines triées par position, entremêlées en entrée", () => {
+    const tasks = [
+      makeTask({ id: "b", parent_id: null, position: 1 }),
+      makeTask({ id: "a", parent_id: null, position: 0 }),
+    ];
+    expect(sortTasksHierarchically(tasks).map((t) => t.id)).toEqual(["a", "b"]);
+  });
+
+  test("chaque racine est suivie de ses enfants triés par position", () => {
+    const tasks = [
+      makeTask({ id: "a", parent_id: null, position: 0 }),
+      makeTask({ id: "b", parent_id: null, position: 1 }),
+      makeTask({ id: "a2", parent_id: "a", position: 1 }),
+      makeTask({ id: "a1", parent_id: "a", position: 0 }),
+    ];
+    expect(sortTasksHierarchically(tasks).map((t) => t.id)).toEqual([
+      "a",
+      "a1",
+      "a2",
+      "b",
+    ]);
+  });
+
+  test("une tâche orpheline (parent absent du tableau) est traitée comme racine", () => {
+    const tasks = [makeTask({ id: "orphan", parent_id: "ghost", position: 0 })];
+    expect(sortTasksHierarchically(tasks).map((t) => t.id)).toEqual(["orphan"]);
+  });
+});
+
+describe("canNestTask (US-19, RG-01)", () => {
+  test("cas nominal : deux tâches racines simples, imbrication autorisée", () => {
+    const a = makeTask({ id: "a", parent_id: null });
+    const b = makeTask({ id: "b", parent_id: null });
+    expect(canNestTask(b, a, [a, b])).toEqual({ allowed: true });
+  });
+
+  test("refuse l'auto-nesting", () => {
+    const a = makeTask({ id: "a", parent_id: null });
+    expect(canNestTask(a, a, [a]).allowed).toBe(false);
+  });
+
+  test("refuse si la cible est déjà une sous-tâche (profondeur 3)", () => {
+    const a = makeTask({ id: "a", parent_id: null });
+    const b = makeTask({ id: "b", parent_id: "a" });
+    const c = makeTask({ id: "c", parent_id: null });
+    expect(canNestTask(c, b, [a, b, c]).allowed).toBe(false);
+  });
+
+  test("refuse si la tâche source a déjà des enfants", () => {
+    const a = makeTask({ id: "a", parent_id: null });
+    const a1 = makeTask({ id: "a1", parent_id: "a" });
+    const b = makeTask({ id: "b", parent_id: null });
+    expect(canNestTask(a, b, [a, a1, b]).allowed).toBe(false);
   });
 });
 

@@ -180,6 +180,20 @@ body {
   animation: float-up 900ms ease-out forwards;
 }
 
+/* ---- Dictée vocale (US-02) ---- */
+@keyframes mic-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+.mic-listening {
+  animation: mic-pulse 900ms ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;
@@ -195,5 +209,8 @@ body {
   .floating-text {
     animation: none;
     opacity: 0;
+  }
+  .mic-listening {
+    animation: none;
   }
 }
