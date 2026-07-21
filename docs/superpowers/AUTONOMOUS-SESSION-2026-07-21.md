@@ -83,5 +83,17 @@ US-15 change l'UX d'abandon (le « × » ouvre une modale). Les `afterEach` de n
 - **Décision** : combo **purement visuel** (aucun bonus XP/or) → zéro risque d'équilibrage, aucune migration. L'option d'un bonus d'XP est laissée en dette documentée.
 - **Impl** : `comboLabel`/`comboIntensity` (purs, 3 tests), `ComboBanner` (flash escaladé), compteur persistant discret dans l'Arène, keyframe `combo-pop` + reduced-motion. Monte sur complétion à la chaîne, se brise sur décoche/abandon/erreur.
 - **Vérif** : 117/117 Vitest, lint propre, `build` vert.
-- **Commit** : (ci-dessous).
+- **Commit** : `1b6938d`.
+
+### Vérification finale
+- **Vitest** : 117/117 verts.
+- **Playwright e2e** (série, serveur prod, port 3100) : **12 passed, 0 failed** (2 skips attendus : victoire nécessitant un compte isolé) en 59 s. La correction de la régression d'abandon (modale) est validée de bout en bout.
+- **`build`** + **`lint`** : propres.
+
+### Audit livré
+`docs/superpowers/AUDIT-2026-07-21.md` — audit code/archi/produit/backlog avec priorisation. Têtes de gondole : onboarding (#29) + guide (#28) = prochain euro de valeur ; puis partage (US-20, terrain prêt), roster de boss + son (assets déjà présents). Dette technique faible et documentée (caches dérivés A1, génération récurrente en rendu A2, 3 erreurs tsc e2e A5 à nettoyer).
+
+### Intégration
+- Branche `session/autonomous-2026-07-21` **poussée** sur GitHub (Vitest + e2e passés en local, conforme à la règle projet). Déploiement **preview** Vercel automatique par la PR/push.
+- **Pas de merge sur `main`** effectué : préserve la sécurité de rollback demandée + évite un déploiement prod non revu. Décision de merge laissée à l'utilisateur (autorisé pour la session, mais non requis).
 
