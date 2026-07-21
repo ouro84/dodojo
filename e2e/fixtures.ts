@@ -47,6 +47,12 @@ export async function resetShopState(): Promise<void> {
   const uid = testUser.id;
 
   await admin.from("unlocked_heroes").delete().eq("user_id", uid);
+  // US-29 : plus de possession implicite du défaut → le compte e2e possède
+  // explicitement fire_knight (offert), cohérent avec l'équipé ci-dessous.
+  await admin.from("unlocked_heroes").upsert(
+    { user_id: uid, hero_id: "fire_knight", price_paid: 0 },
+    { onConflict: "user_id,hero_id" },
+  );
   await admin.from("profiles").update({ equipped_hero_id: "fire_knight" }).eq("id", uid);
   // Sème un day_result victory (or suffisant pour acheter) — idempotent (upsert).
   await admin.from("day_results").upsert(

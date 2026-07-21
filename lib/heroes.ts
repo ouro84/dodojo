@@ -15,7 +15,7 @@ export const HEROES: Hero[] = [
     slug: "fire-knight",
     idleFramePrefix: idlePrefix("fire-knight"),
     idleFrameCount: 8,
-    price: 0,
+    price: 150,
     isDefault: true,
   },
   {
@@ -84,9 +84,9 @@ export function getHero(id: string): Hero | undefined {
   return HEROES.find((h) => h.id === id);
 }
 
-// Le héros par défaut est toujours possédé (aucune ligne requise en base).
+// US-29 : possession strictement en base. Le starter choisi à l'onboarding est
+// offert (ligne `unlocked_heroes` à price_paid=0) ; plus aucun héros gratuit
+// implicite. `isDefault` ne sert plus que de fallback de rendu (DEFAULT_HERO_ID).
 export function isHeroOwned(heroId: string, ownedIds: string[]): boolean {
-  const hero = getHero(heroId);
-  if (hero?.isDefault) return true;
   return ownedIds.includes(heroId);
 }
