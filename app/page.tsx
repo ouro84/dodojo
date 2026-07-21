@@ -79,6 +79,7 @@ export default async function ArenePage() {
       today={today}
       bossId={daily.bossId}
       backgroundId={daily.backgroundId}
+      hasSeenTutorial={profile.has_seen_tutorial}
     />
   );
 }
