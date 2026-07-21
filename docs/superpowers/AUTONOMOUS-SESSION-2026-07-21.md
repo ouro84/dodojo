@@ -55,5 +55,19 @@ Ordre : **US-16 → US-15 → US-10 → US-17**, du moins risqué/plus dopaminer
 - **Nav** : lien 🏆 ajouté au QG (hub).
 - **Décision** : fetch borné à 90 jours + pagination client (respecte B3 sans over-engineering une pagination serveur pour un MVP).
 - **Vérif** : 106/106 Vitest, lint propre, `build` vert (route `/pantheon` générée).
+- **Commit** : `07d6119`.
+
+### US-17 — Mode Entraînement (fait)
+- **Migration** `20260721093000_create_recurring.sql` : tables `recurring_templates` (weekdays int[], is_active, RLS sans DELETE) + `recurring_rest_days` (avec DELETE assumé, cf. décision) + colonne `tasks.recurring_template_id`. Appliquée remote (confirmé).
+- **Moteur** : `weekdayOf` (lundi=0), `shouldGenerate`, `planRecurringGeneration` (anti-doublon D5, no-rétro D6, jour de repos A2), tous purs. 8 tests (ancre lundi 2021-01-04).
+- **Actions** : `generateRecurringInstances` (idempotent), `createRecurringTemplate` (+ instance immédiate si jour matche), `updateRecurringTemplate` (futur-only), `deactivateRecurringTemplate`, `toggleRestDay`.
+- **Décision-clé (intégration)** : génération branchée au **chargement de `app/page.tsx`**, pas seulement en fin de Réveil — le Réveil bloquant ne se monte qu'avec des restes, donc les jours propres seraient ratés. Lazy + idempotent. Documenté dans CLAUDE.md.
+- **Décision (RLS)** : `recurring_rest_days` a une policy DELETE (seule du projet) — c'est une préférence de planning réversible, pas une donnée de combat sous RG-04.
+- **UI** : icône 🔁 (TaskRow), écran `/qg/entrainement` (`RecurringManager` : créer avec sélecteur de jours L→D, désactiver, repos du jour), lien depuis le QG.
+- **Dette assumée** : création via l'écran de gestion, pas via un toggle dans le champ d'ajout de l'Arène (repoussé, documenté).
+- **Vérif** : 114/114 Vitest, lint propre, `build` vert (route `/qg/entrainement`), migration remote OK.
 - **Commit** : (ci-dessous).
+
+### Bilan Sprint 2 — SOLDÉ (US-10, 12, 15, 16, 17, 18)
+US-12/18 étaient déjà mergées ; cette session livre US-16, US-15, US-10, US-17. Reste à fermer les issues GitHub #11–#16.
 

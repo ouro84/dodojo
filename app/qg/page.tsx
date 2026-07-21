@@ -33,6 +33,9 @@ export default async function QgPage() {
       <Link href="/pantheon" className="text-sm text-hp underline underline-offset-4">
         🏆 Le Panthéon
       </Link>
+      <Link href="/qg/entrainement" className="text-sm text-xp underline underline-offset-4">
+        🔁 Mode Entraînement
+      </Link>
       <Link href="/echoppe" className="text-sm text-gold underline underline-offset-4">
         🛒 L&apos;Échoppe
       </Link>

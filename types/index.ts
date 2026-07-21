@@ -38,8 +38,19 @@ export interface Task {
   is_abandoned: boolean;
   abandon_reason: "rage_quit" | "annihilated" | null;
   is_recurring: boolean;
+  recurring_template_id: string | null;
   deadline_at: string | null;
   day_date: string;
+  position: number;
+  created_at: string;
+}
+
+export interface RecurringTemplate {
+  id: string;
+  user_id: string;
+  title: string;
+  weekdays: number[]; // 0..6, lundi=0, semaine locale
+  is_active: boolean;
   position: number;
   created_at: string;
 }

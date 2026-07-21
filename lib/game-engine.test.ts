@@ -13,6 +13,9 @@ import {
   applyRageQuitPenalty,
   collectAbandonCascade,
   RAGE_QUIT_XP_PENALTY,
+  weekdayOf,
+  shouldGenerate,
+  planRecurringGeneration,
   titleForStreak,
   weekKey,
   dayKey,
@@ -40,6 +43,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     is_abandoned: false,
     abandon_reason: null,
     is_recurring: false,
+    recurring_template_id: null,
     deadline_at: null,
     day_date: "2026-07-16",
     position: 0,
@@ -191,6 +195,57 @@ describe("koOutcome (US-16, palier PERFECT/K.O.)", () => {
   test("renaissance puis re-KO re-déclenche", () => {
     // Boss ressuscité à 20 (prev), retombe à 0 → nouvelle transition valide.
     expect(koOutcome(20, 0, 100, 100)).toBe("perfect");
+  });
+});
+
+describe("weekdayOf (US-17)", () => {
+  test("lundi=0 … dimanche=6 (ancre : 2021-01-04 est un lundi)", () => {
+    expect(weekdayOf("2021-01-04")).toBe(0); // lundi
+    expect(weekdayOf("2021-01-05")).toBe(1); // mardi
+    expect(weekdayOf("2021-01-10")).toBe(6); // dimanche
+  });
+});
+
+describe("shouldGenerate (US-17)", () => {
+  const tpl = { id: "A", weekdays: [0, 2, 4], is_active: true };
+
+  test("jour inclus dans la règle → true", () => {
+    expect(shouldGenerate(tpl, "2021-01-04")).toBe(true); // lundi (0)
+  });
+
+  test("jour exclu → false", () => {
+    expect(shouldGenerate(tpl, "2021-01-05")).toBe(false); // mardi (1)
+  });
+
+  test("template inactif → false", () => {
+    expect(shouldGenerate({ ...tpl, is_active: false }, "2021-01-04")).toBe(false);
+  });
+
+  test("jour de repos → false", () => {
+    expect(shouldGenerate(tpl, "2021-01-04", new Set(["A"]))).toBe(false);
+  });
+});
+
+describe("planRecurringGeneration (US-17)", () => {
+  const monday = "2021-01-04"; // weekday 0
+  const templates = [
+    { id: "A", weekdays: [0], is_active: true }, // matche lundi
+    { id: "B", weekdays: [1], is_active: true }, // mardi, pas aujourd'hui
+    { id: "C", weekdays: [0], is_active: false }, // inactif
+  ];
+
+  test("génère pour les templates du jour (exclut hors-jour et inactifs)", () => {
+    expect(planRecurringGeneration(templates, monday, new Set())).toEqual(["A"]);
+  });
+
+  test("saute si une instance existe déjà pour aujourd'hui (D5)", () => {
+    expect(planRecurringGeneration(templates, monday, new Set(["A"]))).toEqual([]);
+  });
+
+  test("saute si jour de repos (A2)", () => {
+    expect(
+      planRecurringGeneration(templates, monday, new Set(), new Set(["A"])),
+    ).toEqual([]);
   });
 });
 

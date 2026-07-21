@@ -27,9 +27,11 @@ nouvelle section versionnée et datée.
 - US-16 : Animation « Perfect » / K.O. (célébration en direct quand le Boss tombe à 0 : **PERFECT** si Héro intact, **K.O.** si Héro entamé ; CTA Rituel du Crépuscule ; super-variante flammes au franchissement d'un palier de série ; variante douce `prefers-reduced-motion`)
 - US-15 : Rage Quit de tâche (abandon punitif en cours de journée : modale de confirmation, malus −5 XP clampé sans de-level, Boss rétréci, cascade sur les sous-tâches actives, punchline « le Boss ricane », **undo** même-jour qui restaure et rembourse ; distingué de l'« Annihiler » serein du Réveil via `abandon_reason`)
 - US-10 : Le Panthéon (écran lecture seule accessible depuis le QG — blocs Héros / Trophées / Trésor / Titres / Journal de combat paginé ; sparkline des dégâts, anneau de win-rate, meilleur jour ; 3 états Loading/Error/Empty)
+- US-17 : Mode Entraînement / tâches récurrentes (routines à jours de la semaine sélectionnables, générées automatiquement au réveil du jour courant ; icône 🔁 sur les instances ; anti-doublon 1/routine/jour ; pas de génération rétroactive ; jour de repos planifiable ; écran de gestion `/qg/entrainement` : créer, désactiver, repos du jour)
 
 ### Technique
 - Colonne `tasks.abandon_reason` (`rage_quit` | `annihilated`) : distingue en base l'abandon punitif du reste nettoyé sereinement (fondation des futures stats d'abandon du Panthéon)
+- Tables `recurring_templates` (routines, `weekdays int[]`, désactivation sans DELETE) et `recurring_rest_days` (jours de repos, seul objet avec policy DELETE — préférence de planning, pas donnée de combat) + colonne `tasks.recurring_template_id` ; génération idempotente au chargement de l'Arène (`generateRecurringInstances`)
 - Initialisation du projet (Next.js 16, Supabase, Tailwind v4, Vitest, Playwright)
 - Schéma BDD initial (`profiles`, `tasks`) avec RLS appliquant RG-04 (pas de suppression destructive)
 - Premier test e2e Playwright (ADR-04, boucle de combat quotidienne)

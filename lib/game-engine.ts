@@ -577,3 +577,49 @@ export function titleForStreak(bestStreak: number): string | null {
   if (bestStreak >= 7) return "Ceinture Jaune";
   return null;
 }
+
+// US-17 : jour de la semaine (lundi=0 … dimanche=6) d'une date calendaire locale
+// YYYY-MM-DD. Comme `weekKey`, le day_date est déjà local → aucun fuseau à
+// ré-appliquer (une date calendaire a un jour de semaine fixe).
+export function weekdayOf(dayDate: string): number {
+  const date = new Date(`${dayDate}T00:00:00Z`);
+  return (date.getUTCDay() + 6) % 7; // getUTCDay: 0=dimanche → lundi=0
+}
+
+export type RecurringTemplateRule = {
+  id: string;
+  weekdays: number[];
+  is_active: boolean;
+};
+
+// US-17 (D1/A2) : ce template doit-il générer une instance ce jour ? Actif, jour
+// de semaine inclus dans la règle, et pas marqué en jour de repos.
+export function shouldGenerate(
+  template: RecurringTemplateRule,
+  dayDate: string,
+  restDayTemplateIds: Set<string> = new Set(),
+): boolean {
+  if (!template.is_active) return false;
+  if (restDayTemplateIds.has(template.id)) return false;
+  return template.weekdays.includes(weekdayOf(dayDate));
+}
+
+// US-17 : décide, en pur (sans I/O), quels templates instancier pour `today`.
+// Applique l'anti-doublon (D5 : une instance déjà présente — fraîche OU reste
+// reporté de cette routine — fait sauter la génération) et le no-rétroactif (D6 :
+// seul `today` génère, jamais un jour passé). `existingTemplateIdsToday` = set des
+// template_id ayant déjà une tâche sur `today`.
+export function planRecurringGeneration(
+  templates: RecurringTemplateRule[],
+  today: string,
+  existingTemplateIdsToday: Set<string>,
+  restDayTemplateIds: Set<string> = new Set(),
+): string[] {
+  return templates
+    .filter(
+      (t) =>
+        shouldGenerate(t, today, restDayTemplateIds) &&
+        !existingTemplateIdsToday.has(t.id),
+    )
+    .map((t) => t.id);
+}
