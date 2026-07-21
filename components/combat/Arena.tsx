@@ -37,6 +37,8 @@ import {
   type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
+import { DEFAULT_BOSS_ID, getBoss } from "@/lib/bosses";
+import { DEFAULT_BACKGROUND_ID, getBackground } from "@/lib/backgrounds";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
@@ -58,14 +60,14 @@ import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
 import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
 
-const BOSS_NAME = "Le Gardien de Glace";
-
 interface ArenaProps {
   initialProfile: Profile;
   initialTasks: Task[];
   overdueTasks: Task[];
   dayResults: Array<Pick<DayResult, "day_date" | "outcome">>;
   today: string;
+  bossId: string;
+  backgroundId: string;
 }
 
 interface Pulse {
@@ -106,7 +108,13 @@ export default function Arena({
   overdueTasks,
   dayResults,
   today,
+  bossId,
+  backgroundId,
 }: ArenaProps) {
+  const boss = getBoss(bossId) ?? getBoss(DEFAULT_BOSS_ID)!;
+  const background =
+    getBackground(backgroundId) ?? getBackground(DEFAULT_BACKGROUND_ID)!;
+  const bossName = boss.name;
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
@@ -557,7 +565,7 @@ export default function Arena({
       {recap && (
         <CrepusculeRecap
           outcome={recap.outcome}
-          bossName={BOSS_NAME}
+          bossName={bossName}
           username={profile.username}
           damageDealt={recap.damageDealt}
           tasksCompleted={recap.tasksCompleted}
@@ -584,7 +592,11 @@ export default function Arena({
             heroFrameCount={equippedHero.idleFrameCount}
             heroHp={heroHp}
             heroMaxHp={HERO_MAX_HP}
-            bossName={BOSS_NAME}
+            bossName={bossName}
+            bossFramePrefix={boss.idleFramePrefix}
+            bossFrameCount={boss.idleFrameCount}
+            bossFlip={boss.flip}
+            backgroundPath={background.publicPath}
             currentHp={currentHp}
             maxHp={maxHp}
             dimmed={isEmpty}
@@ -614,7 +626,7 @@ export default function Arena({
           {koState && (
             <PerfectOverlay
               tier={koState.tier}
-              bossName={BOSS_NAME}
+              bossName={bossName}
               username={profile.username}
               damageDealt={koState.damageDealt}
               monstersDefeated={koState.monstersDefeated}
