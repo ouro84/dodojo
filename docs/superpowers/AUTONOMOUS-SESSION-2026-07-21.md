@@ -46,5 +46,14 @@ Ordre : **US-16 → US-15 → US-10 → US-17**, du moins risqué/plus dopaminer
 - **UI** : modale de confirmation (action punitive, D5), malus XP optimiste, toast d'undo avec punchline « le Boss ricane », `types/Task.abandon_reason` ajouté (+ objets optimistes de l'Arène).
 - **Décision** : refund via `applyXpDelta(+5)` (garde un profil XP valide) ; asymétrie mineure assumée quand xp<5 au moment du malus (clamp à 0 → refund donne 5). Documenté.
 - **Vérif** : 100/100 Vitest, lint propre, `build` vert, migration remote OK.
+- **Commit** : `d59ac47`.
+
+### US-10 — Le Panthéon (fait)
+- **Moteur** : `pantheonStats(dayResults, seriesLength=14)` (pur) → victoires, win-rate (garde /0), dégâts & or all-time, meilleur jour (égalité → date récente, null si 0 dégât), série de dégâts. 6 tests.
+- **Écran** : `app/pantheon/page.tsx` (serveur, lecture seule) + `loading.tsx` (squelettes) + états Error/Empty. 5 blocs (Héros/Trophées/Trésor/Titres/Journal).
+- **Composants** : `components/pantheon/DamageSparkline` + `WinRateRing` (SVG purs, statiques) + `CombatJournal` (client, pagination « charger plus » sur lot borné, pas de re-fetch).
+- **Nav** : lien 🏆 ajouté au QG (hub).
+- **Décision** : fetch borné à 90 jours + pagination client (respecte B3 sans over-engineering une pagination serveur pour un MVP).
+- **Vérif** : 106/106 Vitest, lint propre, `build` vert (route `/pantheon` générée).
 - **Commit** : (ci-dessous).
 

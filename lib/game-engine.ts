@@ -512,6 +512,63 @@ export function currentStreak(
   };
 }
 
+export interface PantheonStats {
+  totalVictories: number;
+  totalDays: number;
+  winRate: number; // ratio 0..1 (Boss vaincus / jours joués)
+  totalDamage: number;
+  goldAllTime: number;
+  bestDay: { day_date: string; damage: number } | null;
+  damageSeries: number[]; // dégâts des N derniers jours, chronologique
+}
+
+export type PantheonDay = Pick<
+  DayResult,
+  "day_date" | "outcome" | "damage_dealt" | "gold_earned"
+>;
+
+// US-10 : agrégats purs du Panthéon, dérivés de day_results. Aucune écriture.
+// winRate garde la division par zéro (0 jour → 0). bestDay départage les égalités
+// par la date la plus récente (déterministe). damageSeries = N derniers jours
+// (chronologique) pour la sparkline.
+export function pantheonStats(
+  dayResults: PantheonDay[],
+  seriesLength = 14,
+): PantheonStats {
+  const totalDays = dayResults.length;
+  const totalVictories = dayResults.filter((r) => r.outcome === "victory").length;
+  const totalDamage = dayResults.reduce((sum, r) => sum + r.damage_dealt, 0);
+  const goldAllTime = dayResults.reduce((sum, r) => sum + r.gold_earned, 0);
+
+  let bestDay: { day_date: string; damage: number } | null = null;
+  for (const r of dayResults) {
+    if (
+      bestDay === null ||
+      r.damage_dealt > bestDay.damage ||
+      (r.damage_dealt === bestDay.damage && r.day_date > bestDay.day_date)
+    ) {
+      bestDay = { day_date: r.day_date, damage: r.damage_dealt };
+    }
+  }
+  // Un « meilleur jour » à 0 dégât n'a pas de valeur de trophée.
+  if (bestDay && bestDay.damage === 0) bestDay = null;
+
+  const damageSeries = [...dayResults]
+    .sort((a, b) => a.day_date.localeCompare(b.day_date))
+    .slice(-seriesLength)
+    .map((r) => r.damage_dealt);
+
+  return {
+    totalVictories,
+    totalDays,
+    winRate: totalDays === 0 ? 0 : totalVictories / totalDays,
+    totalDamage,
+    goldAllTime,
+    bestDay,
+    damageSeries,
+  };
+}
+
 // US-12 : titre débloqué selon le record de série (provisoire — vocabulaire dojo,
 // pourra fusionner avec d'éventuels titres de niveau plus tard).
 export function titleForStreak(bestStreak: number): string | null {

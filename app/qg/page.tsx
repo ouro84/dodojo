@@ -30,6 +30,9 @@ export default async function QgPage() {
       <h1 className="font-display text-lg uppercase tracking-wide text-ink">Le QG</h1>
       <StreakBadge state={streak} />
       <p className="text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
+      <Link href="/pantheon" className="text-sm text-hp underline underline-offset-4">
+        🏆 Le Panthéon
+      </Link>
       <Link href="/echoppe" className="text-sm text-gold underline underline-offset-4">
         🛒 L&apos;Échoppe
       </Link>
