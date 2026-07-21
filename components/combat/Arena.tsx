@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   closestCenter,
   DndContext,
@@ -554,7 +555,14 @@ export default function Arena({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-3 px-4 py-4">
+    <div className="relative flex flex-1 flex-col gap-3 px-4 py-4">
+      <Link
+        href="/guide"
+        aria-label="Manuel du Dojo"
+        className="absolute right-3 top-3 z-40 text-xs text-faint hover:text-ink"
+      >
+        ?
+      </Link>
       {showWakeUp && (
         <WakeUpRitual
           overdueTasks={overdueTasks}
