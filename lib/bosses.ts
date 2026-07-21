@@ -65,7 +65,7 @@ export const BOSSES: Boss[] = [
     ["steampunk-cityscape"], true),
   boss("mushroom", "le Champignon Corrompu", 7,
     "Spore géante née dans les cavernes humides.",
-    ["crystal-cave", "ancient-temple"], true),
+    ["crystal-cave", "ancient-temple"]),
   boss("gorgon", "la Gorgone", 7,
     "Femme-serpent au regard pétrifiant des cités perdues.",
     ["ancient-temple", "desert-oasis", "underwater-world"], true),
