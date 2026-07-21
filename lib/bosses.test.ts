@@ -9,13 +9,12 @@ import {
 } from "./bosses";
 
 describe("catalogue boss (intégrité)", () => {
-  test("tous les backgroundIds d'un boss existent dans le catalogue de décors", () => {
-    const bgIds = new Set(BACKGROUNDS.map((b) => b.id));
+  test("chaque thème d'un boss a au moins une variante de décor extraite", () => {
+    const themes = new Set(BACKGROUNDS.map((b) => b.theme));
     for (const boss of BOSSES) {
-      expect(boss.backgroundIds.length).toBeGreaterThanOrEqual(1);
-      expect(boss.backgroundIds.length).toBeLessThanOrEqual(3);
-      for (const id of boss.backgroundIds) {
-        expect(bgIds.has(id), `${boss.id} → ${id}`).toBe(true);
+      expect(boss.backgroundThemes.length).toBeGreaterThanOrEqual(1);
+      for (const theme of boss.backgroundThemes) {
+        expect(themes.has(theme), `${boss.id} → ${theme}`).toBe(true);
       }
     }
   });
@@ -59,11 +58,23 @@ describe("pickDailyBoss (US roster)", () => {
 });
 
 describe("pickBackgroundId", () => {
-  test("renvoie un décor autorisé du boss", () => {
+  test("renvoie un décor dont le thème est autorisé pour le boss", () => {
     for (const boss of BOSSES) {
-      const bg = pickBackgroundId(boss, () => 0);
-      expect(boss.backgroundIds).toContain(bg);
-      expect(getBackground(bg)).toBeDefined();
+      const id = pickBackgroundId(boss, () => 0);
+      const bg = getBackground(id);
+      expect(bg).toBeDefined();
+      expect(boss.backgroundThemes).toContain(bg!.theme);
     }
+  });
+
+  test("les variantes d'un thème validé entrent dans le pool", () => {
+    // ancient-temple a 3 variantes → un boss ciblant ce thème peut toutes les tirer.
+    const boss = BOSSES.find((b) => b.backgroundThemes.includes("ancient-temple"))!;
+    const reachable = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      reachable.add(pickBackgroundId(boss, () => i / 50));
+    }
+    expect(reachable.has("ancient-temple")).toBe(true);
+    expect(reachable.has("ancient-temple-2")).toBe(true);
   });
 });

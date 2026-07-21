@@ -1,9 +1,16 @@
+import {
+  BACKGROUNDS,
+  backgroundsForThemes,
+  type Background,
+  type BackgroundTheme,
+} from "./backgrounds";
+
 // Roster des Boss quotidiens. Sprites idle extraits vers
 // public/sprites/bosses/<slug>/idle/frameNNNN.png (base 0, 4 chiffres) par
-// scripts/copy-boss-sprites.mjs. `backgroundIds` = 1 à 3 décors cohérents avec
-// le lore du boss (on n'envoie pas un monstre marin dans un ciel de montagne).
-// Licences : cf. ASSETS.md (bosses "réels" non documentés localement ; low boss
-// = CraftPix free) — à vérifier avant prod monétisée.
+// scripts/copy-boss-sprites.mjs. `backgroundThemes` = thèmes de décor cohérents
+// avec le lore du boss ; toutes les variantes de ces thèmes entrent dans son pool
+// (on n'envoie pas un monstre marin dans un ciel de montagne).
+// Licences : cf. ASSETS.md — à vérifier avant prod monétisée.
 export interface Boss {
   id: string;
   name: string;
@@ -11,10 +18,9 @@ export interface Boss {
   idleFramePrefix: string;
   idleFrameCount: number;
   lore: string;
-  backgroundIds: string[];
+  backgroundThemes: BackgroundTheme[];
   // Miroir horizontal du sprite : le boss est à droite de l'Arène et doit
-  // regarder le héros (à gauche). Vrai pour les sprites qui, à l'origine,
-  // regardent à droite. À confirmer visuellement via l'écran de test roster.
+  // regarder le héros (à gauche). Vrai pour les sprites qui regardent à droite.
   flip: boolean;
 }
 
@@ -23,7 +29,7 @@ function boss(
   name: string,
   idleFrameCount: number,
   lore: string,
-  backgroundIds: string[],
+  backgroundThemes: BackgroundTheme[],
   flip = false,
 ): Boss {
   return {
@@ -33,7 +39,7 @@ function boss(
     idleFramePrefix: `/sprites/bosses/${id}/idle/frame`,
     idleFrameCount,
     lore,
-    backgroundIds,
+    backgroundThemes,
     flip,
   };
 }
@@ -42,27 +48,27 @@ export const BOSSES: Boss[] = [
   boss("frost-guardian", "le Gardien de Glace", 6,
     "Colosse de givre gardien des cimes gelées.",
     ["crystal-cave", "mountain-peak"]),
-  boss("demon-slime", "le Démon Gluant", 6,
-    "Amas démoniaque tapi dans les donjons oubliés.",
+  boss("demon-slime", "le Démon de Feu Mineur", 6,
+    "Créature démoniaque des donjons, née des braises.",
     ["ancient-temple", "castle-interior"]),
   boss("cthulhu", "Cthulhu l'Abyssal", 15,
     "Horreur cosmique remontée des abysses.",
-    ["underwater-world", "ancient-temple"]),
+    ["underwater-world", "ancient-temple", "crystal-cave"], true),
   boss("minotaur", "le Minotaure Ancestral", 16,
     "Bête cornue rôdant dans les labyrinthes de pierre.",
-    ["ancient-temple", "castle-interior"]),
+    ["ancient-temple", "castle-interior", "desert-oasis"]),
   boss("satyr", "le Satyre Sylvestre", 7,
     "Créature mi-homme mi-bouc des mythes anciens.",
     ["ancient-temple", "mountain-peak"], true),
   boss("urban-zombie", "le Zombie des Rues", 6,
     "Mort-vivant errant dans les ruelles industrielles.",
     ["steampunk-cityscape"], true),
-  boss("mushroom", "le Champignon Corrompu", 8,
+  boss("mushroom", "le Champignon Corrompu", 7,
     "Spore géante née dans les cavernes humides.",
     ["crystal-cave", "ancient-temple"], true),
   boss("gorgon", "la Gorgone", 7,
     "Femme-serpent au regard pétrifiant des cités perdues.",
-    ["ancient-temple", "desert-oasis"], true),
+    ["ancient-temple", "desert-oasis", "underwater-world"], true),
   boss("fire-wizard", "le Mage de Feu", 7,
     "Sorcier retranché dans sa tour, maître des flammes.",
     ["castle-interior", "crystal-cave"], true),
@@ -86,8 +92,8 @@ export function getBoss(id: string): Boss | undefined {
 export const DEFAULT_BOSS_ID = "frost-guardian";
 
 // Tire un boss du jour au hasard, en excluant les boss des jours récents fournis
-// (typiquement les 2 derniers). Si l'exclusion vide le pool (peu de boss), on
-// retombe sur le pool complet. `rng` injecté pour la testabilité.
+// (typiquement les 2 derniers). Si l'exclusion vide le pool, on retombe sur le
+// pool complet. `rng` injecté pour la testabilité.
 export function pickDailyBoss(
   recentBossIds: string[],
   rng: () => number = Math.random,
@@ -99,7 +105,15 @@ export function pickDailyBoss(
   return list[Math.floor(rng() * list.length)];
 }
 
-// Tire un décor cohérent parmi ceux autorisés pour ce boss.
-export function pickBackgroundId(boss: Boss, rng: () => number = Math.random): string {
-  return boss.backgroundIds[Math.floor(rng() * boss.backgroundIds.length)];
+// Tire un décor cohérent parmi toutes les variantes des thèmes autorisés du boss.
+export function pickBackgroundId(
+  boss: Boss,
+  rng: () => number = Math.random,
+  pool: Background[] = BACKGROUNDS,
+): string {
+  const candidates = backgroundsForThemes(boss.backgroundThemes).filter((b) =>
+    pool.includes(b),
+  );
+  const list = candidates.length > 0 ? candidates : pool;
+  return list[Math.floor(rng() * list.length)].id;
 }

@@ -38,7 +38,7 @@ const LB = "Boss/low boss";
 const SHEET_BOSSES = [
   { slug: "satyr", file: A(`${LB}/Free-Satyr-Sprite-Sheet-Pixel-Art-Pack/Satyr_1/Idle.png`), frames: 7 },
   { slug: "urban-zombie", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_1/Idle.png`), frames: 6 },
-  { slug: "mushroom", file: A(`${LB}/Mushroom/Mushroom without VFX/Mushroom-Idle.png`), frames: 8 },
+  { slug: "mushroom", file: A(`${LB}/Mushroom/Mushroom without VFX/Mushroom-Idle.png`), frames: 7 },
   { slug: "gorgon", file: A(`${LB}/free-gorgon-pixel-art-character-sprite-sheets/Gorgon_1/Idle.png`), frames: 7 },
   { slug: "fire-wizard", file: A(`${LB}/free-wizard-sprite-sheets-pixel-art/Fire vizard/Idle.png`), frames: 7 },
   { slug: "lightning-mage", file: A(`${LB}/free-wizard-sprite-sheets-pixel-art/Lightning Mage/Idle.png`), frames: 7 },
@@ -46,17 +46,26 @@ const SHEET_BOSSES = [
   { slug: "knight", file: A(`${LB}/knight-character-sprites-pixel-art/Spritesheet 128/Knight_1/Idle.png`), frames: 4 },
 ];
 
-// --- Backgrounds : rendu plat par thème ---
+// --- Backgrounds : plusieurs variantes par thème (background 1..N des packs).
+// style "png"  → PNG/background <v>/background <v>.png ; style "orig" → background <v>/orig.png.
+// On tente les variantes demandées et on saute celles absentes. slug = <theme>
+// pour la variante 1, <theme>-<v> ensuite.
 const BG = "Backgrounds";
-const BACKGROUNDS = [
-  { slug: "ancient-temple", file: A(`${BG}/free-ancient-temple-pixel-game-backgrounds/PNG/background 1/background 1.png`) },
-  { slug: "castle-interior", file: A(`${BG}/Free-Castle-Interior-Pixel-Game-Backgrounds/PNG/background 1/background 1.png`) },
-  { slug: "crystal-cave", file: A(`${BG}/free-crystal-cave-pixel-art-backgrounds/PNG/background 1/background 1.png`) },
-  { slug: "desert-oasis", file: A(`${BG}/free-desert-oasis-pixel-art-background-pack/PNG/background 1/background 1.png`) },
-  { slug: "mountain-peak", file: A(`${BG}/free-mountain-peak-pixel-art-backgrounds/PNG/background 1/background 1.png`) },
-  { slug: "steampunk-cityscape", file: A(`${BG}/free-steampunk-cityscape-pixel-backgrounds/background 1/orig.png`) },
-  { slug: "underwater-world", file: A(`${BG}/free-underwater-world-pixel-art-backgrounds/background 1/orig.png`) },
+const BG_THEMES = [
+  { theme: "ancient-temple", pack: "free-ancient-temple-pixel-game-backgrounds", style: "png", variants: [1, 2, 3] },
+  { theme: "castle-interior", pack: "Free-Castle-Interior-Pixel-Game-Backgrounds", style: "png", variants: [1, 2, 3] },
+  { theme: "crystal-cave", pack: "free-crystal-cave-pixel-art-backgrounds", style: "png", variants: [1, 2] },
+  { theme: "desert-oasis", pack: "free-desert-oasis-pixel-art-background-pack", style: "png", variants: [1, 2] },
+  { theme: "mountain-peak", pack: "free-mountain-peak-pixel-art-backgrounds", style: "png", variants: [1, 2] },
+  { theme: "steampunk-cityscape", pack: "free-steampunk-cityscape-pixel-backgrounds", style: "orig", variants: [1, 2] },
+  { theme: "underwater-world", pack: "free-underwater-world-pixel-art-backgrounds", style: "orig", variants: [1, 2] },
 ];
+
+function bgSource({ pack, style }, v) {
+  return style === "orig"
+    ? A(`${BG}/${pack}/background ${v}/orig.png`)
+    : A(`${BG}/${pack}/PNG/background ${v}/background ${v}.png`);
+}
 
 const numOf = (name) => {
   const m = name.match(/(\d+)/);
@@ -96,17 +105,39 @@ async function sliceSheet({ slug, file, frames }) {
   return frames;
 }
 
-async function copyBackground({ slug, file }) {
+async function exists(p) {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function extractBackgrounds() {
   await fs.mkdir(PUB("backgrounds"), { recursive: true });
-  await fs.copyFile(file, PUB(`backgrounds/${slug}.png`));
+  const out = [];
+  for (const t of BG_THEMES) {
+    for (const v of t.variants) {
+      const src = bgSource(t, v);
+      if (!(await exists(src))) {
+        console.warn(`SKIP absent: ${t.theme} v${v} (${src})`);
+        continue;
+      }
+      const slug = v === 1 ? t.theme : `${t.theme}-${v}`;
+      await fs.copyFile(src, PUB(`backgrounds/${slug}.png`));
+      out.push({ slug, theme: t.theme });
+    }
+  }
+  return out;
 }
 
 const summary = [];
 for (const b of FRAME_BOSSES) summary.push([b.slug, await extractFrames(b), "frames"]);
 for (const b of SHEET_BOSSES) summary.push([b.slug, await sliceSheet(b), "sheet"]);
-for (const bg of BACKGROUNDS) await copyBackground(bg);
+const bgOut = await extractBackgrounds();
 
 console.log("=== BOSS idle frames ===");
 for (const [slug, count, kind] of summary) console.log(`${slug}: ${count} (${kind})`);
-console.log("=== Backgrounds ===");
-console.log(BACKGROUNDS.map((b) => b.slug).join(", "));
+console.log("=== Backgrounds (slug | theme) ===");
+for (const b of bgOut) console.log(`${b.slug} | ${b.theme}`);

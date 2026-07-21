@@ -17,7 +17,14 @@ interface RosterPreviewProps {
 // n'importe quel décor ; les décors cohérents (catalogue) sont surlignés.
 export default function RosterPreview({ bosses, backgrounds }: RosterPreviewProps) {
   const [selected, setSelected] = useState<Record<string, string>>(() =>
-    Object.fromEntries(bosses.map((b) => [b.id, b.backgroundIds[0]])),
+    Object.fromEntries(
+      bosses.map((b) => {
+        const first =
+          backgrounds.find((bg) => b.backgroundThemes.includes(bg.theme)) ??
+          backgrounds[0];
+        return [b.id, first.id];
+      }),
+    ),
   );
   const [flips, setFlips] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(bosses.map((b) => [b.id, b.flip])),
@@ -75,7 +82,7 @@ export default function RosterPreview({ bosses, backgrounds }: RosterPreviewProp
             </div>
             <div className="flex flex-wrap gap-1">
               {backgrounds.map((b) => {
-                const coherent = boss.backgroundIds.includes(b.id);
+                const coherent = boss.backgroundThemes.includes(b.theme);
                 const active = b.id === bgId;
                 return (
                   <button

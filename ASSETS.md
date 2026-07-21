@@ -93,7 +93,7 @@ Steampunk et Underwater ont en plus une version haute résolution (`origbig.png`
 
 **Recommandation** : rotation de fond d'Arène selon le type de Boss du jour, layering parallax exploitable pour un effet de profondeur pendant le combat.
 
-**Intégration Roster (fait)** — les 7 thèmes sont extraits en rendu plat vers `public/backgrounds/<slug>.png` via `scripts/copy-boss-sprites.mjs` (rendu `PNG/background 1/background 1.png` ; steampunk & underwater via `background 1/orig.png`), catalogués dans `lib/backgrounds.ts`. Le décor du jour est tiré parmi les décors **cohérents avec le lore du boss** (`Boss.backgroundIds`), pas au hasard sur les 7. Parallax non exploité pour l'instant (rendu plat en `object-cover`).
+**Intégration Roster (fait)** — **16 variantes** extraites en rendu plat vers `public/backgrounds/<slug>.png` via `scripts/copy-boss-sprites.mjs` : plusieurs `background N` par thème (ancient-temple & castle-interior ×3, les autres ×2), style `PNG/background N/background N.png` ou `background N/orig.png` (steampunk, underwater). Cataloguées dans `lib/backgrounds.ts` avec un champ `theme`. Le décor du jour est tiré parmi les variantes des **thèmes cohérents avec le lore du boss** (`Boss.backgroundThemes` → `backgroundsForThemes`), jamais au hasard sur les 16. Ajouter une variante d'un thème = ajouter la ligne au catalogue (le pool des boss ciblant ce thème s'étend automatiquement). Parallax non exploité (rendu plat en `object-cover`).
 
 ---
 
