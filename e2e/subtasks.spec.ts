@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./fixtures";
+import { abandonViaUi, login } from "./fixtures";
 
 // Scénario US-04 : une sous-tâche vaut 10 HP (au lieu de 20) et s'imbrique
 // sous sa tâche parente.
@@ -15,10 +15,7 @@ test.describe("Sous-tâches à 2 niveaux (US-04)", () => {
     // RG-04 : jamais de suppression — on abandonne les tâches créées par le test.
     for (const title of [subtaskTitle, rootTitle]) {
       if (!title) continue;
-      const abandonButton = page.getByLabel(`Abandonner "${title}"`);
-      if (await abandonButton.count()) {
-        await abandonButton.click();
-      }
+      await abandonViaUi(page, title);
     }
     rootTitle = undefined;
     subtaskTitle = undefined;

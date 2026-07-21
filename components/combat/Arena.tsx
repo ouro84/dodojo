@@ -24,22 +24,31 @@ import {
   computeToggleCascade,
   currentStreak,
   HERO_MAX_HP,
+  koOutcome,
+  collectAbandonCascade,
+  applyRageQuitPenalty,
+  RAGE_QUIT_XP_PENALTY,
+  comboLabel,
+  comboIntensity,
   nextSiblingPosition,
   planReorder,
   summarizeDay,
   XP_PER_TASK,
+  type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
-  abandonTask as abandonTaskAction,
+  rageQuitTask as rageQuitTaskAction,
+  undoRageQuit as undoRageQuitAction,
   reorderSiblings as reorderSiblingsAction,
   setTaskCompleted as setTaskCompletedAction,
 } from "@/app/actions/tasks";
 import { closeDay as closeDayAction } from "@/app/actions/day";
 import BottomNav from "@/components/ui/BottomNav";
 import VersusScene from "./VersusScene";
+import ComboBanner from "./ComboBanner";
 import TaskList from "./TaskList";
 import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
@@ -79,6 +88,7 @@ interface DragOverInfo {
 
 let pulseCounter = 0;
 let xpPulseCounter = 0;
+let comboCounter = 0;
 let optimisticIdCounter = 0;
 
 // La cible de drop est le rect mesuré de la ligne survolée ; le rect
@@ -101,10 +111,32 @@ export default function Arena({
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
-  const [showPerfect, setShowPerfect] = useState(false);
+  const [koState, setKoState] = useState<{
+    tier: Exclude<KoTier, null>;
+    milestone: number | null;
+    damageDealt: number;
+    monstersDefeated: number;
+  } | null>(null);
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  // US-15 : id en attente de confirmation de Rage Quit + toast d'annulation.
+  const [rageQuitConfirmId, setRageQuitConfirmId] = useState<string | null>(null);
+  const [undoState, setUndoState] = useState<{
+    id: string;
+    tasksSnapshot: Task[];
+    profileSnapshot: Profile;
+    punchline: string;
+  } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  // Combo (juice arcade, purement visuel). Monte à la chaîne des tâches terminées,
+  // retombe si on décoche ou abandonne.
+  const [comboCount, setComboCount] = useState(0);
+  const [comboFlash, setComboFlash] = useState<{
+    key: number;
+    label: string;
+    intensity: number;
+  } | null>(null);
+  const comboTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showWakeUp, setShowWakeUp] = useState(overdueTasks.length > 0);
   const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
   const [closing, setClosing] = useState(false);
@@ -133,8 +165,34 @@ export default function Arena({
     return () => {
       if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
       if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
+      if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
     };
   }, []);
+
+  // Combo : incrémente de `hits` (tâches terminées d'un coup) et flashe la
+  // bannière si un palier est atteint. `reset` remet la série à zéro.
+  function bumpCombo(hits: number) {
+    setComboCount((current) => {
+      const next = current + hits;
+      const label = comboLabel(next);
+      if (label) {
+        comboCounter += 1;
+        const key = comboCounter;
+        setComboFlash({ key, label, intensity: comboIntensity(next) });
+        if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
+        comboTimeoutRef.current = setTimeout(() => {
+          setComboFlash((c) => (c?.key === key ? null : c));
+        }, 1200);
+      }
+      return next;
+    });
+  }
+
+  function resetCombo() {
+    setComboCount(0);
+    setComboFlash(null);
+    if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
+  }
 
   function triggerPulse(amount: number, kind: Pulse["kind"]) {
     pulseCounter += 1;
@@ -173,7 +231,9 @@ export default function Arena({
       title,
       is_completed: false,
       is_abandoned: false,
+      abandon_reason: null,
       is_recurring: false,
+      recurring_template_id: null,
       deadline_at: null,
       day_date: today,
       position: nextSiblingPosition(roots),
@@ -214,7 +274,9 @@ export default function Arena({
       title,
       is_completed: false,
       is_abandoned: false,
+      abandon_reason: null,
       is_recurring: false,
+      recurring_template_id: null,
       deadline_at: null,
       day_date: today,
       position: nextSiblingPosition(siblings),
@@ -264,11 +326,43 @@ export default function Arena({
 
     if (hpDelta > 0) {
       triggerPulse(hpDelta, "damage");
-      if (nextHp === 0 && calculateBossMaxHp(nextTasks) > 0) {
-        setShowPerfect(true);
+      // US-16 : transition→0 = célébration. previousHp est le HP du Boss avant
+      // ce coup (garde de transition), heroHp l'état du Héro (palier PERFECT).
+      const nextMaxHp = calculateBossMaxHp(nextTasks);
+      const tier = koOutcome(previousHp, nextHp, nextMaxHp, heroHp);
+      if (tier) {
+        // Ce KO scelle une victoire aujourd'hui : la série intégrant le jour
+        // franchit-elle un palier (US-12) ? On force l'issue du jour à victory.
+        const streakIfVictory = currentStreak(
+          [
+            ...dayResults.filter((r) => r.day_date !== today),
+            { day_date: today, outcome: "victory" },
+          ],
+          today,
+        ).length;
+        const milestone = [7, 30, 100].includes(streakIfVictory)
+          ? streakIfVictory
+          : null;
+        setKoState({
+          tier,
+          milestone,
+          damageDealt: nextMaxHp,
+          monstersDefeated: nextTasks.filter(
+            (t) => !t.is_abandoned && t.is_completed,
+          ).length,
+        });
       }
     } else if (hpDelta < 0) {
       triggerPulse(-hpDelta, "heal");
+    }
+
+    // Combo (juice arcade) : chaque tâche terminée à la chaîne monte la série ;
+    // décocher la brise. N'affecte ni l'XP ni l'or.
+    if (isCompleted) {
+      const hits = cascade.filter((change) => change.isCompleted).length;
+      if (hits > 0) bumpCombo(hits);
+    } else {
+      resetCombo();
     }
 
     const xpDelta = cascade.reduce((total, change) => {
@@ -302,7 +396,8 @@ export default function Arena({
       setTasks(previousTasksSnapshot);
       setProfile(previousProfileSnapshot);
       setLevelUpValue(null);
-      if (hpDelta > 0) setShowPerfect(false);
+      if (hpDelta > 0) setKoState(null);
+      resetCombo();
       setBanner(lastResult.error);
       return;
     }
@@ -370,18 +465,69 @@ export default function Arena({
     });
   }
 
+  // US-15 : clic sur « × » d'une tâche active → demande de confirmation
+  // (action punitive, D5). La confirmation déclenche le Rage Quit.
   function handleAbandon(id: string) {
-    const previousSnapshot = tasks;
+    setRageQuitConfirmId(id);
+  }
+
+  function confirmRageQuit() {
+    const id = rageQuitConfirmId;
+    setRageQuitConfirmId(null);
+    if (!id) return;
+
+    const tasksSnapshot = tasks;
+    const profileSnapshot = profile;
+
+    // Cascade optimiste (racine + sous-tâches actives) : le Boss rétrécit.
+    const cascadeIds = new Set(collectAbandonCascade(id, tasks));
     const nextTasks = tasks.map((task) =>
-      task.id === id ? { ...task, is_abandoned: true } : task,
+      cascadeIds.has(task.id)
+        ? { ...task, is_abandoned: true, abandon_reason: "rage_quit" as const }
+        : task,
     );
+    const nextProfile = applyRageQuitPenalty(profile);
 
     setTasks(nextTasks);
+    setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
+    triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    resetCombo(); // abandonner brise la série
+    setUndoState({
+      id,
+      tasksSnapshot,
+      profileSnapshot,
+      punchline: "Le Boss ricane : « Déjà à terre ? Relève-toi. »",
+    });
 
-    void abandonTaskAction(id).then((result) => {
+    void rageQuitTaskAction(id).then((result) => {
       if (result.error) {
-        setTasks(previousSnapshot);
+        setTasks(tasksSnapshot);
+        setProfile(profileSnapshot);
+        setUndoState(null);
         setBanner(result.error);
+        return;
+      }
+      if (result.level !== undefined && result.xp !== undefined) {
+        setProfile((current) => ({ ...current, level: result.level!, xp: result.xp! }));
+      }
+    });
+  }
+
+  function handleUndoRageQuit() {
+    const undo = undoState;
+    setUndoState(null);
+    if (!undo) return;
+
+    setTasks(undo.tasksSnapshot);
+    setProfile(undo.profileSnapshot);
+
+    void undoRageQuitAction(undo.id).then((result) => {
+      if (result.error) {
+        setBanner(result.error);
+        return;
+      }
+      if (result.level !== undefined && result.xp !== undefined) {
+        setProfile((current) => ({ ...current, level: result.level!, xp: result.xp! }));
       }
     });
   }
@@ -446,14 +592,38 @@ export default function Arena({
           {pulse?.kind === "damage" && pulse.impactVariant && (
             <ImpactVfx key={pulse.key} variant={pulse.impactVariant} />
           )}
+          {comboFlash && (
+            <ComboBanner
+              key={comboFlash.key}
+              label={comboFlash.label}
+              intensity={comboFlash.intensity}
+            />
+          )}
+          {comboCount >= 2 && (
+            <span
+              aria-label={`Combo en cours : ${comboCount} coups`}
+              className="pointer-events-none absolute right-2 top-2 z-30 font-display text-xs uppercase tracking-wider text-gold/90"
+            >
+              combo ×{comboCount}
+            </span>
+          )}
           {pulse && <FloatingText amount={pulse.amount} kind={pulse.kind} />}
           {xpPulse && (
             <FloatingText amount={xpPulse.amount} kind={xpPulse.kind} unit="XP" />
           )}
-          {showPerfect && (
+          {koState && (
             <PerfectOverlay
+              tier={koState.tier}
               bossName={BOSS_NAME}
-              onDismiss={() => setShowPerfect(false)}
+              username={profile.username}
+              damageDealt={koState.damageDealt}
+              monstersDefeated={koState.monstersDefeated}
+              milestone={koState.milestone}
+              onCrepuscule={() => {
+                setKoState(null);
+                void handleCrepuscule();
+              }}
+              onContinue={() => setKoState(null)}
             />
           )}
           {levelUpValue !== null && (
@@ -477,6 +647,62 @@ export default function Arena({
             className="shrink-0 underline"
           >
             Fermer
+          </button>
+        </div>
+      )}
+
+      {rageQuitConfirmId && (
+        <div
+          role="alertdialog"
+          aria-label="Confirmer l'abandon"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-[oklch(0.08_0_0_/_72%)] px-6"
+          onClick={() => setRageQuitConfirmId(null)}
+        >
+          <div
+            className="flex w-full max-w-xs flex-col gap-3 rounded-lg border border-alert bg-surface p-4 text-center"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="font-display text-sm uppercase tracking-wide text-alert">
+              Rage Quit ?
+            </p>
+            <p className="text-xs text-muted">
+              Abandonner «{" "}
+              {tasks.find((task) => task.id === rageQuitConfirmId)?.title}{" "}
+              » coûte −{RAGE_QUIT_XP_PENALTY} XP. Le Boss rétrécit, mais il
+              ricanera.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRageQuitConfirmId(null)}
+                className="flex-1 rounded-md border border-border px-3 py-2 text-xs text-ink"
+              >
+                Garder le combat
+              </button>
+              <button
+                type="button"
+                onClick={confirmRageQuit}
+                className="flex-1 rounded-md border border-alert px-3 py-2 font-display text-xs uppercase tracking-wide text-alert"
+              >
+                Abandonner
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {undoState && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted"
+        >
+          <span>{undoState.punchline}</span>
+          <button
+            type="button"
+            onClick={handleUndoRageQuit}
+            className="shrink-0 font-display uppercase tracking-wide text-xp underline underline-offset-2"
+          >
+            Annuler
           </button>
         </div>
       )}

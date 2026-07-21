@@ -89,6 +89,11 @@ export default function TaskRow({
           task.is_completed ? "text-faint line-through" : "text-ink"
         }`}
       >
+        {task.is_recurring && (
+          <span aria-label="Quête récurrente" title="Quête récurrente" className="mr-1">
+            🔁
+          </span>
+        )}
         {task.title}
       </span>
       {isNestableParent(task) && (

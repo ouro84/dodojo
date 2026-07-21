@@ -18,6 +18,15 @@ export async function login(page: Page): Promise<void> {
   await page.waitForURL("/");
 }
 
+// US-15 : le "×" ouvre une modale de confirmation (Rage Quit). Le nettoyage e2e
+// doit confirmer la modale pour réellement abandonner la tâche.
+export async function abandonViaUi(page: Page, title: string): Promise<void> {
+  const trigger = page.getByLabel(`Abandonner "${title}"`);
+  if (!(await trigger.count())) return;
+  await trigger.first().click();
+  await page.getByRole("button", { name: "Abandonner", exact: true }).click();
+}
+
 // US-18 : remet l'état Échoppe du compte e2e fixe à zéro (compte unique partagé,
 // tests en série). Utilise la clé secrète Supabase (hors RLS) — utilitaire de
 // test uniquement, pas le flux applicatif (l'app ne DELETE jamais, RG-04).

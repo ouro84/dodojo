@@ -1,0 +1,99 @@
+# Journal de session autonome — 2026-07-21
+
+> Agent : Claude (Opus 4.8, 1M context). Mandat : autonomie totale, carte blanche pour finir le Sprint 2 puis apporter de la valeur (audit, features, IHM) dans l'esprit Street Fighter old-school.
+> Branche : `session/autonomous-2026-07-21` (isolée, machine arrière possible).
+> Autorisations exceptionnelles de session : migrations Supabase, merges bypass CI (plus de crédit GitHub Actions). Ne s'appliquent qu'à cette session.
+
+Ce fichier trace **chaque décision et action** avec le *pourquoi*. Il est le livrable de traçabilité demandé.
+
+---
+
+## 0. Orientation (état constaté)
+
+- Sprint 0 & 1 livrés (Arène, QG, cycle Réveil/Crépuscule, voix, sous-tâches, drag&drop).
+- Sprint 2 partiellement livré : **US-12 (streaks)** et **US-18 (échoppe héros)** mergés (#45, #46) mais issues #14/#15 restées ouvertes.
+- **Reste Sprint 2** :
+  - **US-16 Perfect KO** — overlay `PerfectOverlay` existe mais non conforme : pas de fonction pure `koOutcome`, pas de palier PERFECT vs K.O., overlay sans tier/récap/CTA Crépuscule/reduced-motion/super-variante jalon.
+  - **US-15 Rage Quit** — `abandonTask` générique câblé, mais **sans** malus −5 XP, `abandon_reason`, undo, ni confirmation/punchline.
+  - **US-10 Panthéon** — aucun écran (agrégats `day_results` non contemplés).
+  - **US-17 Mode Entraînement** — `tasks.is_recurring` existe mais aucune logique de génération ; tables `recurring_templates`/`recurring_rest_days` absentes.
+- Specs détaillées validées présentes dans `docs/superpowers/specs/2026-07-20-us*.md` → je les suis sans réinventer.
+- Moteur pur `lib/game-engine.ts` complet (HP, XP, streak, gold, summarize, wakeup, dayKey). Supabase lié (`DoDoJo`, `supabase db push`).
+
+## 1. Stratégie d'exécution (décision)
+
+Ordre : **US-16 → US-15 → US-10 → US-17**, du moins risqué/plus dopaminergique au plus intégrant (US-17 touche le Réveil). Chaque US : (1) logique pure + tests Vitest, (2) câblage UI, (3) migration si besoin, (4) `build`+`lint`+`test` locaux, (5) commit conventionnel + MAJ `CHANGELOG.md`/`CLAUDE.md`/`SPECS`/issue. Puis audit + features surprise. Rapport final en fin de session.
+
+*Pourquoi cet ordre* : US-16 réutilise l'acquis (overlay déjà là) → victoire rapide et gros gain ressenti. US-15 introduit une migration simple (1 colonne). US-10 est lecture seule (zéro risque de régression sur la boucle de combat). US-17 en dernier car il modifie le chemin critique du Réveil et ajoute 3 objets de schéma.
+
+---
+
+## 2. Déroulé (rempli au fil de l'eau)
+
+### US-16 — Perfect / K.O. (fait)
+- **Moteur** : ajout `koOutcome(prev, next, max, heroHp): KoTier` (pur), 6 tests Vitest (matrice de transitions du spec §8). Décision : garde `prevBossHp===0` = anti-re-déclenchement sans renaissance (D4).
+- **Overlay** : `PerfectOverlay` réécrit — props `tier`/`username`/`damageDealt`/`monstersDefeated`/`milestone` + CTA Crépuscule + « continuer » + super-variante flammes (jalon streak). Ancien overlay ne montrait qu'un « Victory ! » statique.
+- **Câblage** : `Arena` mémorise `previousHp`, calcule `koOutcome` sur la transition, détecte le palier de série en forçant l'issue du jour à `victory`. CTA Crépuscule branché sur `handleCrepuscule`.
+- **CSS** : keyframe `ko-burst` (pop d'arcade) + reduced-motion. **Décision assumée** : easing overshoot signalé "bounce-easing" par le hook impeccable = choix de design (juice Street Fighter, `PRODUCT.md`), conservé volontairement.
+- **Vérif** : `tsc` propre (hors erreurs e2e préexistantes sur `main`), `build` vert, 93/93 Vitest.
+- **Docs** : CHANGELOG + CLAUDE.md (piège) + ce journal.
+- **Commit** : `0773c68`.
+
+### US-15 — Rage Quit (fait)
+- **Migration** `20260721090000_add_task_abandon_reason.sql` : colonne `abandon_reason` nullable + check `('rage_quit','annihilated')`. **Appliquée sur remote** (`supabase db push` → confirmé via `migration list`).
+- **Moteur** : `applyRageQuitPenalty` (−5 clampé, **sans de-level**, ≠ `applyXpDelta`), `RAGE_QUIT_XP_PENALTY=5`, `collectAbandonCascade` (racine + sous-tâches actives, exclut complétées/abandonnées) + 7 tests.
+- **Actions** : `rageQuitTask` (cascade + malus unique), `undoRageQuit` (restaure lignes `rage_quit` + refund +5) ; `annihilateOverdue*` posent désormais `abandon_reason='annihilated'`. Ancien `abandonTask` **supprimé**.
+- **UI** : modale de confirmation (action punitive, D5), malus XP optimiste, toast d'undo avec punchline « le Boss ricane », `types/Task.abandon_reason` ajouté (+ objets optimistes de l'Arène).
+- **Décision** : refund via `applyXpDelta(+5)` (garde un profil XP valide) ; asymétrie mineure assumée quand xp<5 au moment du malus (clamp à 0 → refund donne 5). Documenté.
+- **Vérif** : 100/100 Vitest, lint propre, `build` vert, migration remote OK.
+- **Commit** : `d59ac47`.
+
+### US-10 — Le Panthéon (fait)
+- **Moteur** : `pantheonStats(dayResults, seriesLength=14)` (pur) → victoires, win-rate (garde /0), dégâts & or all-time, meilleur jour (égalité → date récente, null si 0 dégât), série de dégâts. 6 tests.
+- **Écran** : `app/pantheon/page.tsx` (serveur, lecture seule) + `loading.tsx` (squelettes) + états Error/Empty. 5 blocs (Héros/Trophées/Trésor/Titres/Journal).
+- **Composants** : `components/pantheon/DamageSparkline` + `WinRateRing` (SVG purs, statiques) + `CombatJournal` (client, pagination « charger plus » sur lot borné, pas de re-fetch).
+- **Nav** : lien 🏆 ajouté au QG (hub).
+- **Décision** : fetch borné à 90 jours + pagination client (respecte B3 sans over-engineering une pagination serveur pour un MVP).
+- **Vérif** : 106/106 Vitest, lint propre, `build` vert (route `/pantheon` générée).
+- **Commit** : `07d6119`.
+
+### US-17 — Mode Entraînement (fait)
+- **Migration** `20260721093000_create_recurring.sql` : tables `recurring_templates` (weekdays int[], is_active, RLS sans DELETE) + `recurring_rest_days` (avec DELETE assumé, cf. décision) + colonne `tasks.recurring_template_id`. Appliquée remote (confirmé).
+- **Moteur** : `weekdayOf` (lundi=0), `shouldGenerate`, `planRecurringGeneration` (anti-doublon D5, no-rétro D6, jour de repos A2), tous purs. 8 tests (ancre lundi 2021-01-04).
+- **Actions** : `generateRecurringInstances` (idempotent), `createRecurringTemplate` (+ instance immédiate si jour matche), `updateRecurringTemplate` (futur-only), `deactivateRecurringTemplate`, `toggleRestDay`.
+- **Décision-clé (intégration)** : génération branchée au **chargement de `app/page.tsx`**, pas seulement en fin de Réveil — le Réveil bloquant ne se monte qu'avec des restes, donc les jours propres seraient ratés. Lazy + idempotent. Documenté dans CLAUDE.md.
+- **Décision (RLS)** : `recurring_rest_days` a une policy DELETE (seule du projet) — c'est une préférence de planning réversible, pas une donnée de combat sous RG-04.
+- **UI** : icône 🔁 (TaskRow), écran `/qg/entrainement` (`RecurringManager` : créer avec sélecteur de jours L→D, désactiver, repos du jour), lien depuis le QG.
+- **Dette assumée** : création via l'écran de gestion, pas via un toggle dans le champ d'ajout de l'Arène (repoussé, documenté).
+- **Vérif** : 114/114 Vitest, lint propre, `build` vert (route `/qg/entrainement`), migration remote OK.
+- **Commit** : (ci-dessous).
+
+### Bilan Sprint 2 — SOLDÉ (US-10, 12, 15, 16, 17, 18)
+US-12/18 étaient déjà mergées ; cette session livre US-16, US-15, US-10, US-17. **Issues #11–#16 fermées** avec commentaires de traçabilité. SPECS marqué « Sprint 2 livré » (commit dédié).
+
+### Régression e2e corrigée (avant tout push)
+US-15 change l'UX d'abandon (le « × » ouvre une modale). Les `afterEach` de nettoyage e2e (compte partagé, série) cliquaient le « × » en supposant l'abandon direct → cassés. Helper `abandonViaUi` ajouté à `e2e/fixtures.ts` + 6 specs migrés (délégué à un sous-agent, vérifié : 0 résidu, tsc propre).
+
+---
+
+## 3. Phase « surprise » — valeur ajoutée hors backlog
+
+### Feature bonus — Système de Combo (juice arcade, esprit Street Fighter)
+- **Pourquoi** : le cœur produit est le « shoot de dopamine immédiat ». Un combo counter façon SF récompense la complétion en rafale, renforce la boucle d'action, et donne le juice arcade demandé — sans toucher à l'économie XP/or (délibérément dérivée et fragile).
+- **Décision** : combo **purement visuel** (aucun bonus XP/or) → zéro risque d'équilibrage, aucune migration. L'option d'un bonus d'XP est laissée en dette documentée.
+- **Impl** : `comboLabel`/`comboIntensity` (purs, 3 tests), `ComboBanner` (flash escaladé), compteur persistant discret dans l'Arène, keyframe `combo-pop` + reduced-motion. Monte sur complétion à la chaîne, se brise sur décoche/abandon/erreur.
+- **Vérif** : 117/117 Vitest, lint propre, `build` vert.
+- **Commit** : `1b6938d`.
+
+### Vérification finale
+- **Vitest** : 117/117 verts.
+- **Playwright e2e** (série, serveur prod, port 3100) : **12 passed, 0 failed** (2 skips attendus : victoire nécessitant un compte isolé) en 59 s. La correction de la régression d'abandon (modale) est validée de bout en bout.
+- **`build`** + **`lint`** : propres.
+
+### Audit livré
+`docs/superpowers/AUDIT-2026-07-21.md` — audit code/archi/produit/backlog avec priorisation. Têtes de gondole : onboarding (#29) + guide (#28) = prochain euro de valeur ; puis partage (US-20, terrain prêt), roster de boss + son (assets déjà présents). Dette technique faible et documentée (caches dérivés A1, génération récurrente en rendu A2, 3 erreurs tsc e2e A5 à nettoyer).
+
+### Intégration
+- Branche `session/autonomous-2026-07-21` **poussée** sur GitHub (Vitest + e2e passés en local, conforme à la règle projet). Déploiement **preview** Vercel automatique par la PR/push.
+- **Pas de merge sur `main`** effectué : préserve la sécurité de rollback demandée + évite un déploiement prod non revu. Décision de merge laissée à l'utilisateur (autorisé pour la session, mais non requis).
+

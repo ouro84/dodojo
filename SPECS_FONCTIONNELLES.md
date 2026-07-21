@@ -2,7 +2,7 @@
 
 > Dernière mise à jour : 2026-07-20
 > Statut : Document de Référence Produit Spécifié (22/22 US) — Validé
-> Sprint 2 affiné (specs détaillées) : US-10, US-12, US-15, US-16, US-17, US-18 dans `docs/superpowers/specs/2026-07-20-us*.md`. Navigation Sprint 2 = **QG hub** (Arène = accueil ; Panthéon & Échoppe accessibles depuis le QG).
+> **Sprint 2 LIVRÉ** (2026-07-21) : US-10, US-12, US-15, US-16, US-17, US-18 implémentées. Specs détaillées dans `docs/superpowers/specs/2026-07-20-us*.md`. Navigation Sprint 2 = **QG hub** (Arène = accueil ; Panthéon, Échoppe & Mode Entraînement accessibles depuis le QG).
 
 ---
 

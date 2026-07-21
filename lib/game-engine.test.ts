@@ -8,6 +8,16 @@ import {
   computeToggleCascade,
   currentStreak,
   goldBalance,
+  koOutcome,
+  pantheonStats,
+  applyRageQuitPenalty,
+  collectAbandonCascade,
+  RAGE_QUIT_XP_PENALTY,
+  weekdayOf,
+  shouldGenerate,
+  planRecurringGeneration,
+  comboLabel,
+  comboIntensity,
   titleForStreak,
   weekKey,
   dayKey,
@@ -33,7 +43,9 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     title: "Tâche",
     is_completed: false,
     is_abandoned: false,
+    abandon_reason: null,
     is_recurring: false,
+    recurring_template_id: null,
     deadline_at: null,
     day_date: "2026-07-16",
     position: 0,
@@ -158,6 +170,200 @@ describe("calculateHeroHp (pénalité procrastination)", () => {
   test("plafonne à 0, jamais négatif", () => {
     const tasks = Array.from({ length: 10 }, (_, i) => makeTask({ id: `t${i}` }));
     expect(calculateHeroHp(tasks)).toBe(0);
+  });
+});
+
+describe("koOutcome (US-16, palier PERFECT/K.O.)", () => {
+  test("transition → 0 avec Héro plein = perfect", () => {
+    expect(koOutcome(20, 0, 100, 100)).toBe("perfect");
+  });
+
+  test("transition → 0 avec Héro entamé = ko", () => {
+    expect(koOutcome(20, 0, 100, 80)).toBe("ko");
+  });
+
+  test("nextBossHp > 0 = null (pas terrassé)", () => {
+    expect(koOutcome(40, 20, 100, 100)).toBeNull();
+  });
+
+  test("jour vide (bossMaxHp 0) = null", () => {
+    expect(koOutcome(0, 0, 0, 100)).toBeNull();
+  });
+
+  test("déjà à 0 sans renaissance (prevBossHp 0) = null", () => {
+    expect(koOutcome(0, 0, 100, 100)).toBeNull();
+  });
+
+  test("renaissance puis re-KO re-déclenche", () => {
+    // Boss ressuscité à 20 (prev), retombe à 0 → nouvelle transition valide.
+    expect(koOutcome(20, 0, 100, 100)).toBe("perfect");
+  });
+});
+
+describe("comboLabel / comboIntensity (juice combo)", () => {
+  test("pas de combo sous 2 coups", () => {
+    expect(comboLabel(0)).toBeNull();
+    expect(comboLabel(1)).toBeNull();
+    expect(comboIntensity(1)).toBe(0);
+  });
+
+  test("paliers escaladés avec compteur", () => {
+    expect(comboLabel(2)).toBe("DOUBLE COUP !");
+    expect(comboLabel(3)).toBe("COMBO ×3");
+    expect(comboLabel(5)).toBe("SÉRIE BRUTALE ×5");
+    expect(comboLabel(7)).toBe("COMBO DÉVASTATEUR ×7");
+    expect(comboLabel(12)).toBe("M-M-MONSTER COMBO ×12 !!");
+  });
+
+  test("intensité croissante", () => {
+    expect(comboIntensity(2)).toBe(0);
+    expect(comboIntensity(3)).toBe(1);
+    expect(comboIntensity(5)).toBe(2);
+    expect(comboIntensity(8)).toBe(3);
+    expect(comboIntensity(10)).toBe(4);
+  });
+});
+
+describe("weekdayOf (US-17)", () => {
+  test("lundi=0 … dimanche=6 (ancre : 2021-01-04 est un lundi)", () => {
+    expect(weekdayOf("2021-01-04")).toBe(0); // lundi
+    expect(weekdayOf("2021-01-05")).toBe(1); // mardi
+    expect(weekdayOf("2021-01-10")).toBe(6); // dimanche
+  });
+});
+
+describe("shouldGenerate (US-17)", () => {
+  const tpl = { id: "A", weekdays: [0, 2, 4], is_active: true };
+
+  test("jour inclus dans la règle → true", () => {
+    expect(shouldGenerate(tpl, "2021-01-04")).toBe(true); // lundi (0)
+  });
+
+  test("jour exclu → false", () => {
+    expect(shouldGenerate(tpl, "2021-01-05")).toBe(false); // mardi (1)
+  });
+
+  test("template inactif → false", () => {
+    expect(shouldGenerate({ ...tpl, is_active: false }, "2021-01-04")).toBe(false);
+  });
+
+  test("jour de repos → false", () => {
+    expect(shouldGenerate(tpl, "2021-01-04", new Set(["A"]))).toBe(false);
+  });
+});
+
+describe("planRecurringGeneration (US-17)", () => {
+  const monday = "2021-01-04"; // weekday 0
+  const templates = [
+    { id: "A", weekdays: [0], is_active: true }, // matche lundi
+    { id: "B", weekdays: [1], is_active: true }, // mardi, pas aujourd'hui
+    { id: "C", weekdays: [0], is_active: false }, // inactif
+  ];
+
+  test("génère pour les templates du jour (exclut hors-jour et inactifs)", () => {
+    expect(planRecurringGeneration(templates, monday, new Set())).toEqual(["A"]);
+  });
+
+  test("saute si une instance existe déjà pour aujourd'hui (D5)", () => {
+    expect(planRecurringGeneration(templates, monday, new Set(["A"]))).toEqual([]);
+  });
+
+  test("saute si jour de repos (A2)", () => {
+    expect(
+      planRecurringGeneration(templates, monday, new Set(), new Set(["A"])),
+    ).toEqual([]);
+  });
+});
+
+describe("pantheonStats (US-10)", () => {
+  const days = [
+    { day_date: "2026-07-14", outcome: "victory" as const, damage_dealt: 60, gold_earned: 55 },
+    { day_date: "2026-07-15", outcome: "retreat" as const, damage_dealt: 40, gold_earned: 12 },
+    { day_date: "2026-07-16", outcome: "victory" as const, damage_dealt: 100, gold_earned: 70 },
+    { day_date: "2026-07-17", outcome: "defeat" as const, damage_dealt: 0, gold_earned: 0 },
+  ];
+
+  test("totaux, victoires et win-rate", () => {
+    const s = pantheonStats(days);
+    expect(s.totalDays).toBe(4);
+    expect(s.totalVictories).toBe(2);
+    expect(s.winRate).toBeCloseTo(0.5);
+    expect(s.totalDamage).toBe(200);
+    expect(s.goldAllTime).toBe(137);
+  });
+
+  test("meilleur jour = dégâts max", () => {
+    expect(pantheonStats(days).bestDay).toEqual({ day_date: "2026-07-16", damage: 100 });
+  });
+
+  test("dataset vide : pas de division par zéro, bestDay null", () => {
+    const s = pantheonStats([]);
+    expect(s.winRate).toBe(0);
+    expect(s.totalDays).toBe(0);
+    expect(s.bestDay).toBeNull();
+    expect(s.damageSeries).toEqual([]);
+  });
+
+  test("égalité de dégâts départagée par la date la plus récente", () => {
+    const tie = [
+      { day_date: "2026-07-10", outcome: "victory" as const, damage_dealt: 80, gold_earned: 0 },
+      { day_date: "2026-07-12", outcome: "victory" as const, damage_dealt: 80, gold_earned: 0 },
+    ];
+    expect(pantheonStats(tie).bestDay?.day_date).toBe("2026-07-12");
+  });
+
+  test("damageSeries chronologique, borné à seriesLength", () => {
+    expect(pantheonStats(days).damageSeries).toEqual([60, 40, 100, 0]);
+    expect(pantheonStats(days, 2).damageSeries).toEqual([100, 0]);
+  });
+
+  test("bestDay null si tous à 0 dégât", () => {
+    const zeros = [
+      { day_date: "2026-07-10", outcome: "defeat" as const, damage_dealt: 0, gold_earned: 0 },
+    ];
+    expect(pantheonStats(zeros).bestDay).toBeNull();
+  });
+});
+
+describe("applyRageQuitPenalty (US-15)", () => {
+  test("retire 5 XP quand xp ≥ 5", () => {
+    expect(applyRageQuitPenalty({ level: 2, xp: 40 })).toEqual({ level: 2, xp: 35 });
+    expect(RAGE_QUIT_XP_PENALTY).toBe(5);
+  });
+
+  test("clampe à 0 sans de-level quand xp < 5", () => {
+    expect(applyRageQuitPenalty({ level: 3, xp: 3 })).toEqual({ level: 3, xp: 0 });
+  });
+
+  test("xp=0 niveau>1 : reste au même niveau, xp 0 (pas de de-level)", () => {
+    expect(applyRageQuitPenalty({ level: 2, xp: 0 })).toEqual({ level: 2, xp: 0 });
+  });
+});
+
+describe("collectAbandonCascade (US-15)", () => {
+  const tasks = [
+    makeTask({ id: "root", parent_id: null }),
+    makeTask({ id: "c1", parent_id: "root" }),
+    makeTask({ id: "c2", parent_id: "root", is_completed: true }),
+    makeTask({ id: "c3", parent_id: "root", is_abandoned: true }),
+    makeTask({ id: "solo", parent_id: null }),
+  ];
+
+  test("racine → elle + ses sous-tâches actives (exclut complétées/abandonnées)", () => {
+    expect(collectAbandonCascade("root", tasks).sort()).toEqual(["c1", "root"]);
+  });
+
+  test("sous-tâche seule ne cascade pas", () => {
+    expect(collectAbandonCascade("c1", tasks)).toEqual(["c1"]);
+  });
+
+  test("cible déjà complétée ou abandonnée = aucune", () => {
+    expect(collectAbandonCascade("c2", tasks)).toEqual([]);
+    expect(collectAbandonCascade("c3", tasks)).toEqual([]);
+  });
+
+  test("cible inconnue = aucune", () => {
+    expect(collectAbandonCascade("ghost", tasks)).toEqual([]);
   });
 });
 

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./fixtures";
+import { abandonViaUi, login } from "./fixtures";
 
 // US-07 : clôturer la journée (Rituel du Crépuscule) écrit un day_result et
 // affiche le récap figé. Testable via l'UI sans triche horaire (tout le jour même).
@@ -14,8 +14,7 @@ test.describe("Rituel du Crépuscule (US-07)", () => {
     if (!title) return;
     // Reload pour écarter un éventuel overlay récap avant nettoyage.
     await page.reload();
-    const abandon = page.getByLabel(`Abandonner "${title}"`);
-    if (await abandon.count()) await abandon.click();
+    await abandonViaUi(page, title);
     title = undefined;
   });
 

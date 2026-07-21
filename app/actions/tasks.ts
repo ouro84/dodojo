@@ -3,12 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
+  applyRageQuitPenalty,
   applyXpDelta,
+  collectAbandonCascade,
   dayKey,
   isNestableParent,
   nextSiblingPosition,
+  RAGE_QUIT_XP_PENALTY,
   XP_PER_TASK,
 } from "@/lib/game-engine";
+import type { CascadeTask } from "@/lib/game-engine";
 
 export interface TaskActionResult {
   error: string | null;
@@ -222,8 +226,12 @@ export async function setTaskCompleted(
   return { error: null, level, xp, leveledUp };
 }
 
-// RG-04 : jamais de suppression destructive — on abandonne (Rage Quit), on ne DELETE jamais.
-export async function abandonTask(id: string): Promise<TaskActionResult> {
+// US-15 : Rage Quit — abandonner une tâche active du jour en cours de combat.
+// Punitif (≠ « Annihiler » serein du Réveil) : malus −5 XP clampé sans de-level,
+// Boss rétréci (la tâche sort du calcul HP), cascade sur les sous-tâches actives.
+// RG-04 : jamais de DELETE, on pose is_abandoned=true + abandon_reason='rage_quit'.
+// Le malus est appliqué UNE fois par action (pas par tâche cascadée).
+export async function rageQuitTask(id: string): Promise<TaskActionResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -233,18 +241,102 @@ export async function abandonTask(id: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
+  // Charge la tâche + sa fratrie potentielle (mêmes racine/enfants) pour la cascade pure.
+  const { data: siblings, error: fetchError } = await supabase
+    .from("tasks")
+    .select("id, parent_id, is_completed, is_abandoned")
+    .eq("user_id", user.id);
+
+  if (fetchError || !siblings) {
+    return { error: "Impossible d'abandonner cette tâche. Réessaie." };
+  }
+
+  const cascadeIds = collectAbandonCascade(id, siblings as CascadeTask[]);
+  if (cascadeIds.length === 0) {
+    // Déjà abandonnée / complétée / introuvable → no-op idempotent (B2).
+    return { error: null };
+  }
+
   const { error } = await supabase
     .from("tasks")
-    .update({ is_abandoned: true })
-    .eq("id", id)
+    .update({ is_abandoned: true, abandon_reason: "rage_quit" })
+    .in("id", cascadeIds)
     .eq("user_id", user.id);
 
   if (error) {
     return { error: "Impossible d'abandonner cette tâche. Réessaie." };
   }
 
+  // Malus XP unique, clampé, sans de-level (D3).
+  let level: number | undefined;
+  let xp: number | undefined;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("level, xp")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile) {
+    const next = applyRageQuitPenalty(profile);
+    level = next.level;
+    xp = next.xp;
+    await supabase
+      .from("profiles")
+      .update({ level: next.level, xp: next.xp })
+      .eq("id", user.id);
+  }
+
   revalidatePath("/");
-  return { error: null };
+  return { error: null, level, xp };
+}
+
+// US-15 : annuler un Rage Quit (même jour). Restaure is_abandoned=false, efface
+// abandon_reason, rembourse +5 XP (clampé). Ne remonte que les tâches réellement
+// rage-quit (garde par abandon_reason) — un « Annihiler » n'est pas annulable ici.
+export async function undoRageQuit(id: string): Promise<TaskActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Session expirée. Reconnecte-toi." };
+  }
+
+  const { data: restored, error } = await supabase
+    .from("tasks")
+    .update({ is_abandoned: false, abandon_reason: null })
+    .or(`id.eq.${id},parent_id.eq.${id}`)
+    .eq("user_id", user.id)
+    .eq("abandon_reason", "rage_quit")
+    .select("id");
+
+  if (error) {
+    return { error: "Impossible d'annuler l'abandon. Réessaie." };
+  }
+  if (!restored || restored.length === 0) {
+    return { error: null }; // rien à restaurer (déjà annulé / pas un rage quit)
+  }
+
+  // Remboursement +5 XP (clampé via applyXpDelta pour garder un profil valide).
+  let level: number | undefined;
+  let xp: number | undefined;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("level, xp")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile) {
+    const next = applyXpDelta(profile, RAGE_QUIT_XP_PENALTY);
+    level = next.level;
+    xp = next.xp;
+    await supabase
+      .from("profiles")
+      .update({ level: next.level, xp: next.xp })
+      .eq("id", user.id);
+  }
+
+  revalidatePath("/");
+  return { error: null, level, xp };
 }
 
 // US-19 : reparente et/ou réordonne un groupe de tâches (drag & drop). Le
@@ -379,7 +471,7 @@ export async function annihilateOverdueTask(id: string): Promise<TaskActionResul
 
   const { error } = await supabase
     .from("tasks")
-    .update({ is_abandoned: true })
+    .update({ is_abandoned: true, abandon_reason: "annihilated" })
     .or(`id.eq.${id},parent_id.eq.${id}`)
     .eq("user_id", user.id);
 
@@ -427,7 +519,7 @@ export async function annihilateOverdueOlderThan(days: number): Promise<TaskActi
 
   const { error } = await supabase
     .from("tasks")
-    .update({ is_abandoned: true })
+    .update({ is_abandoned: true, abandon_reason: "annihilated" })
     .eq("user_id", user.id)
     .lt("day_date", cutoff)
     .eq("is_completed", false)

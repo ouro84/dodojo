@@ -210,7 +210,58 @@ body {
   animation: streak-flames-pulse 0.8s ease-in-out infinite;
 }
 
+/* US-16 : entrée explosive du texte KO/PERFECT (zoom + secousse courte). */
+@keyframes ko-burst {
+  0% {
+    transform: scale(0.3) rotate(-6deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.18) rotate(2deg);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(0.96) rotate(-1deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+.ko-burst {
+  animation: ko-burst 520ms cubic-bezier(0.22, 1.2, 0.36, 1);
+  text-shadow: 0 0 12px currentColor;
+}
+
+/* Combo arcade : entrée rapide + léger flottement vers le haut. */
+@keyframes combo-pop {
+  0% {
+    transform: translateY(6px) scale(0.7);
+    opacity: 0;
+  }
+  30% {
+    transform: translateY(0) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-4px) scale(1);
+    opacity: 1;
+  }
+}
+.combo-pop {
+  animation: combo-pop 300ms ease-out;
+  text-shadow: 0 0 8px var(--color-gold);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .combo-pop {
+    animation: none;
+    text-shadow: none;
+  }
+  .ko-burst {
+    animation: none;
+    text-shadow: none;
+  }
   .skeleton {
     animation: none;
     background-position: 0 0;

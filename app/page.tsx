@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dayKey } from "@/lib/game-engine";
+import { generateRecurringInstances } from "@/app/actions/recurring";
 import Arena from "@/components/combat/Arena";
 import ArenaError from "@/components/combat/ArenaError";
 
@@ -29,6 +30,11 @@ export default async function ArenePage() {
   }
 
   const today = dayKey(new Date(), profile.timezone ?? "UTC");
+
+  // US-17 : génère (idempotent) les instances de routines dues aujourd'hui avant
+  // de lire la liste du jour — couvre les jours sans reste (le Rituel du Réveil
+  // bloquant ne se monte que s'il y a des restes).
+  await generateRecurringInstances();
 
   const { data: tasks, error: tasksError } = await supabase
     .from("tasks")

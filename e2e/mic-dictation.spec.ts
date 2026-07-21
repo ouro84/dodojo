@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./fixtures";
+import { abandonViaUi, login } from "./fixtures";
 
 // Scénario US-02 : dicter une tâche via le bouton micro la crée automatiquement.
 // L'API Web Speech est simulée via addInitScript (pas de micro réel en CI).
@@ -9,10 +9,7 @@ test.describe("Bouton Micro In-App (US-02)", () => {
   test.afterEach(async ({ page }) => {
     // RG-04 : jamais de suppression — on abandonne la tâche créée par le test.
     if (!dictatedTitle) return;
-    const abandonButton = page.getByLabel(`Abandonner "${dictatedTitle}"`);
-    if (await abandonButton.count()) {
-      await abandonButton.click();
-    }
+    await abandonViaUi(page, dictatedTitle);
     dictatedTitle = undefined;
   });
 

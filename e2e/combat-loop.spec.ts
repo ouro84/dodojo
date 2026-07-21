@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./fixtures";
+import { abandonViaUi, login } from "./fixtures";
 
 // Scénario ADR-04 : Connexion (compte e2e fixe) -> Ajout tâche -> Coche tâche
 // -> Vérification de la baisse des HP du Boss.
@@ -14,10 +14,7 @@ test.describe("Boucle de combat quotidienne (ADR-04)", () => {
     // RG-04 : jamais de suppression — on abandonne la tâche créée par le test
     // pour ne pas faire grossir indéfiniment le Boss du compte e2e fixe.
     if (!taskTitle) return;
-    const abandonButton = page.getByLabel(`Abandonner "${taskTitle}"`);
-    if (await abandonButton.count()) {
-      await abandonButton.click();
-    }
+    await abandonViaUi(page, taskTitle);
     taskTitle = undefined;
   });
 

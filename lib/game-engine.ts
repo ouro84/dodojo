@@ -207,6 +207,26 @@ export function calculateHeroHp(overdueTasks: OverdueTask[]): number {
   return Math.max(0, HERO_MAX_HP - unresolvedCount * HERO_DAMAGE_PER_OVERDUE_TASK);
 }
 
+export type KoTier = "perfect" | "ko" | null;
+
+// US-16 : décide, de façon pure, si terrasser le Boss déclenche une célébration
+// et à quel palier. Piloté par la transition des HP du Boss (avant → après) et
+// les HP du Héro. `null` si pas de transition→0 valide ; `perfect` si le Boss
+// tombe à 0 avec un Héro intact (100 HP, aucun reste non résolu ayant entamé la
+// jauge) ; `ko` sinon (victoire, mais le Héro a encaissé). La garde
+// `prevBossHp === 0` empêche le re-déclenchement sans renaissance (D4/B2).
+export function koOutcome(
+  prevBossHp: number,
+  nextBossHp: number,
+  bossMaxHp: number,
+  heroHp: number,
+): KoTier {
+  if (nextBossHp !== 0) return null; // le Boss n'est pas terrassé
+  if (bossMaxHp === 0) return null; // jour vide, jamais un KO (D5)
+  if (prevBossHp === 0) return null; // déjà à 0, pas de nouvelle transition (D4)
+  return heroHp === HERO_MAX_HP ? "perfect" : "ko";
+}
+
 export const XP_PER_TASK = 30;
 export const XP_THRESHOLD_PER_LEVEL = 100;
 
@@ -243,6 +263,40 @@ export function goldBalance(
   const earned = dayResults.reduce((sum, r) => sum + r.gold_earned, 0);
   const spent = unlockedHeroes.reduce((sum, h) => sum + h.price_paid, 0);
   return earned - spent;
+}
+
+export const RAGE_QUIT_XP_PENALTY = 5;
+
+// US-15 : malus de Rage Quit — clampé à 0, **sans** de-level (≠ applyXpDelta qui,
+// lui, peut faire redescendre de niveau sur XP négatif). Le niveau est intouché ;
+// seul l'XP courant est amputé. Le refund de l'undo réapplique +5 (même clamp).
+export function applyRageQuitPenalty(state: XpState): XpState {
+  return { level: state.level, xp: Math.max(0, state.xp - RAGE_QUIT_XP_PENALTY) };
+}
+
+// US-15 : liste les tâches à abandonner pour un Rage Quit — la cible + (si c'est
+// une racine) ses sous-tâches actives. Une sous-tâche seule ne cascade pas.
+// Exclut les tâches déjà complétées ou abandonnées (pas de double effet, B2).
+export function collectAbandonCascade(
+  targetId: string,
+  tasks: CascadeTask[],
+): string[] {
+  const target = tasks.find((task) => task.id === targetId);
+  if (!target || target.is_completed || target.is_abandoned) return [];
+
+  const ids = [target.id];
+  if (target.parent_id === null) {
+    for (const task of tasks) {
+      if (
+        task.parent_id === targetId &&
+        !task.is_completed &&
+        !task.is_abandoned
+      ) {
+        ids.push(task.id);
+      }
+    }
+  }
+  return ids;
 }
 
 export function xpThresholdForLevel(level: number): number {
@@ -458,6 +512,63 @@ export function currentStreak(
   };
 }
 
+export interface PantheonStats {
+  totalVictories: number;
+  totalDays: number;
+  winRate: number; // ratio 0..1 (Boss vaincus / jours joués)
+  totalDamage: number;
+  goldAllTime: number;
+  bestDay: { day_date: string; damage: number } | null;
+  damageSeries: number[]; // dégâts des N derniers jours, chronologique
+}
+
+export type PantheonDay = Pick<
+  DayResult,
+  "day_date" | "outcome" | "damage_dealt" | "gold_earned"
+>;
+
+// US-10 : agrégats purs du Panthéon, dérivés de day_results. Aucune écriture.
+// winRate garde la division par zéro (0 jour → 0). bestDay départage les égalités
+// par la date la plus récente (déterministe). damageSeries = N derniers jours
+// (chronologique) pour la sparkline.
+export function pantheonStats(
+  dayResults: PantheonDay[],
+  seriesLength = 14,
+): PantheonStats {
+  const totalDays = dayResults.length;
+  const totalVictories = dayResults.filter((r) => r.outcome === "victory").length;
+  const totalDamage = dayResults.reduce((sum, r) => sum + r.damage_dealt, 0);
+  const goldAllTime = dayResults.reduce((sum, r) => sum + r.gold_earned, 0);
+
+  let bestDay: { day_date: string; damage: number } | null = null;
+  for (const r of dayResults) {
+    if (
+      bestDay === null ||
+      r.damage_dealt > bestDay.damage ||
+      (r.damage_dealt === bestDay.damage && r.day_date > bestDay.day_date)
+    ) {
+      bestDay = { day_date: r.day_date, damage: r.damage_dealt };
+    }
+  }
+  // Un « meilleur jour » à 0 dégât n'a pas de valeur de trophée.
+  if (bestDay && bestDay.damage === 0) bestDay = null;
+
+  const damageSeries = [...dayResults]
+    .sort((a, b) => a.day_date.localeCompare(b.day_date))
+    .slice(-seriesLength)
+    .map((r) => r.damage_dealt);
+
+  return {
+    totalVictories,
+    totalDays,
+    winRate: totalDays === 0 ? 0 : totalVictories / totalDays,
+    totalDamage,
+    goldAllTime,
+    bestDay,
+    damageSeries,
+  };
+}
+
 // US-12 : titre débloqué selon le record de série (provisoire — vocabulaire dojo,
 // pourra fusionner avec d'éventuels titres de niveau plus tard).
 export function titleForStreak(bestStreak: number): string | null {
@@ -465,4 +576,71 @@ export function titleForStreak(bestStreak: number): string | null {
   if (bestStreak >= 30) return "Ceinture Noire";
   if (bestStreak >= 7) return "Ceinture Jaune";
   return null;
+}
+
+// Combo / série de coups (juice arcade, esprit Street Fighter). Purement visuel :
+// n'affecte NI l'XP NI l'or (économie dérivée intacte). Le compteur monte à chaque
+// tâche terminée à la chaîne et retombe dès qu'on décoche ou qu'on abandonne.
+export function comboLabel(count: number): string | null {
+  if (count >= 10) return `M-M-MONSTER COMBO ×${count} !!`;
+  if (count >= 7) return `COMBO DÉVASTATEUR ×${count}`;
+  if (count >= 5) return `SÉRIE BRUTALE ×${count}`;
+  if (count >= 3) return `COMBO ×${count}`;
+  if (count === 2) return "DOUBLE COUP !";
+  return null;
+}
+
+// Niveau d'intensité visuelle (0..4) pour dimensionner l'animation du combo.
+export function comboIntensity(count: number): number {
+  if (count >= 10) return 4;
+  if (count >= 7) return 3;
+  if (count >= 5) return 2;
+  if (count >= 3) return 1;
+  return 0;
+}
+
+// US-17 : jour de la semaine (lundi=0 … dimanche=6) d'une date calendaire locale
+// YYYY-MM-DD. Comme `weekKey`, le day_date est déjà local → aucun fuseau à
+// ré-appliquer (une date calendaire a un jour de semaine fixe).
+export function weekdayOf(dayDate: string): number {
+  const date = new Date(`${dayDate}T00:00:00Z`);
+  return (date.getUTCDay() + 6) % 7; // getUTCDay: 0=dimanche → lundi=0
+}
+
+export type RecurringTemplateRule = {
+  id: string;
+  weekdays: number[];
+  is_active: boolean;
+};
+
+// US-17 (D1/A2) : ce template doit-il générer une instance ce jour ? Actif, jour
+// de semaine inclus dans la règle, et pas marqué en jour de repos.
+export function shouldGenerate(
+  template: RecurringTemplateRule,
+  dayDate: string,
+  restDayTemplateIds: Set<string> = new Set(),
+): boolean {
+  if (!template.is_active) return false;
+  if (restDayTemplateIds.has(template.id)) return false;
+  return template.weekdays.includes(weekdayOf(dayDate));
+}
+
+// US-17 : décide, en pur (sans I/O), quels templates instancier pour `today`.
+// Applique l'anti-doublon (D5 : une instance déjà présente — fraîche OU reste
+// reporté de cette routine — fait sauter la génération) et le no-rétroactif (D6 :
+// seul `today` génère, jamais un jour passé). `existingTemplateIdsToday` = set des
+// template_id ayant déjà une tâche sur `today`.
+export function planRecurringGeneration(
+  templates: RecurringTemplateRule[],
+  today: string,
+  existingTemplateIdsToday: Set<string>,
+  restDayTemplateIds: Set<string> = new Set(),
+): string[] {
+  return templates
+    .filter(
+      (t) =>
+        shouldGenerate(t, today, restDayTemplateIds) &&
+        !existingTemplateIdsToday.has(t.id),
+    )
+    .map((t) => t.id);
 }
