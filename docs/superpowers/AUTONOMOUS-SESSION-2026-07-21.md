@@ -69,5 +69,19 @@ Ordre : **US-16 → US-15 → US-10 → US-17**, du moins risqué/plus dopaminer
 - **Commit** : (ci-dessous).
 
 ### Bilan Sprint 2 — SOLDÉ (US-10, 12, 15, 16, 17, 18)
-US-12/18 étaient déjà mergées ; cette session livre US-16, US-15, US-10, US-17. Reste à fermer les issues GitHub #11–#16.
+US-12/18 étaient déjà mergées ; cette session livre US-16, US-15, US-10, US-17. **Issues #11–#16 fermées** avec commentaires de traçabilité. SPECS marqué « Sprint 2 livré » (commit dédié).
+
+### Régression e2e corrigée (avant tout push)
+US-15 change l'UX d'abandon (le « × » ouvre une modale). Les `afterEach` de nettoyage e2e (compte partagé, série) cliquaient le « × » en supposant l'abandon direct → cassés. Helper `abandonViaUi` ajouté à `e2e/fixtures.ts` + 6 specs migrés (délégué à un sous-agent, vérifié : 0 résidu, tsc propre).
+
+---
+
+## 3. Phase « surprise » — valeur ajoutée hors backlog
+
+### Feature bonus — Système de Combo (juice arcade, esprit Street Fighter)
+- **Pourquoi** : le cœur produit est le « shoot de dopamine immédiat ». Un combo counter façon SF récompense la complétion en rafale, renforce la boucle d'action, et donne le juice arcade demandé — sans toucher à l'économie XP/or (délibérément dérivée et fragile).
+- **Décision** : combo **purement visuel** (aucun bonus XP/or) → zéro risque d'équilibrage, aucune migration. L'option d'un bonus d'XP est laissée en dette documentée.
+- **Impl** : `comboLabel`/`comboIntensity` (purs, 3 tests), `ComboBanner` (flash escaladé), compteur persistant discret dans l'Arène, keyframe `combo-pop` + reduced-motion. Monte sur complétion à la chaîne, se brise sur décoche/abandon/erreur.
+- **Vérif** : 117/117 Vitest, lint propre, `build` vert.
+- **Commit** : (ci-dessous).
 

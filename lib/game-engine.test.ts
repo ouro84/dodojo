@@ -16,6 +16,8 @@ import {
   weekdayOf,
   shouldGenerate,
   planRecurringGeneration,
+  comboLabel,
+  comboIntensity,
   titleForStreak,
   weekKey,
   dayKey,
@@ -195,6 +197,30 @@ describe("koOutcome (US-16, palier PERFECT/K.O.)", () => {
   test("renaissance puis re-KO re-déclenche", () => {
     // Boss ressuscité à 20 (prev), retombe à 0 → nouvelle transition valide.
     expect(koOutcome(20, 0, 100, 100)).toBe("perfect");
+  });
+});
+
+describe("comboLabel / comboIntensity (juice combo)", () => {
+  test("pas de combo sous 2 coups", () => {
+    expect(comboLabel(0)).toBeNull();
+    expect(comboLabel(1)).toBeNull();
+    expect(comboIntensity(1)).toBe(0);
+  });
+
+  test("paliers escaladés avec compteur", () => {
+    expect(comboLabel(2)).toBe("DOUBLE COUP !");
+    expect(comboLabel(3)).toBe("COMBO ×3");
+    expect(comboLabel(5)).toBe("SÉRIE BRUTALE ×5");
+    expect(comboLabel(7)).toBe("COMBO DÉVASTATEUR ×7");
+    expect(comboLabel(12)).toBe("M-M-MONSTER COMBO ×12 !!");
+  });
+
+  test("intensité croissante", () => {
+    expect(comboIntensity(2)).toBe(0);
+    expect(comboIntensity(3)).toBe(1);
+    expect(comboIntensity(5)).toBe(2);
+    expect(comboIntensity(8)).toBe(3);
+    expect(comboIntensity(10)).toBe(4);
   });
 });
 

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./fixtures";
+import { abandonViaUi, login } from "./fixtures";
 
 // Scénario : cocher/décocher une tâche propage sur sa hiérarchie parent/
 // sous-tâches (2 niveaux, RG-01) — dans les deux sens. Chaque assertion
@@ -15,10 +15,7 @@ test.describe("Cascade de complétion parent/sous-tâches", () => {
   test.afterEach(async ({ page }) => {
     // RG-04 : jamais de suppression — on abandonne les tâches créées par le test.
     for (const title of cleanupTitles.splice(0)) {
-      const abandonButton = page.getByLabel(`Abandonner "${title}"`);
-      if (await abandonButton.count()) {
-        await abandonButton.click();
-      }
+      await abandonViaUi(page, title);
     }
   });
 

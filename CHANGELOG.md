@@ -28,6 +28,7 @@ nouvelle section versionnée et datée.
 - US-15 : Rage Quit de tâche (abandon punitif en cours de journée : modale de confirmation, malus −5 XP clampé sans de-level, Boss rétréci, cascade sur les sous-tâches actives, punchline « le Boss ricane », **undo** même-jour qui restaure et rembourse ; distingué de l'« Annihiler » serein du Réveil via `abandon_reason`)
 - US-10 : Le Panthéon (écran lecture seule accessible depuis le QG — blocs Héros / Trophées / Trésor / Titres / Journal de combat paginé ; sparkline des dégâts, anneau de win-rate, meilleur jour ; 3 états Loading/Error/Empty)
 - US-17 : Mode Entraînement / tâches récurrentes (routines à jours de la semaine sélectionnables, générées automatiquement au réveil du jour courant ; icône 🔁 sur les instances ; anti-doublon 1/routine/jour ; pas de génération rétroactive ; jour de repos planifiable ; écran de gestion `/qg/entrainement` : créer, désactiver, repos du jour)
+- Système de Combo (juice arcade, esprit Street Fighter) : terminer des tâches à la chaîne fait monter un compteur de combo avec des punchlines escaladées (DOUBLE COUP ! → COMBO ×N → M-M-MONSTER COMBO !!) et un compteur persistant ; se brise si l'on décoche ou abandonne. Purement visuel — n'affecte ni l'XP ni l'or. Respecte `prefers-reduced-motion`.
 
 ### Technique
 - Colonne `tasks.abandon_reason` (`rage_quit` | `annihilated`) : distingue en base l'abandon punitif du reste nettoyé sereinement (fondation des futures stats d'abandon du Panthéon)

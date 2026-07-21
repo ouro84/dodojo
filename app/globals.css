@@ -233,7 +233,31 @@ body {
   text-shadow: 0 0 12px currentColor;
 }
 
+/* Combo arcade : entrée rapide + léger flottement vers le haut. */
+@keyframes combo-pop {
+  0% {
+    transform: translateY(6px) scale(0.7);
+    opacity: 0;
+  }
+  30% {
+    transform: translateY(0) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-4px) scale(1);
+    opacity: 1;
+  }
+}
+.combo-pop {
+  animation: combo-pop 300ms ease-out;
+  text-shadow: 0 0 8px var(--color-gold);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .combo-pop {
+    animation: none;
+    text-shadow: none;
+  }
   .ko-burst {
     animation: none;
     text-shadow: none;

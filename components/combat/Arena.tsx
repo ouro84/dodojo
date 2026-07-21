@@ -28,6 +28,8 @@ import {
   collectAbandonCascade,
   applyRageQuitPenalty,
   RAGE_QUIT_XP_PENALTY,
+  comboLabel,
+  comboIntensity,
   nextSiblingPosition,
   planReorder,
   summarizeDay,
@@ -46,6 +48,7 @@ import {
 import { closeDay as closeDayAction } from "@/app/actions/day";
 import BottomNav from "@/components/ui/BottomNav";
 import VersusScene from "./VersusScene";
+import ComboBanner from "./ComboBanner";
 import TaskList from "./TaskList";
 import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
@@ -85,6 +88,7 @@ interface DragOverInfo {
 
 let pulseCounter = 0;
 let xpPulseCounter = 0;
+let comboCounter = 0;
 let optimisticIdCounter = 0;
 
 // La cible de drop est le rect mesuré de la ligne survolée ; le rect
@@ -124,6 +128,15 @@ export default function Arena({
     punchline: string;
   } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  // Combo (juice arcade, purement visuel). Monte à la chaîne des tâches terminées,
+  // retombe si on décoche ou abandonne.
+  const [comboCount, setComboCount] = useState(0);
+  const [comboFlash, setComboFlash] = useState<{
+    key: number;
+    label: string;
+    intensity: number;
+  } | null>(null);
+  const comboTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showWakeUp, setShowWakeUp] = useState(overdueTasks.length > 0);
   const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
   const [closing, setClosing] = useState(false);
@@ -152,8 +165,34 @@ export default function Arena({
     return () => {
       if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
       if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
+      if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
     };
   }, []);
+
+  // Combo : incrémente de `hits` (tâches terminées d'un coup) et flashe la
+  // bannière si un palier est atteint. `reset` remet la série à zéro.
+  function bumpCombo(hits: number) {
+    setComboCount((current) => {
+      const next = current + hits;
+      const label = comboLabel(next);
+      if (label) {
+        comboCounter += 1;
+        const key = comboCounter;
+        setComboFlash({ key, label, intensity: comboIntensity(next) });
+        if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
+        comboTimeoutRef.current = setTimeout(() => {
+          setComboFlash((c) => (c?.key === key ? null : c));
+        }, 1200);
+      }
+      return next;
+    });
+  }
+
+  function resetCombo() {
+    setComboCount(0);
+    setComboFlash(null);
+    if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
+  }
 
   function triggerPulse(amount: number, kind: Pulse["kind"]) {
     pulseCounter += 1;
@@ -317,6 +356,15 @@ export default function Arena({
       triggerPulse(-hpDelta, "heal");
     }
 
+    // Combo (juice arcade) : chaque tâche terminée à la chaîne monte la série ;
+    // décocher la brise. N'affecte ni l'XP ni l'or.
+    if (isCompleted) {
+      const hits = cascade.filter((change) => change.isCompleted).length;
+      if (hits > 0) bumpCombo(hits);
+    } else {
+      resetCombo();
+    }
+
     const xpDelta = cascade.reduce((total, change) => {
       const task = tasks.find((t) => t.id === change.taskId);
       if (!task || task.is_abandoned) return total;
@@ -349,6 +397,7 @@ export default function Arena({
       setProfile(previousProfileSnapshot);
       setLevelUpValue(null);
       if (hpDelta > 0) setKoState(null);
+      resetCombo();
       setBanner(lastResult.error);
       return;
     }
@@ -442,6 +491,7 @@ export default function Arena({
     setTasks(nextTasks);
     setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
     triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    resetCombo(); // abandonner brise la série
     setUndoState({
       id,
       tasksSnapshot,
@@ -541,6 +591,21 @@ export default function Arena({
           />
           {pulse?.kind === "damage" && pulse.impactVariant && (
             <ImpactVfx key={pulse.key} variant={pulse.impactVariant} />
+          )}
+          {comboFlash && (
+            <ComboBanner
+              key={comboFlash.key}
+              label={comboFlash.label}
+              intensity={comboFlash.intensity}
+            />
+          )}
+          {comboCount >= 2 && (
+            <span
+              aria-label={`Combo en cours : ${comboCount} coups`}
+              className="pointer-events-none absolute right-2 top-2 z-30 font-display text-xs uppercase tracking-wider text-gold/90"
+            >
+              combo ×{comboCount}
+            </span>
           )}
           {pulse && <FloatingText amount={pulse.amount} kind={pulse.kind} />}
           {xpPulse && (

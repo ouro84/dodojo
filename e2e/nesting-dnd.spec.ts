@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
-import { login } from "./fixtures";
+import { abandonViaUi, login } from "./fixtures";
 
 // Scénario US-19 : le drag & drop distingue deux gestes selon la moitié de
 // ligne survolée — moitié basse d'une tâche racine = imbrication (RG-01,
@@ -52,10 +52,7 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
   test.afterEach(async ({ page }) => {
     // RG-04 : jamais de suppression — on abandonne les tâches créées par le test.
     for (const title of cleanupTitles.splice(0)) {
-      const abandonButton = page.getByLabel(`Abandonner "${title}"`);
-      if (await abandonButton.count()) {
-        await abandonButton.click();
-      }
+      await abandonViaUi(page, title);
     }
   });
 

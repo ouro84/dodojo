@@ -578,6 +578,27 @@ export function titleForStreak(bestStreak: number): string | null {
   return null;
 }
 
+// Combo / série de coups (juice arcade, esprit Street Fighter). Purement visuel :
+// n'affecte NI l'XP NI l'or (économie dérivée intacte). Le compteur monte à chaque
+// tâche terminée à la chaîne et retombe dès qu'on décoche ou qu'on abandonne.
+export function comboLabel(count: number): string | null {
+  if (count >= 10) return `M-M-MONSTER COMBO ×${count} !!`;
+  if (count >= 7) return `COMBO DÉVASTATEUR ×${count}`;
+  if (count >= 5) return `SÉRIE BRUTALE ×${count}`;
+  if (count >= 3) return `COMBO ×${count}`;
+  if (count === 2) return "DOUBLE COUP !";
+  return null;
+}
+
+// Niveau d'intensité visuelle (0..4) pour dimensionner l'animation du combo.
+export function comboIntensity(count: number): number {
+  if (count >= 10) return 4;
+  if (count >= 7) return 3;
+  if (count >= 5) return 2;
+  if (count >= 3) return 1;
+  return 0;
+}
+
 // US-17 : jour de la semaine (lundi=0 … dimanche=6) d'une date calendaire locale
 // YYYY-MM-DD. Comme `weekKey`, le day_date est déjà local → aucun fuseau à
 // ré-appliquer (une date calendaire a un jour de semaine fixe).
