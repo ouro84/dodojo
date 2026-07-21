@@ -9,6 +9,7 @@ export interface Profile {
   best_streak: number;
   timezone: string;
   equipped_hero_id: string;
+  has_seen_tutorial: boolean;
   created_at: string;
 }
 
