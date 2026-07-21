@@ -56,3 +56,39 @@ export async function resetShopState(): Promise<void> {
     { onConflict: "user_id,day_date" },
   );
 }
+
+// US-12 : purge les day_results du compte de test et sème une série contrôlée.
+export async function seedStreak(
+  rows: Array<{ day_date: string; outcome: "victory" | "retreat" | "defeat" }>,
+): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error("Seed streak : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.");
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const { data: users } = await admin.auth.admin.listUsers();
+  const uid = users?.users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("Seed streak : utilisateur test introuvable.");
+
+  await admin.from("day_results").delete().eq("user_id", uid);
+  await admin.from("profiles").update({ best_streak: 0, streak_days: 0 }).eq("id", uid);
+  if (rows.length > 0) {
+    await admin.from("day_results").upsert(
+      rows.map((r) => ({
+        user_id: uid,
+        day_date: r.day_date,
+        outcome: r.outcome,
+        damage_dealt: 0,
+        boss_max_hp: 0,
+        tasks_completed: 0,
+        tasks_abandoned: 0,
+        xp_earned: 0,
+        gold_earned: 0,
+        closed_manually: true,
+      })),
+      { onConflict: "user_id,day_date" },
+    );
+  }
+}

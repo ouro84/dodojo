@@ -71,7 +71,11 @@ export default function CrepusculeRecap({
         </p>
       )}
       {streak > 0 && (
-        <p className="font-display text-xs uppercase tracking-wide text-hp">
+        <p
+          className={`font-display text-xs uppercase tracking-wide text-hp ${
+            victory ? "streak-flames" : ""
+          }`}
+        >
           {streak}ᵉ victoire d&apos;affilée
         </p>
       )}

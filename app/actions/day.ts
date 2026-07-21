@@ -7,6 +7,7 @@ import {
   currentStreak,
   dayKey,
   summarizeDay,
+  titleForStreak,
   type SummaryTask,
 } from "@/lib/game-engine";
 import type { DayOutcome } from "@/types";
@@ -61,7 +62,7 @@ export async function closeDay(): Promise<CloseDayResult> {
   const streakToday = currentStreak(
     [...(priorResults ?? []), { day_date: today, outcome: summary.outcome }],
     today,
-  );
+  ).length;
   const goldEarned = computeGoldEarned(
     summary.outcome,
     summary.damageDealt,
@@ -85,6 +86,24 @@ export async function closeDay(): Promise<CloseDayResult> {
   );
 
   if (upsertError) return { error: "Impossible de clôturer la journée. Réessaie." };
+
+  // US-12 : rafraîchit les caches de série (source = day_results).
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("best_streak, current_title")
+    .eq("id", user.id)
+    .maybeSingle();
+  const bestStreak = Math.max(prof?.best_streak ?? 0, streakToday);
+  const title = titleForStreak(bestStreak);
+  await supabase
+    .from("profiles")
+    .update({
+      streak_days: streakToday,
+      best_streak: bestStreak,
+      ...(title ? { current_title: title } : {}),
+    })
+    .eq("id", user.id);
+
   revalidatePath("/");
   return { error: null, outcome: summary.outcome };
 }
@@ -143,7 +162,7 @@ export async function backfillMissedDays(): Promise<{ error: string | null }> {
     .map(([day_date, tasks]) => {
       const s = summarizeDay(tasks, "backfill");
       timeline.push({ day_date, outcome: s.outcome });
-      const streakThatDay = currentStreak(timeline, day_date);
+      const streakThatDay = currentStreak(timeline, day_date).length;
       return {
         user_id: user.id,
         day_date,
@@ -165,6 +184,31 @@ export async function backfillMissedDays(): Promise<{ error: string | null }> {
     .upsert(rows, { onConflict: "user_id,day_date" });
 
   if (error) return { error: "Impossible d'enregistrer l'historique. Réessaie." };
+
+  // US-12 : recharge l'historique complet post-backfill pour un streak exact,
+  // puis rafraîchit les caches de série du profil.
+  const { data: allResults } = await supabase
+    .from("day_results")
+    .select("day_date, outcome")
+    .eq("user_id", user.id);
+  const streakNow = currentStreak(allResults ?? [], today).length;
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("best_streak, current_title")
+    .eq("id", user.id)
+    .maybeSingle();
+  const bestStreak = Math.max(prof?.best_streak ?? 0, streakNow);
+  const title = titleForStreak(bestStreak);
+  await supabase
+    .from("profiles")
+    .update({
+      streak_days: streakNow,
+      best_streak: bestStreak,
+      ...(title ? { current_title: title } : {}),
+    })
+    .eq("id", user.id);
+
   revalidatePath("/");
   return { error: null };
 }

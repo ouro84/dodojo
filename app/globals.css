@@ -194,6 +194,22 @@ body {
   animation: mic-pulse 900ms ease-in-out infinite;
 }
 
+/* US-12 : flammes de série à la victoire (Crépuscule) */
+@keyframes streak-flames-pulse {
+  0%,
+  100% {
+    text-shadow: 0 0 2px var(--color-gold);
+  }
+  50% {
+    text-shadow:
+      0 0 10px var(--color-gold),
+      0 0 4px var(--color-alert);
+  }
+}
+.streak-flames {
+  animation: streak-flames-pulse 0.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;
@@ -211,6 +227,9 @@ body {
     opacity: 0;
   }
   .mic-listening {
+    animation: none;
+  }
+  .streak-flames {
     animation: none;
   }
 }

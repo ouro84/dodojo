@@ -387,26 +387,82 @@ export function planWakeUp(overdueTasks: WakeUpTask[]): WakeUpDayGroup[] {
   });
 }
 
-// A8 : streak preview lecture seule. Compte les victoires consécutives en
-// remontant depuis aujourd'hui (ou la veille si aujourd'hui n'a pas encore de
-// résultat), stoppe au premier trou / jour non gagné.
+export const WEEKLY_JOKER_BUDGET = 2;
+
+export interface StreakState {
+  length: number; // jours de victoire dans la chaîne
+  jokersUsedThisWeek: number;
+  atRisk: boolean;
+}
+
+// Semaine ISO 8601 (lundi→dimanche) à partir d'une date locale YYYY-MM-DD.
+// Le day_date est déjà une date calendaire locale → aucun fuseau à ré-appliquer.
+export function weekKey(dayDate: string): string {
+  const date = new Date(`${dayDate}T00:00:00Z`);
+  const dayNum = (date.getUTCDay() + 6) % 7; // lundi=0 … dimanche=6
+  date.setUTCDate(date.getUTCDate() - dayNum + 3); // jeudi de la semaine ISO
+  const isoYear = date.getUTCFullYear();
+  const firstThursday = new Date(Date.UTC(isoYear, 0, 4));
+  const firstDayNum = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDayNum + 3);
+  const week = 1 + Math.round((date.getTime() - firstThursday.getTime()) / (7 * 86400000));
+  return `${isoYear}-W${String(week).padStart(2, "0")}`;
+}
+
+// US-12 : série = victoires consécutives, avec un budget de 2 non-victoires
+// (retreat/defeat/trou) tolérées par semaine ISO ; la 3e casse. Les jours
+// tolérés bridgent la chaîne mais n'incrémentent pas `length`.
 export function currentStreak(
   dayResults: Array<Pick<DayResult, "day_date" | "outcome">>,
   today: string,
-): number {
-  const victoryDays = new Set(
-    dayResults.filter((r) => r.outcome === "victory").map((r) => r.day_date),
-  );
+): StreakState {
+  if (dayResults.length === 0) {
+    return { length: 0, jokersUsedThisWeek: 0, atRisk: false };
+  }
+
+  const outcomeByDate = new Map(dayResults.map((r) => [r.day_date, r.outcome]));
+  const earliest = dayResults
+    .map((r) => r.day_date)
+    .reduce((min, d) => (d < min ? d : min));
+
+  const jokersByWeek = new Map<string, number>();
+  let length = 0;
 
   const cursor = new Date(`${today}T00:00:00Z`);
-  if (!victoryDays.has(today)) {
+  // Aujourd'hui sans résultat : ni compté ni pénalisé, on part de la veille.
+  if (!outcomeByDate.has(today)) {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
 
-  let streak = 0;
-  while (victoryDays.has(dayKey(cursor, "UTC"))) {
-    streak += 1;
+  while (true) {
+    const ds = cursor.toISOString().slice(0, 10);
+    if (ds < earliest) break; // plus d'historique
+
+    if (outcomeByDate.get(ds) === "victory") {
+      length += 1;
+    } else {
+      // non-victoire (retreat / defeat / trou) → consomme un joker de sa semaine
+      const wk = weekKey(ds);
+      const used = (jokersByWeek.get(wk) ?? 0) + 1;
+      jokersByWeek.set(wk, used);
+      if (used > WEEKLY_JOKER_BUDGET) break; // 3e non-victoire de la semaine → rupture
+    }
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
-  return streak;
+
+  const jokersUsedThisWeek = jokersByWeek.get(weekKey(today)) ?? 0;
+  return {
+    length,
+    jokersUsedThisWeek,
+    atRisk: jokersUsedThisWeek >= WEEKLY_JOKER_BUDGET,
+  };
+}
+
+// US-12 : titre débloqué selon le record de série (provisoire — vocabulaire dojo,
+// pourra fusionner avec d'éventuels titres de niveau plus tard).
+export function titleForStreak(bestStreak: number): string | null {
+  if (bestStreak >= 100) return "Sensei";
+  if (bestStreak >= 30) return "Ceinture Noire";
+  if (bestStreak >= 7) return "Ceinture Jaune";
+  return null;
 }

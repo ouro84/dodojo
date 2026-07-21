@@ -8,6 +8,8 @@ import {
   computeToggleCascade,
   currentStreak,
   goldBalance,
+  titleForStreak,
+  weekKey,
   dayKey,
   isNestableParent,
   isOptimisticTask,
@@ -541,26 +543,87 @@ describe("planWakeUp", () => {
   });
 });
 
+describe("weekKey", () => {
+  it("lundi et dimanche de la même semaine ISO partagent la clé", () => {
+    // 2026-07-13 = lundi, 2026-07-19 = dimanche
+    expect(weekKey("2026-07-13")).toBe(weekKey("2026-07-19"));
+  });
+  it("lundi suivant change de semaine", () => {
+    expect(weekKey("2026-07-19")).not.toBe(weekKey("2026-07-20"));
+  });
+});
+
 describe("currentStreak", () => {
-  it("compte les victoires consécutives en remontant depuis aujourd'hui", () => {
+  it("compte les victoires consécutives depuis aujourd'hui", () => {
     const rows = [
       { day_date: "2026-07-20", outcome: "victory" as const },
       { day_date: "2026-07-19", outcome: "victory" as const },
-      { day_date: "2026-07-18", outcome: "defeat" as const },
     ];
-    expect(currentStreak(rows, "2026-07-20")).toBe(2);
+    expect(currentStreak(rows, "2026-07-20").length).toBe(2);
   });
 
   it("démarre la veille si aujourd'hui n'a pas encore de résultat", () => {
     const rows = [{ day_date: "2026-07-19", outcome: "victory" as const }];
-    expect(currentStreak(rows, "2026-07-20")).toBe(1);
+    expect(currentStreak(rows, "2026-07-20").length).toBe(1);
   });
 
-  it("un trou casse le streak", () => {
+  it("un trou isolé est toléré (joker), ne casse pas", () => {
     const rows = [
       { day_date: "2026-07-20", outcome: "victory" as const },
       { day_date: "2026-07-18", outcome: "victory" as const },
     ];
-    expect(currentStreak(rows, "2026-07-20")).toBe(1);
+    expect(currentStreak(rows, "2026-07-20").length).toBe(2);
+  });
+
+  it("une 3e non-victoire dans la même semaine casse la série", () => {
+    const rows = [
+      { day_date: "2026-07-17", outcome: "victory" as const }, // vendredi
+      { day_date: "2026-07-16", outcome: "retreat" as const },
+      { day_date: "2026-07-15", outcome: "defeat" as const },
+      { day_date: "2026-07-14", outcome: "retreat" as const }, // 3e non-victoire
+      { day_date: "2026-07-13", outcome: "victory" as const },
+    ];
+    expect(currentStreak(rows, "2026-07-17").length).toBe(1);
+  });
+
+  it("2 non-victoires par semaine sur 2 semaines : toléré", () => {
+    const rows = [
+      { day_date: "2026-07-20", outcome: "victory" as const }, // lundi (sem. B)
+      { day_date: "2026-07-19", outcome: "retreat" as const }, // sem. A
+      { day_date: "2026-07-18", outcome: "retreat" as const }, // sem. A (2/2)
+      { day_date: "2026-07-17", outcome: "victory" as const }, // sem. A
+    ];
+    expect(currentStreak(rows, "2026-07-20").length).toBe(2);
+  });
+
+  it("atRisk quand 2 jokers consommés dans la semaine courante", () => {
+    const rows = [
+      { day_date: "2026-07-22", outcome: "retreat" as const },
+      { day_date: "2026-07-21", outcome: "retreat" as const },
+      { day_date: "2026-07-20", outcome: "victory" as const },
+    ];
+    const s = currentStreak(rows, "2026-07-22");
+    expect(s.jokersUsedThisWeek).toBe(2);
+    expect(s.atRisk).toBe(true);
+  });
+
+  it("aucun résultat = série 0, pas à risque", () => {
+    expect(currentStreak([], "2026-07-20")).toEqual({
+      length: 0,
+      jokersUsedThisWeek: 0,
+      atRisk: false,
+    });
+  });
+});
+
+describe("titleForStreak", () => {
+  it("renvoie null sous le premier palier", () => {
+    expect(titleForStreak(0)).toBeNull();
+    expect(titleForStreak(6)).toBeNull();
+  });
+  it("paliers 7 / 30 / 100", () => {
+    expect(titleForStreak(7)).toBe("Ceinture Jaune");
+    expect(titleForStreak(30)).toBe("Ceinture Noire");
+    expect(titleForStreak(100)).toBe("Sensei");
   });
 });
