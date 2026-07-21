@@ -72,6 +72,21 @@ export async function resetShopState(): Promise<void> {
   );
 }
 
+// US-29 : supprime le user auth de test onboarding (cascade profiles /
+// unlocked_heroes / daily_boss) pour repartir d'un signup vierge à chaque run.
+export async function resetOnboardingUser(): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_ONBOARDING_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error("Reset onboarding e2e : creds manquants (.env.local).");
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const { data } = await admin.auth.admin.listUsers();
+  const u = data?.users.find((x) => x.email === email);
+  if (u) await admin.auth.admin.deleteUser(u.id);
+}
+
 // US-12 : purge les day_results du compte de test et sème une série contrôlée.
 export async function seedStreak(
   rows: Array<{ day_date: string; outcome: "victory" | "retreat" | "defeat" }>,
