@@ -207,6 +207,26 @@ export function calculateHeroHp(overdueTasks: OverdueTask[]): number {
   return Math.max(0, HERO_MAX_HP - unresolvedCount * HERO_DAMAGE_PER_OVERDUE_TASK);
 }
 
+export type KoTier = "perfect" | "ko" | null;
+
+// US-16 : décide, de façon pure, si terrasser le Boss déclenche une célébration
+// et à quel palier. Piloté par la transition des HP du Boss (avant → après) et
+// les HP du Héro. `null` si pas de transition→0 valide ; `perfect` si le Boss
+// tombe à 0 avec un Héro intact (100 HP, aucun reste non résolu ayant entamé la
+// jauge) ; `ko` sinon (victoire, mais le Héro a encaissé). La garde
+// `prevBossHp === 0` empêche le re-déclenchement sans renaissance (D4/B2).
+export function koOutcome(
+  prevBossHp: number,
+  nextBossHp: number,
+  bossMaxHp: number,
+  heroHp: number,
+): KoTier {
+  if (nextBossHp !== 0) return null; // le Boss n'est pas terrassé
+  if (bossMaxHp === 0) return null; // jour vide, jamais un KO (D5)
+  if (prevBossHp === 0) return null; // déjà à 0, pas de nouvelle transition (D4)
+  return heroHp === HERO_MAX_HP ? "perfect" : "ko";
+}
+
 export const XP_PER_TASK = 30;
 export const XP_THRESHOLD_PER_LEVEL = 100;
 

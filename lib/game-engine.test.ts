@@ -8,6 +8,7 @@ import {
   computeToggleCascade,
   currentStreak,
   goldBalance,
+  koOutcome,
   titleForStreak,
   weekKey,
   dayKey,
@@ -158,6 +159,33 @@ describe("calculateHeroHp (pénalité procrastination)", () => {
   test("plafonne à 0, jamais négatif", () => {
     const tasks = Array.from({ length: 10 }, (_, i) => makeTask({ id: `t${i}` }));
     expect(calculateHeroHp(tasks)).toBe(0);
+  });
+});
+
+describe("koOutcome (US-16, palier PERFECT/K.O.)", () => {
+  test("transition → 0 avec Héro plein = perfect", () => {
+    expect(koOutcome(20, 0, 100, 100)).toBe("perfect");
+  });
+
+  test("transition → 0 avec Héro entamé = ko", () => {
+    expect(koOutcome(20, 0, 100, 80)).toBe("ko");
+  });
+
+  test("nextBossHp > 0 = null (pas terrassé)", () => {
+    expect(koOutcome(40, 20, 100, 100)).toBeNull();
+  });
+
+  test("jour vide (bossMaxHp 0) = null", () => {
+    expect(koOutcome(0, 0, 0, 100)).toBeNull();
+  });
+
+  test("déjà à 0 sans renaissance (prevBossHp 0) = null", () => {
+    expect(koOutcome(0, 0, 100, 100)).toBeNull();
+  });
+
+  test("renaissance puis re-KO re-déclenche", () => {
+    // Boss ressuscité à 20 (prev), retombe à 0 → nouvelle transition valide.
+    expect(koOutcome(20, 0, 100, 100)).toBe("perfect");
   });
 });
 

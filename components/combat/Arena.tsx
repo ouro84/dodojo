@@ -24,10 +24,12 @@ import {
   computeToggleCascade,
   currentStreak,
   HERO_MAX_HP,
+  koOutcome,
   nextSiblingPosition,
   planReorder,
   summarizeDay,
   XP_PER_TASK,
+  type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
 import {
@@ -101,7 +103,12 @@ export default function Arena({
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
-  const [showPerfect, setShowPerfect] = useState(false);
+  const [koState, setKoState] = useState<{
+    tier: Exclude<KoTier, null>;
+    milestone: number | null;
+    damageDealt: number;
+    monstersDefeated: number;
+  } | null>(null);
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -264,8 +271,31 @@ export default function Arena({
 
     if (hpDelta > 0) {
       triggerPulse(hpDelta, "damage");
-      if (nextHp === 0 && calculateBossMaxHp(nextTasks) > 0) {
-        setShowPerfect(true);
+      // US-16 : transition→0 = célébration. previousHp est le HP du Boss avant
+      // ce coup (garde de transition), heroHp l'état du Héro (palier PERFECT).
+      const nextMaxHp = calculateBossMaxHp(nextTasks);
+      const tier = koOutcome(previousHp, nextHp, nextMaxHp, heroHp);
+      if (tier) {
+        // Ce KO scelle une victoire aujourd'hui : la série intégrant le jour
+        // franchit-elle un palier (US-12) ? On force l'issue du jour à victory.
+        const streakIfVictory = currentStreak(
+          [
+            ...dayResults.filter((r) => r.day_date !== today),
+            { day_date: today, outcome: "victory" },
+          ],
+          today,
+        ).length;
+        const milestone = [7, 30, 100].includes(streakIfVictory)
+          ? streakIfVictory
+          : null;
+        setKoState({
+          tier,
+          milestone,
+          damageDealt: nextMaxHp,
+          monstersDefeated: nextTasks.filter(
+            (t) => !t.is_abandoned && t.is_completed,
+          ).length,
+        });
       }
     } else if (hpDelta < 0) {
       triggerPulse(-hpDelta, "heal");
@@ -302,7 +332,7 @@ export default function Arena({
       setTasks(previousTasksSnapshot);
       setProfile(previousProfileSnapshot);
       setLevelUpValue(null);
-      if (hpDelta > 0) setShowPerfect(false);
+      if (hpDelta > 0) setKoState(null);
       setBanner(lastResult.error);
       return;
     }
@@ -450,10 +480,19 @@ export default function Arena({
           {xpPulse && (
             <FloatingText amount={xpPulse.amount} kind={xpPulse.kind} unit="XP" />
           )}
-          {showPerfect && (
+          {koState && (
             <PerfectOverlay
+              tier={koState.tier}
               bossName={BOSS_NAME}
-              onDismiss={() => setShowPerfect(false)}
+              username={profile.username}
+              damageDealt={koState.damageDealt}
+              monstersDefeated={koState.monstersDefeated}
+              milestone={koState.milestone}
+              onCrepuscule={() => {
+                setKoState(null);
+                void handleCrepuscule();
+              }}
+              onContinue={() => setKoState(null)}
             />
           )}
           {levelUpValue !== null && (
