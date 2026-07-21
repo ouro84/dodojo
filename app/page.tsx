@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dayKey } from "@/lib/game-engine";
 import { generateRecurringInstances } from "@/app/actions/recurring";
+import { resolveDailyBoss } from "@/app/actions/boss";
 import Arena from "@/components/combat/Arena";
 import ArenaError from "@/components/combat/ArenaError";
 
@@ -35,6 +36,9 @@ export default async function ArenePage() {
   // de lire la liste du jour — couvre les jours sans reste (le Rituel du Réveil
   // bloquant ne se monte que s'il y a des restes).
   await generateRecurringInstances();
+
+  // Roster : boss + décor du jour (tiré une fois puis figé, exclut les 2 derniers jours).
+  const daily = await resolveDailyBoss();
 
   const { data: tasks, error: tasksError } = await supabase
     .from("tasks")
@@ -73,6 +77,8 @@ export default async function ArenePage() {
       overdueTasks={overdueTasks ?? []}
       dayResults={dayResults ?? []}
       today={today}
+      bossId={daily.bossId}
+      backgroundId={daily.backgroundId}
     />
   );
 }

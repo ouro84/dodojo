@@ -11,14 +11,18 @@ interface VersusSceneProps {
   heroHp: number;
   heroMaxHp: number;
   bossName: string;
+  bossFramePrefix: string;
+  bossFrameCount: number;
+  bossFlip: boolean;
+  backgroundPath: string;
   currentHp: number;
   maxHp: number;
   dimmed?: boolean;
 }
 
-// Décor : assets/Backgrounds/free-steampunk-cityscape-pixel-backgrounds (CraftPix, cf. ASSETS.md)
-// Héros : assets/MC/Elementals_fire_knight_FREE_v1.1 (licence non documentée localement, cf. ASSETS.md)
-// Boss : assets/Boss/Frost_Guardian_FREE_v1.0 (licence non documentée localement, cf. ASSETS.md)
+// Décor + Boss dynamiques : le boss du jour et son décor cohérent sont tirés par
+// resolveDailyBoss (cf. lib/bosses.ts, lib/backgrounds.ts, ASSETS.md).
+// Héros : assets/MC/Elementals_* (licence non documentée localement, cf. ASSETS.md)
 export default function VersusScene({
   heroName,
   heroFramePrefix,
@@ -26,6 +30,10 @@ export default function VersusScene({
   heroHp,
   heroMaxHp,
   bossName,
+  bossFramePrefix,
+  bossFrameCount,
+  bossFlip,
+  backgroundPath,
   currentHp,
   maxHp,
   dimmed = false,
@@ -36,7 +44,7 @@ export default function VersusScene({
       style={dimmed ? { filter: "saturate(0.5) brightness(0.7)" } : undefined}
     >
       <Image
-        src="/backgrounds/steampunk-cityscape-1.png"
+        src={backgroundPath}
         alt=""
         fill
         sizes="336px"
@@ -62,9 +70,10 @@ export default function VersusScene({
         className="absolute bottom-2 left-4 h-28 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
       <IdleSprite
-        framePrefix="/sprites/bosses/frost-guardian/idle/frame"
-        frameCount={6}
-        alt="Le Boss du jour : le Gardien de Glace"
+        framePrefix={bossFramePrefix}
+        frameCount={bossFrameCount}
+        flip={bossFlip}
+        alt={`Le Boss du jour : ${bossName}`}
         className="absolute bottom-2 right-4 h-28 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
     </div>

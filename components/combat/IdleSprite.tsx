@@ -7,6 +7,9 @@ interface IdleSpriteProps {
   frameCount: number;
   alt: string;
   className?: string;
+  // Miroir horizontal : utile pour retourner un sprite qui regarde à droite
+  // alors qu'il doit faire face au héros (boss placé à droite de l'Arène).
+  flip?: boolean;
 }
 
 const FRAME_MS = 120;
@@ -16,6 +19,7 @@ export default function IdleSprite({
   frameCount,
   alt,
   className,
+  flip = false,
 }: IdleSpriteProps) {
   const [reducedMotion] = useState(
     () =>
@@ -42,6 +46,7 @@ export default function IdleSprite({
       src={`${framePrefix}${paddedFrame}.png`}
       alt={alt}
       className={className}
+      style={flip ? { transform: "scaleX(-1)" } : undefined}
     />
   );
 }

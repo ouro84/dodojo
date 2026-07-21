@@ -71,6 +71,8 @@ Format dominant : la plupart des packs fournissent le **même contenu sous 3 for
 
 **Rotation suggérée** : `low boss` pour début de semaine (mini-boss simples), Frost Guardian / Demon Slime en milieu de semaine, Cthulhu en boss de fin de semaine/événement spécial. Golem à mettre de côté tant qu'il n'est pas retaggé.
 
+**Intégration Roster (fait)** — 12 boss câblés dans le jeu via `scripts/copy-boss-sprites.mjs` → `public/sprites/bosses/<slug>/idle/frameNNNN.png` (base 0, 4 chiffres), consommés par `IdleSprite`, catalogués dans `lib/bosses.ts`. Boss "réels" (frost-guardian, demon-slime, cthulhu, minotaur) = copie de frames individuelles ; "low boss" (satyr, urban-zombie, mushroom, gorgon, fire-wizard, lightning-mage, gangster, knight) = **découpe de spritesheet** `Idle.png` (frames explicites par pack : satyr/gorgon/wizards 7, zombie/gangster 6, mushroom 8 en 70×64, knight 4 via la variante `Spritesheet 128`). Golem (non taggé) et mino low-boss (redondant avec le mino réel 16 frames) **écartés**. Chaque boss a un `flip` d'orientation (à confirmer visuellement). Tirage quotidien : cf. piège « Roster de Boss » dans `CLAUDE.md`.
+
 ---
 
 ## 3. `assets/Backgrounds` — Décors de l'Arène
@@ -90,6 +92,8 @@ Format dominant : la plupart des packs fournissent le **même contenu sous 3 for
 Steampunk et Underwater ont en plus une version haute résolution (`origbig.png`, 2304×1296).
 
 **Recommandation** : rotation de fond d'Arène selon le type de Boss du jour, layering parallax exploitable pour un effet de profondeur pendant le combat.
+
+**Intégration Roster (fait)** — les 7 thèmes sont extraits en rendu plat vers `public/backgrounds/<slug>.png` via `scripts/copy-boss-sprites.mjs` (rendu `PNG/background 1/background 1.png` ; steampunk & underwater via `background 1/orig.png`), catalogués dans `lib/backgrounds.ts`. Le décor du jour est tiré parmi les décors **cohérents avec le lore du boss** (`Boss.backgroundIds`), pas au hasard sur les 7. Parallax non exploité pour l'instant (rendu plat en `object-cover`).
 
 ---
 
