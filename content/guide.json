@@ -1,0 +1,88 @@
+{
+  "updatedAt": "2026-07-21",
+  "sections": [
+    {
+      "id": "principe",
+      "title": "Le principe",
+      "blocks": [
+        { "type": "p", "text": "Chaque jour, un Boss se dresse sur ta route. Tes tâches sont ses points de vie : plus tu en ajoutes, plus il est coriace. Chaque tâche accomplie lui rentre dedans. Vide sa jauge avant le soir et la rue est à toi." }
+      ]
+    },
+    {
+      "id": "hp",
+      "title": "Le barème de combat",
+      "blocks": [
+        { "type": "p", "text": "Le Boss du jour a autant de HP que le total de tes tâches. Ajouter une tâche le soigne : il gagne en puissance quand tu charges ta journée." },
+        { "type": "ul", "items": ["Tâche principale : 20 HP", "Sous-tâche : 10 HP (deux niveaux maximum)", "Ajouter une tâche : le Boss se soigne d'autant", "Cocher une tâche : tu lui infliges ces dégâts"] }
+      ]
+    },
+    {
+      "id": "xp",
+      "title": "Force & niveaux",
+      "blocks": [
+        { "type": "p", "text": "Chaque tâche accomplie te rapporte 30 XP. Assez d'XP et tu montes de niveau (seuil = niveau × 100)." },
+        { "type": "p", "text": "Décocher une tâche rend l'XP au Boss : pas de triche, le dojo compte les vrais coups." }
+      ]
+    },
+    {
+      "id": "reveil",
+      "title": "Le Rituel du Réveil",
+      "blocks": [
+        { "type": "p", "text": "À la première ouverture d'un nouveau jour, on solde tes restes de la veille. Pour chacun, tu tranches :" },
+        { "type": "ul", "items": ["Terminé : tu l'avais fait, il inflige ses dégâts à son jour d'origine", "Reporter : il revient dans l'Arène du jour", "Annihiler : on tourne la page, sans malus"] }
+      ]
+    },
+    {
+      "id": "crepuscule",
+      "title": "Le Rituel du Crépuscule",
+      "blocks": [
+        { "type": "p", "text": "Le soir, tu clôtures ta journée pour acter ton issue :" },
+        { "type": "ul", "items": ["Victoire : le Boss est à terre", "Retraite : tu clôtures avec le Boss encore debout", "Défaite : un jour raté, non clôturé"] }
+      ]
+    },
+    {
+      "id": "streak",
+      "title": "Séries & jokers",
+      "blocks": [
+        { "type": "p", "text": "Enchaîne les victoires pour bâtir ta série. Le dojo est indulgent : tu peux te louper jusqu'à 2 fois par semaine (jokers) sans casser la série — la 3e non-victoire la brise." },
+        { "type": "p", "text": "Aux paliers 7 / 30 / 100, tu gagnes un titre : Ceinture Jaune, Ceinture Noire, Sensei." }
+      ]
+    },
+    {
+      "id": "rage",
+      "title": "Le Rage Quit",
+      "blocks": [
+        { "type": "p", "text": "Abandonner une tâche en cours de journée (le « × ») coûte 5 XP et fait ricaner le Boss, mais tu ne perds jamais de niveau. Changé d'avis ? Annule dans la foulée : la tâche revient et l'XP est rendue." }
+      ]
+    },
+    {
+      "id": "combo",
+      "title": "Les combos",
+      "blocks": [
+        { "type": "p", "text": "Enchaîne les tâches sans t'arrêter et le combo grimpe : DOUBLE COUP, COMBO ×N, jusqu'au M-M-MONSTER COMBO. C'est du panache pur — ça ne change ni ton XP ni ton or, ça claque, c'est tout. Décocher ou abandonner brise la série." }
+      ]
+    },
+    {
+      "id": "or",
+      "title": "Or & Échoppe",
+      "blocks": [
+        { "type": "p", "text": "Tu gagnes de l'or à la clôture du jour : une victoire paie plus qu'une retraite, et les gros dégâts comme les séries ajoutent un bonus." },
+        { "type": "p", "text": "À l'Échoppe, ton or débloque de nouveaux combattants façon écran de sélection. Ton combattant de départ est offert ; les autres se méritent." }
+      ]
+    },
+    {
+      "id": "pantheon",
+      "title": "Le Panthéon",
+      "blocks": [
+        { "type": "p", "text": "Ta salle des trophées : record de série, Boss vaincus, dégâts et or cumulés, meilleur jour, et le journal de tes combats. Accessible depuis le QG." }
+      ]
+    },
+    {
+      "id": "roster",
+      "title": "Le Boss du jour",
+      "blocks": [
+        { "type": "p", "text": "Douze adversaires se relaient, chacun dans un décor fidèle à sa légende. Le Boss du jour est tiré au sort et ne revient jamais deux jours de suite — ni le lendemain du lendemain." }
+      ]
+    }
+  ]
+}
