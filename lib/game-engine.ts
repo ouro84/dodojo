@@ -265,6 +265,40 @@ export function goldBalance(
   return earned - spent;
 }
 
+export const RAGE_QUIT_XP_PENALTY = 5;
+
+// US-15 : malus de Rage Quit — clampé à 0, **sans** de-level (≠ applyXpDelta qui,
+// lui, peut faire redescendre de niveau sur XP négatif). Le niveau est intouché ;
+// seul l'XP courant est amputé. Le refund de l'undo réapplique +5 (même clamp).
+export function applyRageQuitPenalty(state: XpState): XpState {
+  return { level: state.level, xp: Math.max(0, state.xp - RAGE_QUIT_XP_PENALTY) };
+}
+
+// US-15 : liste les tâches à abandonner pour un Rage Quit — la cible + (si c'est
+// une racine) ses sous-tâches actives. Une sous-tâche seule ne cascade pas.
+// Exclut les tâches déjà complétées ou abandonnées (pas de double effet, B2).
+export function collectAbandonCascade(
+  targetId: string,
+  tasks: CascadeTask[],
+): string[] {
+  const target = tasks.find((task) => task.id === targetId);
+  if (!target || target.is_completed || target.is_abandoned) return [];
+
+  const ids = [target.id];
+  if (target.parent_id === null) {
+    for (const task of tasks) {
+      if (
+        task.parent_id === targetId &&
+        !task.is_completed &&
+        !task.is_abandoned
+      ) {
+        ids.push(task.id);
+      }
+    }
+  }
+  return ids;
+}
+
 export function xpThresholdForLevel(level: number): number {
   return level * XP_THRESHOLD_PER_LEVEL;
 }

@@ -37,4 +37,14 @@ Ordre : **US-16 → US-15 → US-10 → US-17**, du moins risqué/plus dopaminer
 - **CSS** : keyframe `ko-burst` (pop d'arcade) + reduced-motion. **Décision assumée** : easing overshoot signalé "bounce-easing" par le hook impeccable = choix de design (juice Street Fighter, `PRODUCT.md`), conservé volontairement.
 - **Vérif** : `tsc` propre (hors erreurs e2e préexistantes sur `main`), `build` vert, 93/93 Vitest.
 - **Docs** : CHANGELOG + CLAUDE.md (piège) + ce journal.
+- **Commit** : `0773c68`.
+
+### US-15 — Rage Quit (fait)
+- **Migration** `20260721090000_add_task_abandon_reason.sql` : colonne `abandon_reason` nullable + check `('rage_quit','annihilated')`. **Appliquée sur remote** (`supabase db push` → confirmé via `migration list`).
+- **Moteur** : `applyRageQuitPenalty` (−5 clampé, **sans de-level**, ≠ `applyXpDelta`), `RAGE_QUIT_XP_PENALTY=5`, `collectAbandonCascade` (racine + sous-tâches actives, exclut complétées/abandonnées) + 7 tests.
+- **Actions** : `rageQuitTask` (cascade + malus unique), `undoRageQuit` (restaure lignes `rage_quit` + refund +5) ; `annihilateOverdue*` posent désormais `abandon_reason='annihilated'`. Ancien `abandonTask` **supprimé**.
+- **UI** : modale de confirmation (action punitive, D5), malus XP optimiste, toast d'undo avec punchline « le Boss ricane », `types/Task.abandon_reason` ajouté (+ objets optimistes de l'Arène).
+- **Décision** : refund via `applyXpDelta(+5)` (garde un profil XP valide) ; asymétrie mineure assumée quand xp<5 au moment du malus (clamp à 0 → refund donne 5). Documenté.
+- **Vérif** : 100/100 Vitest, lint propre, `build` vert, migration remote OK.
+- **Commit** : (ci-dessous).
 

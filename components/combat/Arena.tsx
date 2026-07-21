@@ -25,6 +25,9 @@ import {
   currentStreak,
   HERO_MAX_HP,
   koOutcome,
+  collectAbandonCascade,
+  applyRageQuitPenalty,
+  RAGE_QUIT_XP_PENALTY,
   nextSiblingPosition,
   planReorder,
   summarizeDay,
@@ -35,7 +38,8 @@ import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
-  abandonTask as abandonTaskAction,
+  rageQuitTask as rageQuitTaskAction,
+  undoRageQuit as undoRageQuitAction,
   reorderSiblings as reorderSiblingsAction,
   setTaskCompleted as setTaskCompletedAction,
 } from "@/app/actions/tasks";
@@ -111,6 +115,14 @@ export default function Arena({
   } | null>(null);
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  // US-15 : id en attente de confirmation de Rage Quit + toast d'annulation.
+  const [rageQuitConfirmId, setRageQuitConfirmId] = useState<string | null>(null);
+  const [undoState, setUndoState] = useState<{
+    id: string;
+    tasksSnapshot: Task[];
+    profileSnapshot: Profile;
+    punchline: string;
+  } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [showWakeUp, setShowWakeUp] = useState(overdueTasks.length > 0);
   const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
@@ -180,6 +192,7 @@ export default function Arena({
       title,
       is_completed: false,
       is_abandoned: false,
+      abandon_reason: null,
       is_recurring: false,
       deadline_at: null,
       day_date: today,
@@ -221,6 +234,7 @@ export default function Arena({
       title,
       is_completed: false,
       is_abandoned: false,
+      abandon_reason: null,
       is_recurring: false,
       deadline_at: null,
       day_date: today,
@@ -400,18 +414,68 @@ export default function Arena({
     });
   }
 
+  // US-15 : clic sur « × » d'une tâche active → demande de confirmation
+  // (action punitive, D5). La confirmation déclenche le Rage Quit.
   function handleAbandon(id: string) {
-    const previousSnapshot = tasks;
+    setRageQuitConfirmId(id);
+  }
+
+  function confirmRageQuit() {
+    const id = rageQuitConfirmId;
+    setRageQuitConfirmId(null);
+    if (!id) return;
+
+    const tasksSnapshot = tasks;
+    const profileSnapshot = profile;
+
+    // Cascade optimiste (racine + sous-tâches actives) : le Boss rétrécit.
+    const cascadeIds = new Set(collectAbandonCascade(id, tasks));
     const nextTasks = tasks.map((task) =>
-      task.id === id ? { ...task, is_abandoned: true } : task,
+      cascadeIds.has(task.id)
+        ? { ...task, is_abandoned: true, abandon_reason: "rage_quit" as const }
+        : task,
     );
+    const nextProfile = applyRageQuitPenalty(profile);
 
     setTasks(nextTasks);
+    setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
+    triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    setUndoState({
+      id,
+      tasksSnapshot,
+      profileSnapshot,
+      punchline: "Le Boss ricane : « Déjà à terre ? Relève-toi. »",
+    });
 
-    void abandonTaskAction(id).then((result) => {
+    void rageQuitTaskAction(id).then((result) => {
       if (result.error) {
-        setTasks(previousSnapshot);
+        setTasks(tasksSnapshot);
+        setProfile(profileSnapshot);
+        setUndoState(null);
         setBanner(result.error);
+        return;
+      }
+      if (result.level !== undefined && result.xp !== undefined) {
+        setProfile((current) => ({ ...current, level: result.level!, xp: result.xp! }));
+      }
+    });
+  }
+
+  function handleUndoRageQuit() {
+    const undo = undoState;
+    setUndoState(null);
+    if (!undo) return;
+
+    setTasks(undo.tasksSnapshot);
+    setProfile(undo.profileSnapshot);
+
+    void undoRageQuitAction(undo.id).then((result) => {
+      if (result.error) {
+        setBanner(result.error);
+        return;
+      }
+      if (result.level !== undefined && result.xp !== undefined) {
+        setProfile((current) => ({ ...current, level: result.level!, xp: result.xp! }));
       }
     });
   }
@@ -516,6 +580,62 @@ export default function Arena({
             className="shrink-0 underline"
           >
             Fermer
+          </button>
+        </div>
+      )}
+
+      {rageQuitConfirmId && (
+        <div
+          role="alertdialog"
+          aria-label="Confirmer l'abandon"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-[oklch(0.08_0_0_/_72%)] px-6"
+          onClick={() => setRageQuitConfirmId(null)}
+        >
+          <div
+            className="flex w-full max-w-xs flex-col gap-3 rounded-lg border border-alert bg-surface p-4 text-center"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="font-display text-sm uppercase tracking-wide text-alert">
+              Rage Quit ?
+            </p>
+            <p className="text-xs text-muted">
+              Abandonner «{" "}
+              {tasks.find((task) => task.id === rageQuitConfirmId)?.title}{" "}
+              » coûte −{RAGE_QUIT_XP_PENALTY} XP. Le Boss rétrécit, mais il
+              ricanera.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRageQuitConfirmId(null)}
+                className="flex-1 rounded-md border border-border px-3 py-2 text-xs text-ink"
+              >
+                Garder le combat
+              </button>
+              <button
+                type="button"
+                onClick={confirmRageQuit}
+                className="flex-1 rounded-md border border-alert px-3 py-2 font-display text-xs uppercase tracking-wide text-alert"
+              >
+                Abandonner
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {undoState && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted"
+        >
+          <span>{undoState.punchline}</span>
+          <button
+            type="button"
+            onClick={handleUndoRageQuit}
+            className="shrink-0 font-display uppercase tracking-wide text-xp underline underline-offset-2"
+          >
+            Annuler
           </button>
         </div>
       )}

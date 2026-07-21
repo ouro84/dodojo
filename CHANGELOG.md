@@ -25,8 +25,10 @@ nouvelle section versionnée et datée.
 - US-18 : L'Échoppe façon Character Select (débloquer/équiper des héros) + économie d'or (or gagné à la clôture du jour, solde dérivé, possession `unlocked_heroes`, héros affiché dans l'Arène via `equipped_hero_id`)
 - US-12 : Système de streaks (série de victoires, budget de 2 non-victoires tolérées/semaine, record `best_streak`, compteur + alerte « en danger » au QG, titres de jalon, flammes à la victoire)
 - US-16 : Animation « Perfect » / K.O. (célébration en direct quand le Boss tombe à 0 : **PERFECT** si Héro intact, **K.O.** si Héro entamé ; CTA Rituel du Crépuscule ; super-variante flammes au franchissement d'un palier de série ; variante douce `prefers-reduced-motion`)
+- US-15 : Rage Quit de tâche (abandon punitif en cours de journée : modale de confirmation, malus −5 XP clampé sans de-level, Boss rétréci, cascade sur les sous-tâches actives, punchline « le Boss ricane », **undo** même-jour qui restaure et rembourse ; distingué de l'« Annihiler » serein du Réveil via `abandon_reason`)
 
 ### Technique
+- Colonne `tasks.abandon_reason` (`rage_quit` | `annihilated`) : distingue en base l'abandon punitif du reste nettoyé sereinement (fondation des futures stats d'abandon du Panthéon)
 - Initialisation du projet (Next.js 16, Supabase, Tailwind v4, Vitest, Playwright)
 - Schéma BDD initial (`profiles`, `tasks`) avec RLS appliquant RG-04 (pas de suppression destructive)
 - Premier test e2e Playwright (ADR-04, boucle de combat quotidienne)

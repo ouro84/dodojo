@@ -36,6 +36,7 @@ export interface Task {
   title: string;
   is_completed: boolean;
   is_abandoned: boolean;
+  abandon_reason: "rage_quit" | "annihilated" | null;
   is_recurring: boolean;
   deadline_at: string | null;
   day_date: string;

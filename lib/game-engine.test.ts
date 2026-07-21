@@ -9,6 +9,9 @@ import {
   currentStreak,
   goldBalance,
   koOutcome,
+  applyRageQuitPenalty,
+  collectAbandonCascade,
+  RAGE_QUIT_XP_PENALTY,
   titleForStreak,
   weekKey,
   dayKey,
@@ -34,6 +37,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     title: "Tâche",
     is_completed: false,
     is_abandoned: false,
+    abandon_reason: null,
     is_recurring: false,
     deadline_at: null,
     day_date: "2026-07-16",
@@ -186,6 +190,48 @@ describe("koOutcome (US-16, palier PERFECT/K.O.)", () => {
   test("renaissance puis re-KO re-déclenche", () => {
     // Boss ressuscité à 20 (prev), retombe à 0 → nouvelle transition valide.
     expect(koOutcome(20, 0, 100, 100)).toBe("perfect");
+  });
+});
+
+describe("applyRageQuitPenalty (US-15)", () => {
+  test("retire 5 XP quand xp ≥ 5", () => {
+    expect(applyRageQuitPenalty({ level: 2, xp: 40 })).toEqual({ level: 2, xp: 35 });
+    expect(RAGE_QUIT_XP_PENALTY).toBe(5);
+  });
+
+  test("clampe à 0 sans de-level quand xp < 5", () => {
+    expect(applyRageQuitPenalty({ level: 3, xp: 3 })).toEqual({ level: 3, xp: 0 });
+  });
+
+  test("xp=0 niveau>1 : reste au même niveau, xp 0 (pas de de-level)", () => {
+    expect(applyRageQuitPenalty({ level: 2, xp: 0 })).toEqual({ level: 2, xp: 0 });
+  });
+});
+
+describe("collectAbandonCascade (US-15)", () => {
+  const tasks = [
+    makeTask({ id: "root", parent_id: null }),
+    makeTask({ id: "c1", parent_id: "root" }),
+    makeTask({ id: "c2", parent_id: "root", is_completed: true }),
+    makeTask({ id: "c3", parent_id: "root", is_abandoned: true }),
+    makeTask({ id: "solo", parent_id: null }),
+  ];
+
+  test("racine → elle + ses sous-tâches actives (exclut complétées/abandonnées)", () => {
+    expect(collectAbandonCascade("root", tasks).sort()).toEqual(["c1", "root"]);
+  });
+
+  test("sous-tâche seule ne cascade pas", () => {
+    expect(collectAbandonCascade("c1", tasks)).toEqual(["c1"]);
+  });
+
+  test("cible déjà complétée ou abandonnée = aucune", () => {
+    expect(collectAbandonCascade("c2", tasks)).toEqual([]);
+    expect(collectAbandonCascade("c3", tasks)).toEqual([]);
+  });
+
+  test("cible inconnue = aucune", () => {
+    expect(collectAbandonCascade("ghost", tasks)).toEqual([]);
   });
 });
 
