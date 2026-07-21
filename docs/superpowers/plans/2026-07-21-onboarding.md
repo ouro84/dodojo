@@ -132,54 +132,96 @@ git commit -m "feat(onboarding): starter = seul héros gratuit (isHeroOwned + se
 
 ---
 
-### Task 3: Création de compte — action signUp + écran `/welcome`
+### Task 3: Création de compte — signup client-side + écran `/welcome` + entrée A1
 
 **Files:**
-- Create: `app/actions/auth.ts`
-- Create: `app/welcome/page.tsx`
-- Create: `app/welcome/WelcomeSignup.tsx`
+- Create: `app/welcome/page.tsx` (serveur)
+- Create: `app/welcome/WelcomeSignup.tsx` (client)
 - Modify: `app/login/page.tsx` (lien vers /welcome)
+- Modify: `app/page.tsx` (A1 : non-auth → /welcome)
 
 **Interfaces:**
-- Produces: `signUp(_prev, formData): Promise<{ error: string | null }>` (useActionState-compatible ; redirige `/onboarding` en cas de succès).
+- Pas de server action : le signup est **client-side** (miroir du login `app/login/page.tsx`), via `createClient()` navigateur → `supabase.auth.signUp` → `router.replace("/onboarding")`.
 
-- [ ] **Step 1: `app/actions/auth.ts`**
+⚠️ **Prérequis dur** : Supabase Auth « Confirm email » **OFF** (sinon `signUp` ne renvoie pas de session et le flux casse). Vérifier avant : un signup de test doit connecter immédiatement.
 
-```ts
-"use server";
+- [ ] **Step 1: `app/welcome/WelcomeSignup.tsx` (client, patron du login)**
+
+```tsx
+"use client";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+
+export default function WelcomeSignup() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    if (password.length < 8) { setError("Mot de passe : 8 caractères minimum."); return; }
+    setPending(true);
+    const supabase = createClient();
+    const { error: signUpError } = await supabase.auth.signUp({ email, password });
+    if (signUpError) {
+      setError(/registered/i.test(signUpError.message)
+        ? "Ce mail a déjà un compte. Connecte-toi."
+        : "Impossible de créer le compte. Réessaie.");
+      setPending(false);
+      return;
+    }
+    router.replace("/onboarding");
+    router.refresh();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex w-full max-w-xs flex-col gap-4">
+      {/* champs email + password (mêmes classes/labels que /login), bouton "Rejoindre le dojo" */}
+      {/* ... inputs id=email type=email required ; id=password type=password required minLength=8 ... */}
+      {error && <p role="alert" className="text-sm text-alert">{error}</p>}
+      <button type="submit" disabled={pending} className="rounded-md bg-hp px-4 py-2 font-display uppercase tracking-wide text-ink disabled:opacity-50">
+        {pending ? "…" : "Rejoindre le dojo"}
+      </button>
+      <Link href="/login" className="text-center text-xs text-faint underline">Déjà un compte ? Se connecter</Link>
+    </form>
+  );
+}
+```
+(Copier la structure exacte des `<div><label><input></div>` depuis `app/login/page.tsx` pour email/password.)
+
+- [ ] **Step 2: `app/welcome/page.tsx` (serveur)**
+
+```tsx
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import WelcomeSignup from "./WelcomeSignup";
 
-export interface AuthState { error: string | null }
-
-export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  if (!email || !password) return { error: "Email et mot de passe requis." };
-  if (password.length < 8) return { error: "Mot de passe : 8 caractères minimum." };
-
+export default async function WelcomePage() {
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({ email, password });
-  if (error) {
-    return { error: error.message.includes("registered")
-      ? "Ce mail a déjà un compte. Connecte-toi."
-      : "Impossible de créer le compte. Réessaie." };
-  }
-  redirect("/onboarding");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) redirect("/");
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12 text-center">
+      <h1 className="font-display text-xl uppercase tracking-wide text-ink">Dodojo</h1>
+      <p className="max-w-[28ch] text-sm text-muted">Le dojo t'attend. Choisis ton nom, ton combattant, et entre dans l'Arène.</p>
+      <WelcomeSignup />
+    </main>
+  );
 }
 ```
 
-- [ ] **Step 2: `WelcomeSignup.tsx` (client)**
+- [ ] **Step 3: Lien depuis `/login`**
 
-Formulaire (email, password) via `useActionState(signUp, { error: null })`, accroche Sensei courte, bouton « Rejoindre le dojo », lien « Déjà un compte ? Se connecter » → `/login`. Champs `type=email` / `type=password`, `minLength={8}`. Rendu de `state.error`.
+Ajouter dans `app/login/page.tsx` (sous le formulaire) : `<Link href="/welcome" className="text-xs text-faint underline">Pas encore de compte ? Crée ton combattant</Link>` (importer `Link`).
 
-- [ ] **Step 3: `app/welcome/page.tsx` (serveur)**
+- [ ] **Step 4: A1 — entrée non-auth vers /welcome**
 
-Si déjà connecté → `redirect("/")`. Sinon rend `<WelcomeSignup />` centré, titre + punchline dojo.
-
-- [ ] **Step 4: Lien depuis `/login`**
-
-Ajouter dans `app/login/page.tsx` un lien « Pas encore de compte ? Crée ton combattant » → `/welcome`.
+Dans `app/page.tsx`, remplacer `redirect("/login")` par `redirect("/welcome")`. (Les autres pages protégées gardent `/login`.)
 
 - [ ] **Step 5: Build**
 
@@ -189,8 +231,8 @@ Expected: route `/welcome` générée, sans erreur.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/actions/auth.ts app/welcome app/login/page.tsx
-git commit -m "feat(onboarding): signup email+mdp + écran /welcome"
+git add app/welcome app/login/page.tsx app/page.tsx
+git commit -m "feat(onboarding): signup client-side + /welcome + entrée non-auth"
 ```
 
 ---
@@ -293,7 +335,8 @@ git commit -m "feat(onboarding): tunnel pseudo → avatar + starter offert"
 - Create: `app/actions/profile.ts`
 - Create: `components/combat/ArenaCoach.tsx`
 - Modify: `app/page.tsx` (passer `hasSeenTutorial`)
-- Modify: `components/combat/Arena.tsx` (monter le coach, exposer add + état tâches)
+- Modify: `components/combat/Arena.tsx` (monter le coach, exposer add + état tâches, flag firstVictory)
+- Modify: `components/combat/PerfectOverlay.tsx` (A3 : sous-texte 1re victoire)
 
 **Interfaces:**
 - Consumes: `Arena` expose `handleAdd(title)` et l'existence de tâches actives + la complétion.
@@ -315,33 +358,39 @@ export async function markTutorialSeen(): Promise<{ error: string | null }> {
 
 - [ ] **Step 2: `ArenaCoach.tsx` (client)**
 
-Props : `step: "add" | "strike"`, `onSuggest: () => void` (ajoute « Prendre en main Dodojo »), `onDismiss: () => void`. Overlay non bloquant en surimpression basse :
+Props : `step: "add" | "strike"`, `onSuggest: () => void` (ajoute « Prendre en main Dodojo »), `onSkip: () => void` (A2). Overlay non bloquant en surimpression basse :
 - step `add` : « Ajoute ta première tâche pour défier le Boss. » + bouton « ⚡ Prendre en main Dodojo » (→ `onSuggest`).
 - step `strike` : « Coche-la pour frapper : dégâts + XP. »
-Respecte `prefers-reduced-motion` (pas d'animation agressive). Pas de fond opaque bloquant (l'utilisateur peut agir).
+- **Bouton « Passer » (A2)** discret à toute étape → `onSkip`.
+Respecte `prefers-reduced-motion`. Pas de fond opaque bloquant (l'utilisateur peut agir).
 
-- [ ] **Step 3: Câbler dans `Arena.tsx`**
+- [ ] **Step 3: A3 — sous-texte 1re victoire dans `PerfectOverlay.tsx`**
 
-- Nouvelle prop `hasSeenTutorial: boolean`.
-- État `coachStep`: si `!hasSeenTutorial` → `"add"` tant qu'aucune tâche active ; `"strike"` dès qu'une tâche active existe et non complétée ; `null` (et appel `markTutorialSeen()` une fois) dès qu'une tâche a été complétée.
-- `onSuggest` = `handleAdd("Prendre en main Dodojo")`.
+Ajouter une prop optionnelle `firstVictory?: boolean`. Quand `true`, remplacer le sous-texte standard par « Premier sang, {username} ! » (garder le tier PERFECT/K.O. et le CTA). `username` est déjà une prop de l'overlay.
+
+- [ ] **Step 4: Câbler dans `Arena.tsx`**
+
+- Nouvelle prop `hasSeenTutorial: boolean`. État local `tutorialActive` initialisé à `!hasSeenTutorial`.
+- État `coachStep`: si `tutorialActive` → `"add"` tant qu'aucune tâche active ; `"strike"` dès qu'une tâche active non complétée existe ; `null` dès qu'une tâche est complétée (ou skip).
+- Fin du coach (complétion **ou** skip) → `markTutorialSeen()` **une seule fois** (garde `useRef`) + `setTutorialActive(false)`.
+- `onSuggest` = `handleAdd("Prendre en main Dodojo")` ; `onSkip` = terminer le coach.
+- **A3** : au moment où `koOutcome` produit un tier, capturer `firstVictory = tutorialActive` et le stocker dans `koState` ; passer `firstVictory={koState.firstVictory}` à `<PerfectOverlay>`.
 - Monter `<ArenaCoach>` quand `coachStep !== null`.
-- Utiliser un `useRef` pour n'appeler `markTutorialSeen()` qu'une seule fois.
 
-- [ ] **Step 4: `app/page.tsx`**
+- [ ] **Step 5: `app/page.tsx`**
 
 Passer `hasSeenTutorial={profile.has_seen_tutorial}` à `<Arena>`.
 
-- [ ] **Step 5: Build + lint**
+- [ ] **Step 6: Build + lint**
 
-Run: `npm run build 2>&1 | grep -E "error|Compiled"` puis `npx eslint components/combat/ArenaCoach.tsx components/combat/Arena.tsx app/page.tsx app/actions/profile.ts`
+Run: `npm run build 2>&1 | grep -E "error|Compiled"` puis `npx eslint components/combat/ArenaCoach.tsx components/combat/Arena.tsx components/combat/PerfectOverlay.tsx app/page.tsx app/actions/profile.ts`
 Expected: compilé, lint propre.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add app/actions/profile.ts components/combat/ArenaCoach.tsx components/combat/Arena.tsx app/page.tsx
-git commit -m "feat(onboarding): coach 1er combat (add → strike) + markTutorialSeen"
+git add app/actions/profile.ts components/combat/ArenaCoach.tsx components/combat/Arena.tsx components/combat/PerfectOverlay.tsx app/page.tsx
+git commit -m "feat(onboarding): coach 1er combat (add → strike, passer, 1re victoire)"
 ```
 
 ---
@@ -438,7 +487,8 @@ git commit -m "feat(onboarding): compte e2e dédié, spec e2e, docs"
 ---
 
 ## Self-Review
-- Spec coverage : compte direct (T3), pseudo+avatar (T4), starter=seul gratuit (T2), coach add→strike avec suggestion (T5), has_seen_tutorial (T1/T5), e2e+docs (T6). ✓
-- Placeholders : composants UI décrits précisément (props + comportement + code clé) ; mot de passe e2e à générer (secret, pas un placeholder de code). ✓
-- Types : `Profile.has_seen_tutorial` (T1) consommé T5 ; `isHeroOwned` (T2) ; `createProfile` lit `starterId` (T4). Cohérent. ✓
-- Note config : « Confirm email » OFF côté Supabase — étape manuelle hors code, rappelée dans la vérif.
+- Spec coverage : compte **client-side** (T3), pseudo+avatar (T4), starter=seul gratuit (T2), coach add→strike + suggestion + Passer A2 (T5), flourish 1re victoire A3 (T5), entrée /welcome A1 (T3 Step 4), has_seen_tutorial (T1/T5), e2e+docs (T6). ✓
+- Placeholders : composants UI décrits (props + comportement + code clé) ; WelcomeSignup copie la structure d'input du login (référence explicite) ; mot de passe e2e à générer (secret). ✓
+- Types : `Profile.has_seen_tutorial` (T1) → Arena (T5) ; `isHeroOwned(id, ownedIds)` (T2) ; `createProfile` lit `starterId` (T4) ; `PerfectOverlay.firstVictory?` (T5). Cohérent. ✓
+- Auth : signup **client-side** (miroir login), pas de server action — évite les soucis de propagation de cookie.
+- Prérequis dur : « Confirm email » OFF côté Supabase — vérifié en début de T3 (un signup de test doit connecter direct).

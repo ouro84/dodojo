@@ -19,6 +19,13 @@ Il n'existe **pas de création de compte** (login seul, compte e2e fixe) ni de t
 | D6 | **Étape 1 du coach = ajouter une tâche**, avec une **suggestion pré-remplie « Prendre en main Dodojo »** (un tap l'ajoute) pour éviter la page blanche. Formulation **sans** « invoquer un monstre ». Étape 2 = cocher la tâche (dégâts + XP). |
 | D7 | Fin du coach → flag `profiles.has_seen_tutorial=true` (server action) ; le coach ne réapparaît plus. |
 
+### Améliorations retenues (validées)
+| # | Amélioration |
+|---|--------------|
+| A1 | **Entrée non-connecté → `/welcome`** : un visiteur non authentifié sur `/` est redirigé vers `/welcome` (signup) et non `/login`. Le login reste accessible par lien. Les autres routes protégées (`/qg`, `/echoppe`, `/pantheon`, `/onboarding`) continuent de rediriger vers `/login`. |
+| A2 | **Bouton « Passer » sur le coach** : pose `has_seen_tutorial=true` et masque le coach. Échappatoire. |
+| A3 | **Flourish 1re victoire** : si le KO survient alors que le coach est encore actif (`!has_seen_tutorial`), l'overlay PERFECT/K.O. affiche une punchline dédiée « Premier sang, {pseudo} ! ». |
+
 ### Hors scope (pistes notées)
 - **Le Boss n'apparaît qu'à la première tâche** (métaphore renforcée) : pertinent mais hors cadre de cette US.
 - Opt-ins (notifications, objectif quotidien) : dépendent de briques Sprint 3.
@@ -33,7 +40,9 @@ Il n'existe **pas de création de compte** (login seul, compte e2e fixe) ni de t
 | `/onboarding` (étendu) | connecté, **sans** profil | Flux multi-étapes client : (1) pseudo, (2) avatar. Soumission finale = `createProfile`. |
 | `/` (Arène) | connecté, profil | Si `has_seen_tutorial=false` → overlay `ArenaCoach`. |
 
-Garde existante conservée : `app/page.tsx` redirige vers `/onboarding` si pas de profil ; `/onboarding` redirige vers `/login` si pas d'auth. Nouveau : si profil déjà présent, `/onboarding` redirige vers `/`.
+Gardes : `app/page.tsx` → **`/welcome`** si pas d'auth (A1), `/onboarding` si pas de profil. `/onboarding` → `/login` si pas d'auth, `/` si profil déjà présent.
+
+**Mécanisme d'auth** : le login existant est **client-side** (`lib/supabase/client`, `signInWithPassword`, `router.replace`). Le signup suit le **même patron client-side** (`supabase.auth.signUp` puis `router.replace('/onboarding')`) — pas de server action, pour garantir la propagation du cookie de session (cohérent avec le login qui fonctionne).
 
 ## 4. Économie héros (changement)
 
@@ -51,8 +60,9 @@ Rien d'autre : `equipped_hero_id`, `username`, `timezone` existent ; `unlocked_h
 
 ## 6. Découpage technique
 
-### `app/welcome/page.tsx` + `WelcomeSignup.tsx` (client)
-- Accroche Sensei. Formulaire signup (email, mot de passe) → `signUpAction` (server) → `supabase.auth.signUp` → si ok, redirect `/onboarding`. Erreurs (email pris, mdp faible) rendues.
+### `app/welcome/page.tsx` (serveur) + `WelcomeSignup.tsx` (client)
+- `page.tsx` : si déjà connecté → `redirect('/')`, sinon rend `<WelcomeSignup>`.
+- `WelcomeSignup` (client, patron du login) : accroche Sensei + formulaire (email, mot de passe ≥8) → `createClient()` (browser) `supabase.auth.signUp` → si ok `router.replace('/onboarding'); router.refresh()`. Erreurs (email pris, mdp faible) rendues. Lien « Déjà un compte ? Se connecter » → `/login`.
 
 ### `app/onboarding/` (étendu)
 - `OnboardingFlow.tsx` (client) : machine à 2 étapes (pseudo → avatar). Capture timezone (`Intl`, comme aujourd'hui).
@@ -62,12 +72,16 @@ Rien d'autre : `equipped_hero_id`, `username`, `timezone` existent ; `unlocked_h
 ### `components/combat/ArenaCoach.tsx` (client)
 - Piloté par `has_seen_tutorial` (prop depuis `app/page.tsx`) + l'état des tâches de l'Arène.
 - Étape 1 : invite « Ajoute ta première tâche » + chip suggestion « Prendre en main Dodojo » (tap → `handleAdd`). Passe à l'étape 2 dès qu'une tâche active existe.
-- Étape 2 : invite « Frappe-la » (surligne la case à cocher). Dès complétion → `markTutorialSeen()` (server action `app/actions/profile.ts`) + disparaît.
-- Respecte `prefers-reduced-motion` (pas de pulsations agressives).
+- Étape 2 : invite « Frappe-la ». Dès complétion → `markTutorialSeen()` + disparaît.
+- **Bouton « Passer » (A2)** : à toute étape, pose `has_seen_tutorial=true` (via `markTutorialSeen`) et masque le coach.
+- Overlay **non bloquant** (l'utilisateur agit pendant le coach). Respecte `prefers-reduced-motion`.
+
+### Flourish 1re victoire (A3)
+- `Arena` : si `koOutcome` déclenche alors que le coach est actif (`!has_seen_tutorial` au moment du KO), passer un flag `firstVictory` à `PerfectOverlay`, qui affiche « Premier sang, {pseudo} ! » à la place du sous-texte standard.
 
 ### Server actions
-- `app/actions/auth.ts` : `signUp(email, password)`.
 - `app/actions/profile.ts` : `markTutorialSeen()`.
+- (Le signup n'est PAS une server action — client-side, cf. ci-dessus.)
 
 ### Tone of voice
 - Accroche Sensei + libellés coach tirés/alignés sur `docs/superpowers/specs/2026-07-08-tone-of-voice-design.md` (tutoiement, dojo + rue, pas de « Héros » générique).

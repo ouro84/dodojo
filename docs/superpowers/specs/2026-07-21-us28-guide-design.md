@@ -16,9 +16,16 @@ Aucune référence des règles in-app : barème HP, budget de jokers, issues du 
 | D3 | `@notionhq/client` en **devDependency** : utilisé uniquement par le script, **jamais** chargé au runtime → aucune dépendance/latence/panne Notion en prod. |
 | D4 | **Rendu** depuis le JSON statique : écran `/guide` (« Manuel du Dojo »). Liens depuis le **QG**, la **fin d'onboarding** (US-29) et un `?` discret dans l'Arène. |
 
+### Améliorations retenues (validées)
+| # | Amélioration |
+|---|--------------|
+| A1 | **Deep-links contextuels** : les sections ont des ancres (`id`) et des éléments d'UI pointent vers la bonne section — `StreakBadge` → `/guide#streak`, lien Échoppe → `/guide#or`. Le guide devient une aide contextuelle. |
+| A2 | **Sync tolérant** : `scripts/sync-guide.mjs` importe `@notionhq/client` en **dynamique** dans un try/catch → un clone sans devDeps installées obtient un message clair au lieu d'un crash. |
+
 ### Hors scope
 - Édition live en prod / webhooks Notion.
 - Recherche plein-texte, multilingue, versionnage du guide.
+- Accès depuis « la fin de l'onboarding » (le tunnel tombe direct dans l'Arène, pas d'écran de fin) → **retiré** ; accès via QG + `?` Arène uniquement.
 
 ## 3. Forme du contenu
 
@@ -56,8 +63,8 @@ Types de blocs : `h` (sous-titre), `p` (paragraphe), `ul` (liste). Volontairemen
 
 ### Points d'accès
 - QG : lien « 📖 Manuel du Dojo ».
-- Fin d'onboarding (US-29) : lien optionnel « Consulter les règles ».
 - Arène : icône `?` discrète (coin) → `/guide`.
+- **Deep-links (A1)** : `StreakBadge` → `/guide#streak`, lien Échoppe (QG) → `/guide#or`. Les `<section>` portent `id={section.id}` pour l'ancrage (`scroll-margin-top` pour ne pas coller au bord).
 
 ## 6. Contenu initial (sections rédigées)
 
