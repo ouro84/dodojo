@@ -16,6 +16,8 @@ const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Reset de l'état de combat du compte fixe avant la suite (cf. e2e/global-setup.ts).
+  globalSetup: "./e2e/global-setup.ts",
   // Exécution SÉRIE volontaire. Tous les tests partagent l'unique compte e2e
   // fixe (ADR-04) : en parallèle ils muteraient le même état (tâches, boss du
   // jour) et interféreraient (nav qui traîne sous charge, contrôles restés
