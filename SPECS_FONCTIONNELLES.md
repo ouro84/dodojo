@@ -240,6 +240,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-11 : Notifications push de rappel (Provocations du Boss)
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us11-push-design.md`. Dépend de la PWA (#58). Heure fixe 17h30 locale, opt-in via toggle QG, table `push_subscriptions` (policy DELETE autorisée), idempotence via `profiles.last_reminder_sent_on`, cron Vercel (~15-30 min) ciblant les profils éligibles, pool de punchlines variées (`lib/push-copy.ts`).
 *   **Standard :** En tant que Héros distrait, je veux recevoir des notifications sous forme de provocations pour me faire revenir au combat.
 *   **BDD :**
     ```gherkin
