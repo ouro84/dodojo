@@ -209,6 +209,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
 ### 🔮 SPRINT 3 : SCALABILITÉ & INTÉGRATIONS
 
 #### US-03 : Intégration profonde Siri / Google Assistant
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us03-siri-design.md`. **Re-scopé iOS uniquement** (Android couvert par US-22, Gemini). Pattern iOS Shortcuts + webhook (`POST /api/webhook/add-task`, token personnel hashé en base, affiché une seule fois, section « Intégrations » au QG). Doc utilisateur obligatoire (Manuel du Dojo).
 *   **Standard :** En tant que Héros mobile, je veux utiliser l'assistant natif de mon téléphone pour ajouter un monstre à l'Arène sans ouvrir l'app.
 *   **BDD :**
     ```gherkin
