@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   closestCenter,
   DndContext,
@@ -48,9 +49,11 @@ import {
   setTaskCompleted as setTaskCompletedAction,
 } from "@/app/actions/tasks";
 import { closeDay as closeDayAction } from "@/app/actions/day";
+import { markTutorialSeen } from "@/app/actions/profile";
 import BottomNav from "@/components/ui/BottomNav";
 import VersusScene from "./VersusScene";
 import ComboBanner from "./ComboBanner";
+import ArenaCoach from "./ArenaCoach";
 import TaskList from "./TaskList";
 import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
@@ -68,6 +71,7 @@ interface ArenaProps {
   today: string;
   bossId: string;
   backgroundId: string;
+  hasSeenTutorial: boolean;
 }
 
 interface Pulse {
@@ -110,6 +114,7 @@ export default function Arena({
   today,
   bossId,
   backgroundId,
+  hasSeenTutorial,
 }: ArenaProps) {
   const boss = getBoss(bossId) ?? getBoss(DEFAULT_BOSS_ID)!;
   const background =
@@ -124,7 +129,11 @@ export default function Arena({
     milestone: number | null;
     damageDealt: number;
     monstersDefeated: number;
+    firstVictory: boolean;
   } | null>(null);
+  // US-29 : coach du 1er combat.
+  const [tutorialActive, setTutorialActive] = useState(!hasSeenTutorial);
+  const tutorialSeenRef = useRef(false);
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   // US-15 : id en attente de confirmation de Rage Quit + toast d'annulation.
@@ -168,6 +177,33 @@ export default function Arena({
     getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;
   const activeTasks = tasks.filter((task) => !task.is_abandoned);
   const isEmpty = activeTasks.length === 0;
+
+  // US-29 : étape du coach. "add" tant qu'aucune tâche active ; "strike" tant
+  // qu'aucune n'est complétée ; se termine à la 1re complétion (ou « Passer »).
+  const hasCompletedTask = tasks.some((t) => !t.is_abandoned && t.is_completed);
+  const coachStep: "add" | "strike" | null = !tutorialActive
+    ? null
+    : activeTasks.length === 0
+      ? "add"
+      : hasCompletedTask
+        ? null
+        : "strike";
+
+  function finishTutorial() {
+    if (!tutorialSeenRef.current) {
+      tutorialSeenRef.current = true;
+      void markTutorialSeen();
+    }
+    setTutorialActive(false);
+  }
+
+  useEffect(() => {
+    if (tutorialActive && hasCompletedTask && !tutorialSeenRef.current) {
+      tutorialSeenRef.current = true;
+      void markTutorialSeen();
+      setTutorialActive(false);
+    }
+  }, [tutorialActive, hasCompletedTask]);
 
   useEffect(() => {
     return () => {
@@ -358,6 +394,7 @@ export default function Arena({
           monstersDefeated: nextTasks.filter(
             (t) => !t.is_abandoned && t.is_completed,
           ).length,
+          firstVictory: tutorialActive,
         });
       }
     } else if (hpDelta < 0) {
@@ -554,7 +591,14 @@ export default function Arena({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-3 px-4 py-4">
+    <div className="relative flex flex-1 flex-col gap-3 px-4 py-4">
+      <Link
+        href="/guide"
+        aria-label="Manuel du Dojo"
+        className="absolute right-3 top-3 z-40 text-xs text-faint hover:text-ink"
+      >
+        ?
+      </Link>
       {showWakeUp && (
         <WakeUpRitual
           overdueTasks={overdueTasks}
@@ -631,6 +675,7 @@ export default function Arena({
               damageDealt={koState.damageDealt}
               monstersDefeated={koState.monstersDefeated}
               milestone={koState.milestone}
+              firstVictory={koState.firstVictory}
               onCrepuscule={() => {
                 setKoState(null);
                 void handleCrepuscule();
@@ -766,6 +811,14 @@ export default function Arena({
         >
           {closing ? "…" : "Rituel du Crépuscule"}
         </button>
+      )}
+
+      {coachStep && (
+        <ArenaCoach
+          step={coachStep}
+          onSuggest={() => handleAdd("Prendre en main Dodojo")}
+          onSkip={finishTutorial}
+        />
       )}
 
       <BottomNav active="arene" />

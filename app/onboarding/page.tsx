@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import OnboardingForm from "./OnboardingForm";
+import OnboardingFlow from "./OnboardingFlow";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -33,7 +33,7 @@ export default async function OnboardingPage() {
           nom.
         </p>
       </div>
-      <OnboardingForm />
+      <OnboardingFlow />
     </main>
   );
 }

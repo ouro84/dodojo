@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -90,6 +91,9 @@ export default function LoginPage() {
           {pending ? "Connexion…" : "Entrer dans le dojo"}
         </button>
       </form>
+      <Link href="/welcome" className="text-xs text-faint underline underline-offset-4">
+        Pas encore de compte ? Crée ton combattant
+      </Link>
     </main>
   );
 }

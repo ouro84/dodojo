@@ -47,6 +47,12 @@ export async function resetShopState(): Promise<void> {
   const uid = testUser.id;
 
   await admin.from("unlocked_heroes").delete().eq("user_id", uid);
+  // US-29 : plus de possession implicite du défaut → le compte e2e possède
+  // explicitement fire_knight (offert), cohérent avec l'équipé ci-dessous.
+  await admin.from("unlocked_heroes").upsert(
+    { user_id: uid, hero_id: "fire_knight", price_paid: 0 },
+    { onConflict: "user_id,hero_id" },
+  );
   await admin.from("profiles").update({ equipped_hero_id: "fire_knight" }).eq("id", uid);
   // Sème un day_result victory (or suffisant pour acheter) — idempotent (upsert).
   await admin.from("day_results").upsert(
@@ -64,6 +70,21 @@ export async function resetShopState(): Promise<void> {
     },
     { onConflict: "user_id,day_date" },
   );
+}
+
+// US-29 : supprime le user auth de test onboarding (cascade profiles /
+// unlocked_heroes / daily_boss) pour repartir d'un signup vierge à chaque run.
+export async function resetOnboardingUser(): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_ONBOARDING_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error("Reset onboarding e2e : creds manquants (.env.local).");
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const { data } = await admin.auth.admin.listUsers();
+  const u = data?.users.find((x) => x.email === email);
+  if (u) await admin.auth.admin.deleteUser(u.id);
 }
 
 // US-12 : purge les day_results du compte de test et sème une série contrôlée.

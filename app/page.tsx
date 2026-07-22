@@ -13,7 +13,7 @@ export default async function ArenePage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/welcome");
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -79,6 +79,7 @@ export default async function ArenePage() {
       today={today}
       bossId={daily.bossId}
       backgroundId={daily.backgroundId}
+      hasSeenTutorial={profile.has_seen_tutorial}
     />
   );
 }

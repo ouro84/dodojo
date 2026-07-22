@@ -10,6 +10,8 @@ interface PerfectOverlayProps {
   monstersDefeated: number;
   // Palier de série franchi par ce KO (7/30/100), sinon null → super-variante.
   milestone?: number | null;
+  // US-29 (A3) : ce KO est la toute première victoire (coach actif) → punchline dédiée.
+  firstVictory?: boolean;
   onCrepuscule: () => void;
   onContinue: () => void;
 }
@@ -25,6 +27,7 @@ export default function PerfectOverlay({
   damageDealt,
   monstersDefeated,
   milestone = null,
+  firstVictory = false,
   onCrepuscule,
   onContinue,
 }: PerfectOverlayProps) {
@@ -55,9 +58,11 @@ export default function PerfectOverlay({
       </p>
 
       <p className="max-w-[28ch] text-sm text-ink">
-        {isPerfect
-          ? `Sans une égratignure, ${username}. ${bossName} est au tapis.`
-          : `${bossName} a mordu la poussière. Tu l'as eu, ${username}.`}
+        {firstVictory
+          ? `Premier sang, ${username} ! ${bossName} est au tapis. Bienvenue dans l'Arène.`
+          : isPerfect
+            ? `Sans une égratignure, ${username}. ${bossName} est au tapis.`
+            : `${bossName} a mordu la poussière. Tu l'as eu, ${username}.`}
       </p>
 
       {milestone !== null && (

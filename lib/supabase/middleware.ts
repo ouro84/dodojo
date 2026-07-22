@@ -31,15 +31,19 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
+  // Routes publiques (accessibles sans session) : connexion ET inscription.
+  const path = request.nextUrl.pathname;
+  const isPublicRoute = path.startsWith("/login") || path.startsWith("/welcome");
 
-  if (!user && !isLoginRoute) {
+  // US-29 (A1) : un visiteur non authentifié est envoyé vers /welcome (signup-first) ;
+  // /login reste accessible via un lien.
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/welcome";
     return NextResponse.redirect(url);
   }
 
-  if (user && isLoginRoute) {
+  if (user && isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
