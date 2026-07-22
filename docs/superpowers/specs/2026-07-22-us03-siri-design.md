@@ -26,8 +26,9 @@ d'App Intents, pas d'app native, pas de soumission App Store.
 
 Un token secret par utilisateur (pas d'OAuth, pas de flow interactif possible côté
 Shortcuts) :
-- Généré depuis une nouvelle section **« Intégrations »** au QG (regroupera aussi,
-  plus tard, le toggle push de US-11).
+- Généré depuis la section **« Intégrations »** du QG (créée par US-11 pour le
+  toggle push, livrée avant celle-ci dans l'ordre du sprint — ce document y ajoute
+  un second bloc, pas une nouvelle section).
 - **Stocké hashé en base** (`profiles.webhook_token_hash`, + `webhook_token_created_at`)
   — comme une clé d'API standard. Le token en clair n'est affiché **qu'une seule
   fois**, à la génération/régénération ("copie-le maintenant, il ne sera plus

@@ -16,7 +16,9 @@ du jour est encore vivant en fin d'après-midi, pour revenir au combat.
 
 ## Opt-in
 
-Toggle explicite dans le QG (écran profil/paramètres) — pas de prompt de permission
+Toggle explicite dans une nouvelle section **« Intégrations »** au QG (créée par
+cette US — US-03/Siri et US-22/Gemini l'étendront chacune à leur tour avec leurs
+propres blocs, dans cet ordre d'implémentation) — pas de prompt de permission
 navigateur non sollicité, pas d'ajout au tunnel d'onboarding (US-29) déjà validé.
 Activer le toggle déclenche `Notification.requestPermission()` puis
 `pushManager.subscribe()` (VAPID), et enregistre la souscription côté serveur.
