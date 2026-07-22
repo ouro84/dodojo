@@ -29,6 +29,12 @@ récurrence). Modifiable à tout moment après création — pas de champ dans
 `AddTaskForm`/`SubtaskForm` pour ne pas alourdir la saisie rapide ("Balance ta
 tâche…").
 
+**Indicateur agrégé (amélioration retenue)** : un badge près de la jauge Boss
+("⏰ 3 deadlines à venir aujourd'hui") — sans lui, une deadline reste invisible tant
+qu'on n'a pas rouvert le popover de chaque tâche une par une. Dérivé d'une fonction
+pure comptant les tâches actives à `deadline_at` non nul et non dépassé pour le jour
+courant.
+
 ---
 
 ## Mécanique HP — réutilisation du pool Héros existant
@@ -88,6 +94,11 @@ le Boss) :
 Pas de secousse d'écran globale (`hit-flash-overlay` réservé aux dégâts infligés au
 Boss) pour ne pas confondre visuellement "je frappe le Boss" et "le Boss me
 surprend".
+
+**Action rapide de report (amélioration retenue)** : l'animation porte un bouton
+"Repousser +1h" qui met à jour `deadline_at` directement (heure courante + 1h), sans
+obliger à rouvrir le popover ⏰ de la tâche. Réduit la friction pour se remettre du
+malus immédiatement après l'avoir subi.
 
 ---
 

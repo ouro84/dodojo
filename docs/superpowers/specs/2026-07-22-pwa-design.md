@@ -76,6 +76,25 @@ non demandé.
 
 ---
 
+## Mise à jour du service worker (amélioration retenue)
+
+`main` se déploie automatiquement à chaque merge (convention du projet) — sans
+gestion explicite du cycle de vie du SW, les utilisateurs restent bloqués sur un
+app-shell caché périmé jusqu'au prochain rechargement complet. Pas cosmétique :
+détection d'un SW "waiting" (nouvelle version prête) → toast "Nouvelle version
+disponible, recharger ?" → `skipWaiting()` + reload au clic. Serwist expose les
+hooks nécessaires pour ça côté client.
+
+## Installation — CTA maison (amélioration retenue)
+
+Capture de l'événement `beforeinstallprompt` (Chrome/Android) pour proposer un
+bouton d'installation intégré au ton pixel-art de l'app (QG) plutôt que de dépendre
+uniquement du bandeau générique du navigateur. Sur iOS (pas de
+`beforeinstallprompt`), pas de solution équivalente — instructions manuelles
+("Partager → Sur l'écran d'accueil") documentées dans le Manuel du Dojo.
+
+---
+
 ## Tests
 
 - Pas de test Vitest spécifique (config Serwist + manifest, peu de logique pure

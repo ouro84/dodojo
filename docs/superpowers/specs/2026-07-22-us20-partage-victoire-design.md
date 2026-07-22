@@ -67,6 +67,12 @@ d'un catalogue fixe (`lib/bosses.ts`, non modifiable par l'utilisateur) donc pas
 risque d'injection de longueur, mais même traitement d'ellipsis appliqué par
 cohérence de template.
 
+**Variante palier de série (amélioration retenue)** : si le jour partagé franchit un
+palier de streak (7/30/100, `titleForStreak`), la carte bascule en variante
+"flourish" — VFX flammes réutilisées de la super-variante Perfect/K.O. (US-16),
+mention du titre de palier mise en avant. Sert directement l'objectif de viralité :
+un jour spécial donne une raison concrète de plus de partager.
+
 ---
 
 ## Génération de l'image
@@ -107,7 +113,11 @@ jour ne re-déclenche pas de rendu Satori. Réduit le coût de calcul.
 2. Fetch de la route de génération (même origine, session requise) → `Blob` PNG.
 3. Si `navigator.canShare`/`navigator.share` disponible (fichiers) → partage natif OS
    avec `{ files: [file], text: "... sur Dodojo — dodojo.vercel.app" }`.
-4. Sinon (desktop Safari ancien, Firefox) → téléchargement direct du PNG en fallback.
+4. Sinon (desktop Safari ancien, Firefox) → **copie dans le presse-papier**
+   (`navigator.clipboard.write([new ClipboardItem({...})])`, amélioration retenue)
+   si disponible — plus pratique pour coller directement dans une conversation
+   qu'un fichier téléchargé à rattacher manuellement. Si le Clipboard API est aussi
+   indisponible, fallback final en téléchargement direct du PNG.
 
 **Analytics minimal (amélioration retenue)** : un compteur d'usage (ex. colonne ou
 table légère, à trancher en plan) enregistrant `share_clicked` et

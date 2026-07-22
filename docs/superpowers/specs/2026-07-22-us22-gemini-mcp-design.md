@@ -57,10 +57,20 @@ webhook de US-03).
 - `POST /oauth/token` : échange code + `code_verifier` (PKCE) contre un
   `access_token` + `refresh_token` (grant `authorization_code`), ou renouvellement
   via grant `refresh_token`.
+- `POST /oauth/revoke` (RFC 7009, **gap comblé**) : permet à un client (Gemini) de
+  révoquer proactivement un token — sans cet endpoint, une déconnexion initiée côté
+  Gemini (plutôt que depuis le QG Dodojo) laisserait un token valide orphelin en
+  base jusqu'à expiration naturelle.
 - Métadonnées de découverte (attendues par les clients MCP conformes au spec
   d'autorisation MCP) :
   - `/.well-known/oauth-authorization-server` (RFC 8414)
   - `/.well-known/oauth-protected-resource` (RFC 9728, pointe vers la route MCP)
+
+**Rate limiting (gap comblé)** : contrairement au token personnel de US-03 (surface
+fermée, un seul utilisateur), `/oauth/register` et `/oauth/token` sont des endpoints
+**ouverts** par construction (DCR choisie) — n'importe quel client peut tenter de
+s'enregistrer ou d'échanger un code. Limite basique par IP (ex. Vercel Firewall/rate
+limit natif, ou compteur simple en mémoire/edge) sur ces deux routes.
 
 **Initiation côté utilisateur** : le flow démarre typiquement **depuis les
 réglages "Connected Apps" de Gemini**, pas depuis Dodojo (l'utilisateur cherche
@@ -96,6 +106,10 @@ Chaque appel :
 - Déconnexion depuis le QG : toutes les lignes `oauth_tokens` du couple
   `(user_id, client_id)` supprimées → prochain appel MCP en 401 → Gemini doit
   proposer une reconnexion.
+- Déconnexion depuis les réglages Gemini (pas le QG) : Gemini appelle
+  `/oauth/revoke`, la ligne `oauth_tokens` correspondante est supprimée côté Dodojo
+  — le QG doit refléter l'état réel au prochain chargement (pas de ligne =
+  déconnecté), symétrique au cas ci-dessus.
 - Client enregistré (`oauth_clients`) mais jamais autorisé par un utilisateur :
   ligne orpheline inoffensive, pas de nettoyage automatique nécessaire pour cette
   itération (volume négligeable).

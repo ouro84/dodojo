@@ -36,6 +36,14 @@ Shortcuts) :
 - Bouton "Régénérer" : invalide l'ancien token immédiatement (écrase le hash), sans
   DELETE — simple mise à jour de colonne, pas une donnée soumise à RG-04 (pas un
   historique de combat).
+- **Visibilité anti-abus (amélioration retenue)** : colonne
+  `profiles.webhook_token_last_used_at`, mise à jour à chaque appel réussi de
+  l'endpoint, affichée dans la section Intégrations ("Dernière utilisation : il y a
+  2 jours") — permet de remarquer un usage inattendu du token.
+- **Bouton "Tester mon raccourci" (amélioration retenue)** : déclenche depuis le
+  navigateur un POST d'essai vers l'endpoint (avec le token affiché), avant même de
+  configurer le vrai raccourci iOS Shortcuts — réduit la friction de setup, valide
+  que le token fonctionne indépendamment de la config Shortcuts elle-même.
 
 ---
 

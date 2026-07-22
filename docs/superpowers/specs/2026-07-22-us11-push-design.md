@@ -75,6 +75,15 @@ réservé aux calculs (RG-01/02).
 Exemple : *"Le Boss ricane, il te reste {n} monstres à abattre avant le Rituel du
 Crépuscule !"* (nom mis à jour depuis le renommage "Obi-Wan" → "Crépuscule").
 
+**Deep-link (gap comblé)** : le payload push porte `data.url: "/"` (l'Arène) —
+sans ça, le clic sur la notification n'a pas de comportement garanti. Le listener
+`notificationclick` du service worker (Serwist, même fichier que le SW de la PWA)
+ouvre/focus cette URL.
+
+**Actions rapides (amélioration retenue)** : la notification porte une action
+"Plus tard" (Notifications API `actions`) qui la referme sans ouvrir l'app — évite
+d'obliger l'utilisateur à ouvrir Dodojo juste pour dismiss.
+
 ---
 
 ## Edge cases
