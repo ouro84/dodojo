@@ -230,6 +230,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-05 : Deadlines horaires (Attaques surprises du Boss)
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us05-deadlines-design.md`. Deadline = heure du jour courant (`tasks.deadline_at`, déjà en base), icône ⏰ sur `TaskRow` (racine + sous-tâche). Malus -10 HP réutilisant le pool Héros existant (`calculateHeroHp`), auto-résolu en cochant/abandonnant la tâche, effacé au report via le Rituel du Réveil. Détection par polling client (~30-60s), pas de replay au chargement.
 *   **Standard :** En tant que Héros défié par le temps, je veux lier une heure limite à une tâche pour simuler une attaque imminente.
 *   **BDD :**
     ```gherkin
