@@ -219,6 +219,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-22 : Ajout de tâche vocale via Gemini (Serveur MCP connecté)
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us22-gemini-mcp-design.md`. Serveur OAuth 2.1 complet côté Dodojo (PKCE + enregistrement dynamique RFC 7591, tables `oauth_clients`/`oauth_authorization_codes`/`oauth_tokens`), route MCP `/api/mcp` (tool `add_task`). **Risque assumé** : specs exactes des Connected Apps Gemini à revalider à l'implémentation (écosystème en évolution rapide).
 *   **Standard :** En tant que Héros mobile, je veux dire "OK Google, ajoute la tâche [X] à Dodojo" pour créer un monstre dans l'Arène sans ouvrir l'application, via Gemini connecté à un serveur MCP exposé par l'application.
 *   **Note technique :** Depuis le remplacement de Google Assistant par Gemini sur Android (2026), le mécanisme n'est plus App Actions mais une "Connected App" MCP : l'application expose un endpoint MCP (route Next.js sur Vercel) avec un tool `add_task(title)`, que l'utilisateur relie une fois dans Gemini via OAuth (liaison compte Gemini ↔ session Supabase). Le tool réutilise strictement `lib/game-engine.ts` pour l'insertion et le recalcul des HP (RG-01/RG-02) — aucune duplication de la logique de heal du Boss. Complète/précise US-03 côté Google (Siri conserve son mécanisme natif propre).
 *   **BDD :**
