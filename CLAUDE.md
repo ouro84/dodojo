@@ -90,6 +90,13 @@ Toute communication avec l'utilisateur se fait en français, sans exception. Les
 ### Changelog (`CHANGELOG.md`)
 Toute PR qui livre une feature (produit ou technique) ajoute sa ligne sous `## [Unreleased]` de `CHANGELOG.md`, dans le même commit que l'implémentation — jamais après coup. Format des versions : `XX.YY.ZZ` (Majeure.Mineure.Fix), aligné sur les releases GitHub. À chaque release GitHub effective, le contenu d'`[Unreleased]` est basculé dans une nouvelle section versionnée et datée.
 
+### Documentation utilisateur (Manuel du Dojo — US-28)
+Avant de pousser une PR, **vérifier systématiquement si elle nécessite une doc utilisateur** et, le cas échéant, la produire **dans la même PR** :
+- **Nouvelle feature visible par l'utilisateur** (écran, mécanique, règle de jeu) → **créer** la ou les sections correspondantes du guide.
+- **Changement d'un comportement déjà documenté** (barème, rituels, streaks, or, combos, roster…) → **mettre à jour** les sections existantes.
+- **Source = Notion** : éditer la page Notion du guide, puis `npm run sync:guide` pour régénérer `content/guide.json` (committé dans la PR). Si Notion n'est pas branché (`NOTION_TOKEN`/`NOTION_GUIDE_PAGE_ID` absents), éditer directement `content/guide.json` en respectant le schéma (`lib/guide.ts`) et en **gardant les `section.id` stables** (ce sont des ancres de deep-link, ex. `#streak`, `#or`).
+- **Uniquement si pertinent** : une PR purement technique/refactor/infra (sans impact sur ce que voit ou comprend l'utilisateur) n'exige **pas** de doc utilisateur — ne pas en inventer.
+
 ### Commits (Conventional Commits)
 Format strict : `type: description courte`
 - `feat:` Nouvelle fonctionnalité (ex: `feat: add screen shake animation on damage`)
