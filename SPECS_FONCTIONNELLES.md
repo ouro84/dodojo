@@ -257,6 +257,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-20 : Partage de victoires (Réseaux / Guildes)
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us20-partage-victoire-design.md`. Carte PNG portrait 9:16 (branding + lien retour), générée serveur (`@vercel/og`), partageable depuis `PerfectOverlay` et le récap Crépuscule, sur les 3 issues (victory/retreat/defeat).
 *   **Standard :** En tant que Héros fier, je veux générer une image rétro de ma victoire pour crâner auprès de mes pairs.
 *   **BDD :**
     ```gherkin
