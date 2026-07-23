@@ -260,6 +260,36 @@ export function deadlineHpPenalties(tasks: DeadlineTask[]): HeroHpPenaltyTask[] 
   return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_MISSED_DEADLINE }));
 }
 
+// US-05 : construit l'ISO UTC d'une deadline "aujourd'hui à HH:MM" dans le
+// fuseau donné (valeur brute d'un <input type="time">). Jamais de date à
+// choisir — la deadline est toujours bornée au day_date de la tâche. Même
+// trick d'offset DST-aware que dayKey : on compare la même instant formaté
+// dans le fuseau cible et en UTC pour en déduire le décalage exact.
+export function deadlineIso(dayDate: string, timeHHMM: string, timezone: string): string {
+  const [year, month, day] = dayDate.split("-").map(Number);
+  const [hours, minutes] = timeHHMM.split(":").map(Number);
+  const naiveUtc = Date.UTC(year, month - 1, day, hours, minutes);
+  const asIfUtc = new Date(naiveUtc);
+  const tzString = asIfUtc.toLocaleString("en-US", { timeZone: timezone });
+  const utcString = asIfUtc.toLocaleString("en-US", { timeZone: "UTC" });
+  const offsetMs = new Date(tzString).getTime() - new Date(utcString).getTime();
+  return new Date(naiveUtc - offsetMs).toISOString();
+}
+
+// US-05 : heure locale HH:MM (fuseau donné) d'un horodatage ISO, pour
+// pré-remplir le <input type="time"> du popover ⏰.
+export function localTimeFromIso(iso: string, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${hour}:${minute}`;
+}
+
 export type KoTier = "perfect" | "ko" | null;
 
 // US-16 : décide, de façon pure, si terrasser le Boss déclenche une célébration

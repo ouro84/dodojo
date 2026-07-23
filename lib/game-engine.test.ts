@@ -8,6 +8,8 @@ import {
   missedDeadlineTasks,
   upcomingDeadlineCount,
   deadlineHpPenalties,
+  deadlineIso,
+  localTimeFromIso,
   computeGoldEarned,
   computeToggleCascade,
   currentStreak,
@@ -260,6 +262,33 @@ describe("deadlineHpPenalties (US-05)", () => {
   test("attribue le poids -10 à chaque deadline ratée", () => {
     const tasks = [makeTask({ id: "1" })];
     expect(deadlineHpPenalties(tasks)).toEqual([{ ...tasks[0], weight: 10 }]);
+  });
+});
+
+describe("deadlineIso / localTimeFromIso (US-05, conversion heure locale <-> ISO)", () => {
+  test("construit l'ISO UTC d'une heure locale Europe/Paris (UTC+2 en été)", () => {
+    expect(deadlineIso("2026-07-22", "14:00", "Europe/Paris")).toBe(
+      "2026-07-22T12:00:00.000Z",
+    );
+  });
+
+  test("construit l'ISO UTC d'une heure locale déjà en UTC", () => {
+    expect(deadlineIso("2026-07-22", "09:30", "UTC")).toBe("2026-07-22T09:30:00.000Z");
+  });
+
+  test("round-trip : localTimeFromIso restitue la même heure locale (Europe/Paris)", () => {
+    const iso = deadlineIso("2026-07-22", "14:00", "Europe/Paris");
+    expect(localTimeFromIso(iso, "Europe/Paris")).toBe("14:00");
+  });
+
+  test("round-trip sur un fuseau à décalage négatif (America/New_York)", () => {
+    const iso = deadlineIso("2026-07-22", "08:15", "America/New_York");
+    expect(localTimeFromIso(iso, "America/New_York")).toBe("08:15");
+  });
+
+  test("round-trip sur minuit pile", () => {
+    const iso = deadlineIso("2026-07-22", "00:00", "Europe/Paris");
+    expect(localTimeFromIso(iso, "Europe/Paris")).toBe("00:00");
   });
 });
 
