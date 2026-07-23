@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- US-49/US-54 : Jauge d'agressivité (Dojo Gauge) réglable à tout moment (Sensei/Sparring/Street), réglable dès l'onboarding et modifiable au QG — pilote le ton du Sensei et du Boss sur tous les scénarios "voix" de l'app (heal, Perfect/K.O., rituels, Rage Quit, Attaque Surprise, notifications, erreurs). Registre de copy centralisé `lib/copy/` + audit interne exhaustif des textes de l'app.
 - US-01 : Saisie de tâche textuelle classique
 - US-06 : Recalcul dynamique des HP du Boss (heal +20 HP à l'ajout d'une tâche)
 - US-21 : Validation de tâche & feedback flash combat (secousse d'écran, texte flottant)
