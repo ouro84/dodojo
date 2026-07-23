@@ -89,7 +89,7 @@ const PLAN = [
   {
     slug: "ground-monk", frameCount: 6,
     band: { hueMin: 0, hueMax: 30, minSat: 0.35 },
-    skins: [{ id: "ground_monk_verdant", hueShift: 125 }],
+    skins: [{ id: "ground_monk_shadow_purple", hueShift: 250 }],
   },
   {
     slug: "wind-hashashin", frameCount: 8,
@@ -110,7 +110,6 @@ const PLAN = [
     band: { hueMin: 150, hueMax: 195, minSat: 0.4 },
     skins: [
       { id: "leaf_ranger_ember", hueShift: 190 },
-      { id: "leaf_ranger_verdant", hueShift: 315 },
       { id: "leaf_ranger_amethyst", hueShift: 95 },
     ],
   },

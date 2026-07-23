@@ -38,11 +38,11 @@ Déterminée par analyse d'histogramme HSL des frames idle (bucket 15°/0.25/0.2
 
 | Tier | Héros | Technique | # tenues (dont défaut) |
 |------|-------|-----------|------------------------|
-| A — séparation nette | Water Priestess, Leaf Ranger, Crystal Mauler | Recolor masqué (hue-shift ciblé par bande de teinte) | 4 |
+| A — séparation nette | Water Priestess, Crystal Mauler (4) ; Leaf Ranger (3 — Verdant retiré, jugé redondant avec le vert déjà dominant du costume) | Recolor masqué (hue-shift ciblé par bande de teinte) | 3-4 |
 | B — mono-palette | Fire Knight, Ground Monk, Wind Hashashin | Recolor global accepté (masquage peu efficace, documenté comme limite d'art source) | 2 |
 | C — quasi-neutre (métal) | Metal Bladekeeper | Overlay tint multiply (le hue-rotate ne fait presque rien sur du gris désaturé) | 3 |
 
-Total : 21 tenues cataloguées, 14 achetables (7 défauts gratuits).
+Total : 20 tenues cataloguées, 13 achetables (7 défauts gratuits).
 
 ## 4. Génération technique (pipeline)
 
@@ -66,10 +66,10 @@ Trois cibles de teinte absolue partagées entre les héros Tier A (mêmes noms, 
 | Héros | hueMin–hueMax (bande costume) | minSat | Tenues (hueShift calculé) |
 |-------|-------------------------------|--------|---------------------------|
 | Water Priestess | 180–255 (base ~225°) | 0.35 | Ember (+150), Verdant (+275 soit −85), Amethyst (+55) |
-| Leaf Ranger | 150–195 (base ~185°) | 0.4 | Ember (+190 soit −170), Verdant (−45), Amethyst (+95) |
+| Leaf Ranger | 150–195 (base ~185°) | 0.4 | Ember (+190 soit −170), Amethyst (+95) — **Verdant retiré** (redondant avec le vert déjà dominant du costume, jugé peu distinctif en revue visuelle) |
 | Crystal Mauler | 165–240 (base ~205°) | 0.3 | Ember (+170 soit −190), Verdant (−65), Amethyst (+75) |
 | Fire Knight | 0–60 (base ~15°) | 0.35 (peu sélectif, mono-palette assumé) | Shadow Purple (+250) uniquement — seule variante jugée acceptable en revue visuelle |
-| Ground Monk | 0–30 (base ~15°) | 0.35 | Verdant (+125) — 1 seule variante (Tier B), à recalibrer visuellement en implémentation |
+| Ground Monk | 0–30 (base ~15°) | 0.35 | Shadow Purple (+250, même cible que Fire Knight — technique déjà validée en revue visuelle) — 1 seule variante (Tier B), remplace un premier essai Verdant jugé peu convaincant |
 | Wind Hashashin | 15–45 (base ~30°) | 0.35 | Azure (+180, vers 210°) — 1 seule variante (Tier B), à recalibrer visuellement en implémentation |
 
 ### Tier C — overlay tint (Metal Bladekeeper)

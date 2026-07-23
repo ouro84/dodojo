@@ -11,7 +11,7 @@ export const SKINS: Skin[] = [
 
   // Ground Monk (Tier B)
   { id: "ground_monk_default", heroId: "ground_monk", name: "Défaut", price: 0, isDefault: true, swatchColor: "#8a6a3a" },
-  { id: "ground_monk_verdant", heroId: "ground_monk", name: "Verdant", price: 60, isDefault: false, swatchColor: "#27ae60" },
+  { id: "ground_monk_shadow_purple", heroId: "ground_monk", name: "Shadow Purple", price: 60, isDefault: false, swatchColor: "#5c3a8f" },
 
   // Wind Hashashin (Tier B)
   { id: "wind_hashashin_default", heroId: "wind_hashashin", name: "Défaut", price: 0, isDefault: true, swatchColor: "#c9a15a" },
@@ -26,7 +26,6 @@ export const SKINS: Skin[] = [
   // Leaf Ranger (Tier A)
   { id: "leaf_ranger_default", heroId: "leaf_ranger", name: "Défaut", price: 0, isDefault: true, swatchColor: "#16a085" },
   { id: "leaf_ranger_ember", heroId: "leaf_ranger", name: "Ember", price: 90, isDefault: false, swatchColor: "#c0392b" },
-  { id: "leaf_ranger_verdant", heroId: "leaf_ranger", name: "Verdant", price: 90, isDefault: false, swatchColor: "#27ae60" },
   { id: "leaf_ranger_amethyst", heroId: "leaf_ranger", name: "Amethyst", price: 90, isDefault: false, swatchColor: "#8e44ad" },
 
   // Crystal Mauler (Tier A)

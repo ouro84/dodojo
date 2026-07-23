@@ -21,10 +21,14 @@ describe("hero-skins catalogue", () => {
     }
   });
 
-  it("Tier A (Water Priestess, Leaf Ranger, Crystal Mauler) a 4 tenues chacun", () => {
-    for (const heroId of ["water_priestess", "leaf_ranger", "crystal_mauler"]) {
+  it("Tier A : Water Priestess et Crystal Mauler ont 4 tenues", () => {
+    for (const heroId of ["water_priestess", "crystal_mauler"]) {
       expect(getSkinsForHero(heroId)).toHaveLength(4);
     }
+  });
+
+  it("Leaf Ranger a 3 tenues (Verdant retiré, jugé redondant)", () => {
+    expect(getSkinsForHero("leaf_ranger")).toHaveLength(3);
   });
 
   it("Tier B (Fire Knight, Ground Monk, Wind Hashashin) a 2 tenues chacun", () => {

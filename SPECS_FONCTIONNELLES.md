@@ -271,7 +271,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-53 : Tenues des héros (Skins)
-> Design détaillé : `docs/superpowers/specs/2026-07-23-us53-tenues-skins-design.md`. Jusqu'à 4 recolors par héros selon la séparabilité réelle de sa palette (analyse d'histogramme HSL) : Tier A (4 tenues, recolor masqué), Tier B (2 tenues, recolor global), Tier C (3 tenues, overlay tint). Générées offline (`scripts/generate-hero-skins.mjs`), déblocage à l'or (table `unlocked_skins`, même patron que `unlocked_heroes` de l'US-18), bande de puces sous le stage de l'Échoppe.
+> Design détaillé : `docs/superpowers/specs/2026-07-23-us53-tenues-skins-design.md`. Jusqu'à 4 recolors par héros selon la séparabilité réelle de sa palette (analyse d'histogramme HSL) : Tier A (3-4 tenues, recolor masqué), Tier B (2 tenues, recolor global), Tier C (3 tenues, overlay tint). Générées offline (`scripts/generate-hero-skins.mjs`), déblocage à l'or (table `unlocked_skins`, même patron que `unlocked_heroes` de l'US-18), bande de puces sous le stage de l'Échoppe.
 *   **Standard :** En tant que Héros stylé, je veux personnaliser la couleur de mon combattant pour me distinguer, sans que ça change ses stats.
 *   **BDD :**
     ```gherkin
