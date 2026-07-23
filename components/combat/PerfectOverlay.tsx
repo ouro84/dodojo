@@ -1,6 +1,8 @@
 "use client";
 
 import type { KoTier } from "@/lib/game-engine";
+import type { ShareCardParams } from "@/lib/share-card";
+import ShareButton from "./ShareButton";
 
 interface PerfectOverlayProps {
   tier: Exclude<KoTier, null>;
@@ -12,6 +14,9 @@ interface PerfectOverlayProps {
   milestone?: number | null;
   // US-29 (A3) : ce KO est la toute première victoire (coach actif) → punchline dédiée.
   firstVictory?: boolean;
+  // US-20 : paramètres pré-calculés de la carte partageable (snapshot live,
+  // avant clôture du jour — cf. lib/share-card.ts).
+  shareCardParams: ShareCardParams;
   onCrepuscule: () => void;
   onContinue: () => void;
 }
@@ -28,6 +33,7 @@ export default function PerfectOverlay({
   monstersDefeated,
   milestone = null,
   firstVictory = false,
+  shareCardParams,
   onCrepuscule,
   onContinue,
 }: PerfectOverlayProps) {
@@ -84,6 +90,7 @@ export default function PerfectOverlay({
         >
           🌙 Rituel du Crépuscule
         </button>
+        <ShareButton params={shareCardParams} source="perfect_overlay" />
         <button
           type="button"
           onClick={onContinue}
