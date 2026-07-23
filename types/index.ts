@@ -10,6 +10,7 @@ export interface Profile {
   timezone: string;
   equipped_hero_id: string;
   has_seen_tutorial: boolean;
+  last_reminder_sent_on: string | null;
   created_at: string;
 }
 
@@ -73,4 +74,19 @@ export interface UnlockedHero {
   hero_id: string;
   price_paid: number;
   unlocked_at: string;
+}
+
+// US-11 : ligne brute de push_subscriptions. Distinct du sous-ensemble soumis
+// par le client (endpoint + keys, sans id/created_at) — voir
+// app/actions/push.ts (SerializedPushSubscription). Nom volontairement
+// suffixé "Row" pour ne jamais entrer en collision avec le type global
+// navigateur `PushSubscription` (lib.dom.d.ts) dans les fichiers qui
+// importent les deux.
+export interface PushSubscriptionRow {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: string;
 }
