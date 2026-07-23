@@ -40,6 +40,7 @@ import {
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
 import { DEFAULT_BOSS_ID, getBoss } from "@/lib/bosses";
 import { DEFAULT_BACKGROUND_ID, getBackground } from "@/lib/backgrounds";
+import { buildShareCardParams } from "@/lib/share-card";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
@@ -617,6 +618,15 @@ export default function Arena({
           xpEarned={recap.xpEarned}
           remainingMonsters={activeTasks.filter((task) => !task.is_completed).length}
           streak={currentStreak(dayResults, today).length}
+          shareCardParams={buildShareCardParams(recap, {
+            username: profile.username,
+            heroId: profile.equipped_hero_id,
+            bossId: boss.id,
+            level: profile.level,
+            title: profile.current_title,
+            streak: currentStreak(dayResults, today).length,
+            dayDate: today,
+          })}
           onDismiss={() => setRecap(null)}
         />
       )}
@@ -676,6 +686,21 @@ export default function Arena({
               monstersDefeated={koState.monstersDefeated}
               milestone={koState.milestone}
               firstVictory={koState.firstVictory}
+              shareCardParams={buildShareCardParams(summarizeDay(tasks, "manual"), {
+                username: profile.username,
+                heroId: profile.equipped_hero_id,
+                bossId: boss.id,
+                level: profile.level,
+                title: profile.current_title,
+                streak: currentStreak(
+                  [
+                    ...dayResults.filter((r) => r.day_date !== today),
+                    { day_date: today, outcome: "victory" },
+                  ],
+                  today,
+                ).length,
+                dayDate: today,
+              })}
               onCrepuscule={() => {
                 setKoState(null);
                 void handleCrepuscule();
