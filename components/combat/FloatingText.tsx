@@ -2,14 +2,24 @@ interface FloatingTextProps {
   amount: number;
   kind: "damage" | "heal";
   unit?: "HP" | "XP";
+  anchor?: "boss" | "hero";
 }
 
-export default function FloatingText({ amount, kind, unit = "HP" }: FloatingTextProps) {
+export default function FloatingText({
+  amount,
+  kind,
+  unit = "HP",
+  anchor = "boss",
+}: FloatingTextProps) {
   const sign = kind === "damage" ? "-" : "+";
   const colorClass =
     unit === "XP" ? "text-xp" : kind === "damage" ? "text-hp" : "text-gold";
   const positionClass =
-    unit === "XP" ? "right-3 top-2" : "left-1/2 top-2 -translate-x-1/2";
+    unit === "XP"
+      ? "right-3 top-2"
+      : anchor === "hero"
+        ? "left-6 bottom-12"
+        : "left-1/2 top-2 -translate-x-1/2";
 
   return (
     <span

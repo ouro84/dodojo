@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Task } from "@/types";
 import { isNestableParent, isOptimisticTask } from "@/lib/game-engine";
 import SubtaskForm from "./SubtaskForm";
+import DeadlineControl from "./DeadlineControl";
 
 export interface DragOverInfo {
   overTaskId: string;
@@ -13,18 +14,22 @@ export interface DragOverInfo {
 
 interface TaskRowProps {
   task: Task;
+  timezone: string;
   onToggle: (id: string, isCompleted: boolean) => void;
   onAbandon: (id: string) => void;
   onAddSubtask: (parentId: string, title: string) => void;
+  onSetDeadline: (id: string, deadlineAt: string | null) => void;
   isAddingSubtask: boolean;
   dropIndicator?: DragOverInfo | null;
 }
 
 export default function TaskRow({
   task,
+  timezone,
   onToggle,
   onAbandon,
   onAddSubtask,
+  onSetDeadline,
   isAddingSubtask,
   dropIndicator = null,
 }: TaskRowProps) {
@@ -103,6 +108,15 @@ export default function TaskRow({
           disabled={isPending}
         />
       )}
+      <DeadlineControl
+        taskId={task.id}
+        taskTitle={task.title}
+        deadlineAt={task.deadline_at}
+        dayDate={task.day_date}
+        timezone={timezone}
+        disabled={isPending}
+        onSave={(deadlineAt) => onSetDeadline(task.id, deadlineAt)}
+      />
       <button
         type="button"
         onClick={() => onAbandon(task.id)}

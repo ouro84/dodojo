@@ -180,6 +180,21 @@ body {
   animation: float-up 900ms ease-out forwards;
 }
 
+/* US-05 : clignotement bref de la jauge Héros lors d'une Attaque Surprise
+   (deadline horaire ratée et non résolue). */
+@keyframes hero-alarm-blink {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--color-alert);
+  }
+}
+.hero-alarm {
+  animation: hero-alarm-blink 300ms ease-in-out 3;
+}
+
 /* ---- Dictée vocale (US-02) ---- */
 @keyframes mic-pulse {
   0%,
@@ -282,5 +297,9 @@ body {
   }
   .streak-flames {
     animation: none;
+  }
+  .hero-alarm {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--color-alert);
   }
 }
