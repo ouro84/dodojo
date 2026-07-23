@@ -1,4 +1,4 @@
-import type { DayOutcome, DayResult, Task, UnlockedHero } from "../types";
+import type { DayOutcome, DayResult, Task, UnlockedHero, UnlockedSkin } from "../types";
 
 const HP_PER_TASK = 20;
 const HP_PER_SUBTASK = 10;
@@ -359,10 +359,12 @@ export function computeGoldEarned(
 export function goldBalance(
   dayResults: Pick<DayResult, "gold_earned">[],
   unlockedHeroes: Pick<UnlockedHero, "price_paid">[],
+  unlockedSkins: Pick<UnlockedSkin, "price_paid">[],
 ): number {
   const earned = dayResults.reduce((sum, r) => sum + r.gold_earned, 0);
-  const spent = unlockedHeroes.reduce((sum, h) => sum + h.price_paid, 0);
-  return earned - spent;
+  const spentHeroes = unlockedHeroes.reduce((sum, h) => sum + h.price_paid, 0);
+  const spentSkins = unlockedSkins.reduce((sum, s) => sum + s.price_paid, 0);
+  return earned - spentHeroes - spentSkins;
 }
 
 export const RAGE_QUIT_XP_PENALTY = 5;

@@ -24,7 +24,7 @@
 ### Task 1: Migration `unlocked_skins`
 
 **Files:**
-- Create: `supabase/migrations/20260723090000_create_unlocked_skins.sql`
+- Create: `supabase/migrations/20260723120000_create_unlocked_skins.sql`
 
 **Interfaces:**
 - Consumes: rien (nouvelle table).
@@ -60,15 +60,16 @@ create policy "unlocked_skins_insert_own"
 -- Volontairement aucune policy UPDATE ni DELETE (RG-04).
 ```
 
-- [ ] **Step 2: Appliquer la migration en local**
+- [ ] **Step 2: Appliquer la migration**
 
-Run: `npx supabase db reset` (ou `npx supabase migration up` si une base locale existe déjà)
-Expected: migration `20260723090000_create_unlocked_skins` listée comme appliquée, aucune erreur SQL.
+Ce projet est lié à un Supabase distant (`npx supabase projects list` confirme le lien) ; pas de Docker local disponible dans cet environnement, donc `db reset` ne s'applique pas ici.
+Run: `npx supabase db push`
+Expected: la migration `20260723120000_create_unlocked_skins` apparaît comme appliquée dans `npx supabase migration list` (colonnes Local et Remote identiques).
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add supabase/migrations/20260723090000_create_unlocked_skins.sql
+git add supabase/migrations/20260723120000_create_unlocked_skins.sql
 git commit -m "feat: ajoute la table unlocked_skins (possession des tenues, US-53)"
 ```
 
@@ -77,7 +78,7 @@ git commit -m "feat: ajoute la table unlocked_skins (possession des tenues, US-5
 ### Task 2: Migration `profiles.equipped_skin_id`
 
 **Files:**
-- Create: `supabase/migrations/20260723090100_add_profile_equipped_skin.sql`
+- Create: `supabase/migrations/20260723120100_add_profile_equipped_skin.sql`
 
 **Interfaces:**
 - Consumes: table `profiles` existante.
@@ -92,15 +93,15 @@ alter table public.profiles
   add column equipped_skin_id text;
 ```
 
-- [ ] **Step 2: Appliquer la migration en local**
+- [ ] **Step 2: Appliquer la migration**
 
-Run: `npx supabase db reset`
-Expected: colonne `equipped_skin_id` présente sur `profiles`, valeur `null` pour les profils existants.
+Run: `npx supabase db push`
+Expected: colonne `equipped_skin_id` présente sur `profiles` (vérifiable via `npx supabase migration list`), valeur `null` pour les profils existants.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add supabase/migrations/20260723090100_add_profile_equipped_skin.sql
+git add supabase/migrations/20260723120100_add_profile_equipped_skin.sql
 git commit -m "feat: ajoute profiles.equipped_skin_id (US-53)"
 ```
 
@@ -974,7 +975,7 @@ Dans `components/shop/CharacterSelect.tsx`, remplacer l'import et la signature d
 ```tsx
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { HEROES, getHero, isHeroOwned, DEFAULT_HERO_ID } from "@/lib/heroes";
 import { getSkinsForHero, isSkinOwned, defaultSkinIdFor } from "@/lib/hero-skins";
 import {
@@ -1015,14 +1016,18 @@ export function CharacterSelect({
   const affordable = balance >= selected.price;
 
   // Quand la sélection de héros change, réinitialise la tenue prévisualisée :
-  // l'équipée s'il s'agit du héros actif, sinon sa tenue par défaut.
-  useEffect(() => {
+  // l'équipée s'il s'agit du héros actif, sinon sa tenue par défaut. Ajustement
+  // pendant le rendu (pas d'effet) pour éviter un rendu en cascade —
+  // react-hooks/set-state-in-effect (cf. PushReminderToggle, US-11).
+  const [prevSelectedId, setPrevSelectedId] = useState(selectedId);
+  if (selectedId !== prevSelectedId) {
+    setPrevSelectedId(selectedId);
     setSelectedSkinId(
-      selected.id === equippedId
-        ? (equippedSkinId ?? defaultSkinIdFor(selected.id))
-        : defaultSkinIdFor(selected.id),
+      selectedId === equippedId
+        ? (equippedSkinId ?? defaultSkinIdFor(selectedId))
+        : defaultSkinIdFor(selectedId),
     );
-  }, [selected.id, equippedId, equippedSkinId]);
+  }
 
   function onAction() {
     setError(null);

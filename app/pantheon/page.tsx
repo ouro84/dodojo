@@ -38,6 +38,11 @@ export default async function PantheonPage() {
     .select("price_paid")
     .eq("user_id", user.id);
 
+  const { data: unlockedSkins } = await supabase
+    .from("unlocked_skins")
+    .select("price_paid")
+    .eq("user_id", user.id);
+
   // État Error (règle projet n°3).
   if (profileError || dayError || !profile) {
     return (
@@ -60,7 +65,7 @@ export default async function PantheonPage() {
 
   const results = dayResults ?? [];
   const stats = pantheonStats(results);
-  const balance = goldBalance(results, unlockedHeroes ?? []);
+  const balance = goldBalance(results, unlockedHeroes ?? [], unlockedSkins ?? []);
   const xpThreshold = xpThresholdForLevel(profile.level);
   const xpPct = Math.min(100, Math.round((profile.xp / xpThreshold) * 100));
 

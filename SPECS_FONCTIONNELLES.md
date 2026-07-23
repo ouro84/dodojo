@@ -1,7 +1,7 @@
 # SPECS_FONCTIONNELLES.md — "Boss de la Journée" (Projet Arcade To-Do)
 
-> Dernière mise à jour : 2026-07-20
-> Statut : Document de Référence Produit Spécifié (22/22 US) — Validé
+> Dernière mise à jour : 2026-07-23
+> Statut : Document de Référence Produit Spécifié (23/23 US) — Validé
 > **Sprint 2 LIVRÉ** (2026-07-21) : US-10, US-12, US-15, US-16, US-17, US-18 implémentées. Specs détaillées dans `docs/superpowers/specs/2026-07-20-us*.md`. Navigation Sprint 2 = **QG hub** (Arène = accueil ; Panthéon, Échoppe & Mode Entraînement accessibles depuis le QG).
 
 ---
@@ -33,7 +33,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
 
 ---
 
-## 3. Registre Intégral des User Stories (22/22)
+## 3. Registre Intégral des User Stories (23/23)
 
 ### 🚀 SPRINT 0 : LE MVP MINIMALISTE
 
@@ -268,6 +268,16 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     Given Un écran de fin de journée (Boss K.O.)
     When L'utilisateur clique sur "Partager mon score"
     Then L'application génère une carte au format PNG style écran de score d'arcade prêt à être partagé
+    ```
+
+#### US-53 : Tenues des héros (Skins)
+> Design détaillé : `docs/superpowers/specs/2026-07-23-us53-tenues-skins-design.md`. Jusqu'à 4 recolors par héros selon la séparabilité réelle de sa palette (analyse d'histogramme HSL) : Tier A (3-4 tenues, recolor masqué), Tier B (2 tenues, recolor global), Tier C (3 tenues, overlay tint). Générées offline (`scripts/generate-hero-skins.mjs`), déblocage à l'or (table `unlocked_skins`, même patron que `unlocked_heroes` de l'US-18), bande de puces sous le stage de l'Échoppe.
+*   **Standard :** En tant que Héros stylé, je veux personnaliser la couleur de mon combattant pour me distinguer, sans que ça change ses stats.
+*   **BDD :**
+    ```gherkin
+    Given Un héros possédé et un solde d'or suffisant
+    When L'utilisateur débloque puis équipe une tenue depuis l'Échoppe
+    Then Le combattant affiché dans l'Arène porte la nouvelle palette de couleurs, sans impact sur les HP/XP/or
     ```
 
 ---

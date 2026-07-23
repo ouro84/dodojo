@@ -80,16 +80,24 @@ describe("computeGoldEarned", () => {
 });
 
 describe("goldBalance", () => {
-  it("solde = somme des gains moins somme des achats", () => {
+  it("goldBalance = gains cumulés - achats cumulés (héros + tenues)", () => {
     expect(
-      goldBalance([{ gold_earned: 50 }, { gold_earned: 60 }], [{ price_paid: 40 }]),
-    ).toBe(70);
+      goldBalance(
+        [{ gold_earned: 50 }, { gold_earned: 60 }],
+        [{ price_paid: 40 }],
+        [{ price_paid: 20 }],
+      ),
+    ).toBe(50);
   });
-  it("nouvel utilisateur = 0", () => {
-    expect(goldBalance([], [])).toBe(0);
+
+  it("goldBalance = 0 sans historique", () => {
+    expect(goldBalance([], [], [])).toBe(0);
   });
-  it("héros par défaut price_paid 0 n'affecte pas le solde", () => {
-    expect(goldBalance([{ gold_earned: 50 }], [{ price_paid: 0 }])).toBe(50);
+
+  it("goldBalance ignore les achats à 0 (héros/tenue par défaut)", () => {
+    expect(
+      goldBalance([{ gold_earned: 50 }], [{ price_paid: 0 }], [{ price_paid: 0 }]),
+    ).toBe(50);
   });
 });
 
