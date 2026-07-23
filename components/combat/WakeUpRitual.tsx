@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Task } from "@/types";
+import type { AggressivityLevel, Task } from "@/types";
 import {
   calculateHeroHp,
   dayKey,
@@ -9,6 +9,7 @@ import {
   overdueHpPenalties,
   planWakeUp,
 } from "@/lib/game-engine";
+import { wakeUpSubtitle } from "@/lib/copy/rituals";
 import {
   annihilateOverdueOlderThan,
   annihilateOverdueTask,
@@ -21,6 +22,7 @@ import { backfillMissedDays } from "@/app/actions/day";
 interface WakeUpRitualProps {
   overdueTasks: Task[];
   timezone: string;
+  aggressivityLevel: AggressivityLevel;
   onResolved: () => void;
 }
 
@@ -39,7 +41,12 @@ function dayLabel(dayDate: string, todayKey: string): string {
 // US-08 : overlay bloquant du Rituel du Réveil. Confronte l'utilisateur aux
 // restes de la veille avant toute action dans l'Arène. Ton non-punitif (B1) :
 // on règle ses comptes, on ne se fait pas culpabiliser.
-export default function WakeUpRitual({ overdueTasks, timezone, onResolved }: WakeUpRitualProps) {
+export default function WakeUpRitual({
+  overdueTasks,
+  timezone,
+  aggressivityLevel,
+  onResolved,
+}: WakeUpRitualProps) {
   const [tasks, setTasks] = useState<Task[]>(overdueTasks);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,10 +92,7 @@ export default function WakeUpRitual({ overdueTasks, timezone, onResolved }: Wak
         <p className="font-display text-xl uppercase tracking-wide text-hp">
           Rituel du Réveil
         </p>
-        <p className="text-sm text-muted">
-          Les monstres que tu as fuis hier sont revenus. Règle tes comptes avant
-          d&apos;entrer dans l&apos;Arène.
-        </p>
+        <p className="text-sm text-muted">{wakeUpSubtitle(aggressivityLevel)}</p>
       </header>
 
       {/* A5 : jauge Héro, animée en motion-safe uniquement (A7). */}

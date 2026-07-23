@@ -47,6 +47,9 @@ import { getHeroSpritePrefix } from "@/lib/hero-skins";
 import { DEFAULT_BOSS_ID, getBoss } from "@/lib/bosses";
 import { DEFAULT_BACKGROUND_ID, getBackground } from "@/lib/backgrounds";
 import { buildShareCardParams } from "@/lib/share-card";
+import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
+import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
+import { deadlineAlertLine } from "@/lib/copy/deadline";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
@@ -124,6 +127,7 @@ export default function Arena({
     getBackground(backgroundId) ?? getBackground(DEFAULT_BACKGROUND_ID)!;
   const bossName = boss.name;
   const [profile, setProfile] = useState<Profile>(initialProfile);
+  const level = profile.aggressivity_level;
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
@@ -615,7 +619,7 @@ export default function Arena({
       id,
       tasksSnapshot,
       profileSnapshot,
-      punchline: "Le Boss ricane : « Déjà à terre ? Relève-toi. »",
+      punchline: rageQuitPunchline(level),
     });
 
     void rageQuitTaskAction(id).then((result) => {
@@ -704,6 +708,7 @@ export default function Arena({
         <WakeUpRitual
           overdueTasks={overdueTasks}
           timezone={profile.timezone}
+          aggressivityLevel={level}
           onResolved={() => setShowWakeUp(false)}
         />
       )}
@@ -711,6 +716,7 @@ export default function Arena({
         <CrepusculeRecap
           outcome={recap.outcome}
           bossName={bossName}
+          aggressivityLevel={level}
           username={profile.username}
           damageDealt={recap.damageDealt}
           tasksCompleted={recap.tasksCompleted}
@@ -790,6 +796,7 @@ export default function Arena({
             <PerfectOverlay
               tier={koState.tier}
               bossName={bossName}
+              aggressivityLevel={level}
               username={profile.username}
               damageDealt={koState.damageDealt}
               monstersDefeated={koState.monstersDefeated}
@@ -820,6 +827,7 @@ export default function Arena({
           {levelUpValue !== null && (
             <LevelUpOverlay
               newLevel={levelUpValue}
+              aggressivityLevel={level}
               onDismiss={() => setLevelUpValue(null)}
             />
           )}
@@ -857,10 +865,10 @@ export default function Arena({
               Rage Quit ?
             </p>
             <p className="text-xs text-muted">
-              Abandonner «{" "}
-              {tasks.find((task) => task.id === rageQuitConfirmId)?.title}{" "}
-              » coûte −{RAGE_QUIT_XP_PENALTY} XP. Le Boss rétrécit, mais il
-              ricanera.
+              {rageQuitConfirmBody(level, {
+                taskTitle: tasks.find((task) => task.id === rageQuitConfirmId)?.title ?? "",
+                penalty: RAGE_QUIT_XP_PENALTY,
+              })}
             </p>
             <div className="flex gap-2">
               <button
@@ -904,8 +912,10 @@ export default function Arena({
           className="flex items-center justify-between gap-2 rounded-md border border-alert bg-surface px-3 py-2 text-xs text-alert"
         >
           <span>
-            ⏰ Attaque Surprise : « {deadlineAlert.taskTitle} » a raté sa deadline
-            (−{HERO_DAMAGE_PER_MISSED_DEADLINE} HP).
+            {deadlineAlertLine(level, {
+              taskTitle: deadlineAlert.taskTitle,
+              damage: HERO_DAMAGE_PER_MISSED_DEADLINE,
+            })}
           </span>
           <div className="flex shrink-0 items-center gap-2">
             <button
@@ -929,11 +939,9 @@ export default function Arena({
       {isEmpty ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
           <p className="font-display text-lg uppercase tracking-wide text-ink">
-            Terrain vague.
+            {emptyStateTitle(level)}
           </p>
-          <p className="max-w-[24ch] text-sm text-muted">
-            Aucun monstre à l&apos;horizon. La rue est calme… trop calme.
-          </p>
+          <p className="max-w-[24ch] text-sm text-muted">{emptyStateBody(level)}</p>
         </div>
       ) : (
         <DndContext

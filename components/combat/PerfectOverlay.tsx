@@ -2,11 +2,14 @@
 
 import type { KoTier } from "@/lib/game-engine";
 import type { ShareCardParams } from "@/lib/share-card";
+import type { AggressivityLevel } from "@/types";
+import { koHeader, koLine, milestoneLine } from "@/lib/copy/combat";
 import ShareButton from "./ShareButton";
 
 interface PerfectOverlayProps {
   tier: Exclude<KoTier, null>;
   bossName: string;
+  aggressivityLevel: AggressivityLevel;
   username: string;
   damageDealt: number;
   monstersDefeated: number;
@@ -28,6 +31,7 @@ interface PerfectOverlayProps {
 export default function PerfectOverlay({
   tier,
   bossName,
+  aggressivityLevel,
   username,
   damageDealt,
   monstersDefeated,
@@ -60,20 +64,16 @@ export default function PerfectOverlay({
           isPerfect ? "text-4xl text-gold" : "text-3xl text-hp"
         }`}
       >
-        {isPerfect ? "Perfect !" : "K.O. !"}
+        {koHeader(aggressivityLevel, isPerfect)}
       </p>
 
       <p className="max-w-[28ch] text-sm text-ink">
-        {firstVictory
-          ? `Premier sang, ${username} ! ${bossName} est au tapis. Bienvenue dans l'Arène.`
-          : isPerfect
-            ? `Sans une égratignure, ${username}. ${bossName} est au tapis.`
-            : `${bossName} a mordu la poussière. Tu l'as eu, ${username}.`}
+        {koLine(aggressivityLevel, { isPerfect, firstVictory, username, bossName })}
       </p>
 
       {milestone !== null && (
         <p className="font-display text-xs uppercase tracking-wide text-gold">
-          Série de {milestone} ! Le dojo se souviendra.
+          {milestoneLine(aggressivityLevel, milestone)}
         </p>
       )}
 

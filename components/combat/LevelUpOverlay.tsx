@@ -1,9 +1,13 @@
+import type { AggressivityLevel } from "@/types";
+import { levelUpTitle, levelUpBody } from "@/lib/copy/combat";
+
 interface LevelUpOverlayProps {
   newLevel: number;
+  aggressivityLevel: AggressivityLevel;
   onDismiss: () => void;
 }
 
-export default function LevelUpOverlay({ newLevel, onDismiss }: LevelUpOverlayProps) {
+export default function LevelUpOverlay({ newLevel, aggressivityLevel, onDismiss }: LevelUpOverlayProps) {
   return (
     <div
       role="alertdialog"
@@ -12,11 +16,9 @@ export default function LevelUpOverlay({ newLevel, onDismiss }: LevelUpOverlayPr
       className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-lg bg-[oklch(0.08_0_0_/_72%)] px-4 text-center"
     >
       <p className="font-display text-2xl uppercase tracking-wide text-xp">
-        Level Up !
+        {levelUpTitle(aggressivityLevel)}
       </p>
-      <p className="max-w-[26ch] text-sm text-muted">
-        Niveau {newLevel}. Le dojo t&apos;a appris quelque chose de plus.
-      </p>
+      <p className="max-w-[26ch] text-sm text-muted">{levelUpBody(aggressivityLevel, newLevel)}</p>
       <button
         type="button"
         onClick={(event) => {
