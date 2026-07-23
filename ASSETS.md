@@ -52,6 +52,8 @@ Format dominant : la plupart des packs fournissent le **même contenu sous 3 for
 
 **Points d'attention** : noms de dossiers d'animations incohérents entre persos (`animations/PNG` vs `png` vs `PNG animations`, casse variable) — normaliser si le chargement est scripté. Un seul (`Ground Monk`) place son `.aseprite` à la racine au lieu de `aseprite/`.
 
+**Intégration US-53 (Tenues)** : `scripts/generate-hero-skins.mjs` génère les frames idle de chaque tenue (recolor masqué ou overlay tint, cf. `CLAUDE.md`) vers `public/sprites/mc/<slug>/skins/<skin_id>/idle/frameNNNN.png`, à partir des frames idle déjà extraites (pas de re-lecture d'`assets/`). Les fichiers `.aseprite` source n'ont que 3 calques (`bkg`/`base`/`effects`, vérifié par lecture binaire du format Aseprite) — aucun calque peau/armure séparé, d'où le recolor par analyse d'histogramme plutôt qu'un masque peint à la main. Catalogue et calibration : `lib/hero-skins.ts` + `docs/superpowers/specs/2026-07-23-us53-tenues-skins-design.md` §4.
+
 ---
 
 ## 2. `assets/Boss` — Boss quotidiens
