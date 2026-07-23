@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { currentStreak, dayKey } from "@/lib/game-engine";
 import StreakBadge from "@/components/combat/StreakBadge";
 import InstallCta from "@/components/pwa/InstallCta";
+import IntegrationsSection from "@/components/qg/IntegrationsSection";
+import PushReminderToggle from "@/components/qg/PushReminderToggle";
 
 // US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
 export default async function QgPage() {
@@ -22,6 +24,11 @@ export default async function QgPage() {
     .from("day_results")
     .select("day_date, outcome")
     .eq("user_id", user.id);
+  // US-11 : état initial du toggle (affiné côté client par Notification.permission).
+  const { count: subscriptionCount } = await supabase
+    .from("push_subscriptions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
 
   const today = dayKey(new Date(), profile?.timezone ?? "UTC");
   const streak = currentStreak(dayResults ?? [], today);
@@ -31,6 +38,9 @@ export default async function QgPage() {
       <h1 className="font-display text-lg uppercase tracking-wide text-ink">Le QG</h1>
       <StreakBadge state={streak} />
       <InstallCta />
+      <IntegrationsSection>
+        <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
+      </IntegrationsSection>
       <p className="text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
       <Link href="/pantheon" className="text-sm text-hp underline underline-offset-4">
         🏆 Le Panthéon
