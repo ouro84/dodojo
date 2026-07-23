@@ -98,7 +98,9 @@ const NOW_1730_PARIS = "2026-07-22T15:30:00.000Z";
 function baseTables(): Record<string, Row[]> {
   return {
     push_subscriptions: [{ user_id: "u1", endpoint: "https://push.example/u1", p256dh: "p", auth: "a" }],
-    profiles: [{ id: "u1", timezone: "Europe/Paris", last_reminder_sent_on: null }],
+    profiles: [
+      { id: "u1", timezone: "Europe/Paris", last_reminder_sent_on: null, aggressivity_level: "sparring" },
+    ],
     tasks: [
       { user_id: "u1", day_date: "2026-07-22", parent_id: null, is_abandoned: false, is_completed: false },
     ],

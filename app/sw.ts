@@ -2,7 +2,7 @@
 /// <reference lib="webworker" />
 import { CacheFirst, ExpirationPlugin, Serwist } from "serwist";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import type { PushReminderPayload } from "../lib/push-copy";
+import type { PushReminderPayload } from "../lib/copy/notifications";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {

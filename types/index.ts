@@ -1,3 +1,5 @@
+export type AggressivityLevel = "sensei" | "sparring" | "street";
+
 export interface Profile {
   id: string;
   username: string;
@@ -8,6 +10,7 @@ export interface Profile {
   streak_days: number;
   best_streak: number;
   timezone: string;
+  aggressivity_level: AggressivityLevel;
   equipped_hero_id: string;
   equipped_skin_id: string | null;
   has_seen_tutorial: boolean;

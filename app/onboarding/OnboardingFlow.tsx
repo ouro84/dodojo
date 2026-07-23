@@ -2,16 +2,24 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { DEFAULT_HERO_ID } from "@/lib/heroes";
+import type { AggressivityLevel } from "@/types";
 import OnboardingAvatarPicker from "@/components/combat/OnboardingAvatarPicker";
 import { createProfile, type CreateProfileState } from "./actions";
 
 const initialState: CreateProfileState = { error: null };
 
+const AGGRESSIVITY_OPTIONS: Array<{ value: AggressivityLevel; name: string; description: string }> = [
+  { value: "sensei", name: "Sensei", description: "Philosophe, zen." },
+  { value: "sparring", name: "Sparring", description: "Franc-parler, équilibré." },
+  { value: "street", name: "Street", description: "Arcade, sans filtre." },
+];
+
 export default function OnboardingFlow() {
   const [state, formAction, pending] = useActionState(createProfile, initialState);
-  const [step, setStep] = useState<"pseudo" | "avatar">("pseudo");
+  const [step, setStep] = useState<"pseudo" | "avatar" | "agressivite">("pseudo");
   const [username, setUsername] = useState("");
   const [starterId, setStarterId] = useState(DEFAULT_HERO_ID);
+  const [aggressivityLevel, setAggressivityLevel] = useState<AggressivityLevel>("sparring");
   const tzRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -52,15 +60,58 @@ export default function OnboardingFlow() {
     );
   }
 
+  if (step === "avatar") {
+    return (
+      <div className="flex w-full max-w-xs flex-col gap-4">
+        <p className="text-center text-xs uppercase tracking-wide text-faint">
+          Choisis ton combattant, {trimmed}
+        </p>
+        <OnboardingAvatarPicker value={starterId} onChange={setStarterId} />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setStep("pseudo")}
+            className="rounded-md border border-border px-3 py-2 text-xs uppercase tracking-wide text-muted"
+          >
+            Retour
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep("agressivite")}
+            className="flex-1 rounded-md bg-hp px-4 py-2 font-display uppercase tracking-wide text-ink"
+          >
+            Continuer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form action={formAction} className="flex w-full max-w-xs flex-col gap-4">
       <input type="hidden" name="username" value={trimmed} readOnly />
       <input type="hidden" name="starterId" value={starterId} readOnly />
+      <input type="hidden" name="aggressivityLevel" value={aggressivityLevel} readOnly />
       <input ref={tzRef} type="hidden" name="timezone" defaultValue="UTC" />
       <p className="text-center text-xs uppercase tracking-wide text-faint">
-        Choisis ton combattant, {trimmed}
+        Le ton du Dojo, {trimmed}
       </p>
-      <OnboardingAvatarPicker value={starterId} onChange={setStarterId} />
+      <div className="grid grid-cols-1 gap-2">
+        {AGGRESSIVITY_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setAggressivityLevel(option.value)}
+            aria-pressed={aggressivityLevel === option.value}
+            className={`flex flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm ${
+              aggressivityLevel === option.value ? "border-hp text-ink" : "border-border text-muted"
+            }`}
+          >
+            <span className="font-display uppercase tracking-wide">{option.name}</span>
+            <span className="text-xs text-faint">{option.description}</span>
+          </button>
+        ))}
+      </div>
       {state.error && (
         <p role="alert" className="text-sm text-alert">
           {state.error}
@@ -69,7 +120,7 @@ export default function OnboardingFlow() {
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => setStep("pseudo")}
+          onClick={() => setStep("avatar")}
           className="rounded-md border border-border px-3 py-2 text-xs uppercase tracking-wide text-muted"
         >
           Retour

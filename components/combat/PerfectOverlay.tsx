@@ -1,12 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import type { KoTier } from "@/lib/game-engine";
 import type { ShareCardParams } from "@/lib/share-card";
+import type { AggressivityLevel } from "@/types";
+import { koHeader, koLine, milestoneLine } from "@/lib/copy/combat";
+import { randomSeed } from "@/lib/copy/variant";
 import ShareButton from "./ShareButton";
 
 interface PerfectOverlayProps {
   tier: Exclude<KoTier, null>;
   bossName: string;
+  aggressivityLevel: AggressivityLevel;
   username: string;
   damageDealt: number;
   monstersDefeated: number;
@@ -28,6 +33,7 @@ interface PerfectOverlayProps {
 export default function PerfectOverlay({
   tier,
   bossName,
+  aggressivityLevel,
   username,
   damageDealt,
   monstersDefeated,
@@ -38,6 +44,10 @@ export default function PerfectOverlay({
   onContinue,
 }: PerfectOverlayProps) {
   const isPerfect = tier === "perfect";
+  // Seed figé au montage : le pool de punchlines ne doit pas retirer à chaque
+  // re-rendu (ex. Arena re-render pendant le poll deadline ~45s) tant que ce
+  // KO reste affiché — un nouveau KO = un nouveau montage = un nouveau seed.
+  const [seed] = useState(randomSeed);
 
   return (
     <div
@@ -60,20 +70,16 @@ export default function PerfectOverlay({
           isPerfect ? "text-4xl text-gold" : "text-3xl text-hp"
         }`}
       >
-        {isPerfect ? "Perfect !" : "K.O. !"}
+        {koHeader(aggressivityLevel, isPerfect)}
       </p>
 
       <p className="max-w-[28ch] text-sm text-ink">
-        {firstVictory
-          ? `Premier sang, ${username} ! ${bossName} est au tapis. Bienvenue dans l'Arène.`
-          : isPerfect
-            ? `Sans une égratignure, ${username}. ${bossName} est au tapis.`
-            : `${bossName} a mordu la poussière. Tu l'as eu, ${username}.`}
+        {koLine(aggressivityLevel, { isPerfect, firstVictory, username, bossName }, seed)}
       </p>
 
       {milestone !== null && (
         <p className="font-display text-xs uppercase tracking-wide text-gold">
-          Série de {milestone} ! Le dojo se souviendra.
+          {milestoneLine(aggressivityLevel, milestone, seed)}
         </p>
       )}
 

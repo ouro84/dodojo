@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-22",
+  "updatedAt": "2026-07-23",
   "sections": [
     {
       "id": "principe",
@@ -142,6 +142,14 @@
         { "type": "p", "text": "Sur Android (ou partout où Gemini est disponible), connecte Dodojo depuis les réglages « Apps connectées » de Gemini — la connexion s'initie côté Gemini, pas depuis Dodojo." },
         { "type": "ul", "items": ["Dans l'app Gemini : Réglages puis Apps connectées puis cherche Dodojo puis Connecter", "Gemini te redirige vers Dodojo pour te connecter (si besoin) puis te demande de confirmer : « Gemini veut ajouter des tâches à ta place — Autoriser ? »", "Une fois autorisé, dis « Ajoute [tâche] dans Dodojo » à Gemini : la tâche apparaît directement dans l'Arène du jour", "La section « Intégrations » du QG affiche l'état de la connexion (Gemini connecté / non connecté) et un bouton « Déconnecter »"] },
         { "type": "p", "text": "Déconnecter depuis le QG révoque immédiatement l'accès ; déconnecter depuis les réglages Gemini a le même effet côté Dodojo, dans les deux sens." }
+      ]
+    },
+    {
+      "id": "agressivite",
+      "title": "Régler le ton du Dojo",
+      "blocks": [
+        { "type": "p", "text": "Le Sensei et le Boss adaptent leur ton à ta préférence : réglable dès l'onboarding, modifiable à tout moment dans la section « Dojo Gauge » du QG." },
+        { "type": "ul", "items": ["Sensei : philosophe et zen, jamais de juron", "Sparring : franc-parler, le ton par défaut de Dodojo", "Street : arcade et sans filtre, jurons et piques assumés — toujours dirigés contre le Boss ou la situation, jamais contre toi"] }
       ]
     }
   ]
