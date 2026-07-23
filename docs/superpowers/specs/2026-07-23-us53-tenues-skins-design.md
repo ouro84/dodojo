@@ -182,6 +182,14 @@ Active la bande **« Tenues (bientôt) »** prévue dans `app/echoppe/page.tsx` 
 - `app/echoppe/page.tsx` — bande tenues fonctionnelle (§7), fetch `unlocked_skins` en plus de `unlocked_heroes`.
 - Câblage Arène : lire `equipped_skin_id` en plus de `equipped_hero_id` (§6).
 
+### Écran de test interne (validation visuelle des tenues)
+
+Même patron que `app/roster-preview-8f3a2c9d/page.tsx` (US roster de boss) : chemin obscur (`app/skins-preview-<hash>/page.tsx`), **login requis** (redirige sinon), `metadata.robots = { index: false, follow: false }`, jamais lié depuis l'UI utilisateur final. Sert à valider (ou invalider et recalibrer) chaque tenue générée avant merge.
+
+- `components/shop/SkinsPreview.tsx` — pour chaque héros, affiche l'idle animé de **toutes ses tenues** (défaut + alternatives) côte à côte, avec l'id de tenue et le tier (A/B/C) affichés.
+- Permet le même usage que `RosterPreview` : repérer visuellement une calibration `hueMin`/`hueMax`/`minSat`/`hueShift` (ou tint) à corriger avant de merger, sans repasser par l'Échoppe/l'achat.
+- Généré à partir de `HEROES` + `SKINS` (catalogues statiques), pas de fetch Supabase nécessaire (pas de notion de possession ici, juste un aperçu brut des assets générés).
+
 ### Migrations Supabase
 - `create_unlocked_skins.sql` (table + RLS, §5).
 - `add_profile_equipped_skin.sql` (colonne `profiles.equipped_skin_id`).
@@ -191,7 +199,7 @@ Active la bande **« Tenues (bientôt) »** prévue dans `app/echoppe/page.tsx` 
 - `CHANGELOG.md` : ligne US-53 sous `[Unreleased]`.
 - `SPECS_FONCTIONNELLES.md` : ajouter US-53 au registre.
 - `ASSETS.md` : documenter le script `generate-hero-skins.mjs` et les chemins `public/sprites/mc/<slug>/skins/`.
-- **Manuel du Dojo** (guide utilisateur) : nouvelle section tenues (feature visible utilisateur).
+- **Manuel du Dojo** (guide utilisateur, US-28) : nouvelle section tenues (feature visible utilisateur). Source = Notion → éditer la page Notion puis `npm run sync:guide` (régénère `content/guide.json`, committé). Si Notion non branché localement (`NOTION_TOKEN`/`NOTION_GUIDE_PAGE_ID` absents), éditer directement `content/guide.json` en respectant `lib/guide.ts` et en donnant un `section.id` stable (ex. `#tenues`) pour le deep-link.
 
 ## 9. Tests
 
@@ -217,5 +225,5 @@ Active la bande **« Tenues (bientôt) »** prévue dans `app/echoppe/page.tsx` 
 2. `npm run build` sans erreur (TS strict, zéro `any`).
 3. `npm run lint` propre.
 4. `npx playwright test` (série, prod) : specs existantes + `echoppe-skins.spec.ts` vertes en local.
-5. Manuel : sur chacun des 7 héros, comparer visuellement chaque tenue générée à son héros de base (contours/hautes lumières intacts sur Tier A, dégradation assumée documentée sur Tier B/C) avant de merger.
+5. Manuel : via `/skins-preview-<hash>` (§8), comparer visuellement chaque tenue générée à son héros de base, sur les 7 héros (contours/hautes lumières intacts sur Tier A, dégradation assumée documentée sur Tier B/C) avant de merger.
 6. Base : `unlocked_skins` sans policy DELETE ; achat idempotent (re-tap = no-op) ; défaut jamais présent en base.
