@@ -8,6 +8,7 @@ import IntegrationsSection from "@/components/qg/IntegrationsSection";
 import PushReminderToggle from "@/components/qg/PushReminderToggle";
 import WebhookTokenSection from "@/components/qg/WebhookTokenSection";
 import GeminiConnectionSection from "@/components/qg/GeminiConnectionSection";
+import AggressivityLevelSection from "@/components/qg/AggressivityLevelSection";
 import { isGeminiConnected } from "@/lib/oauth-gemini";
 
 // US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
@@ -20,7 +21,7 @@ export default async function QgPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("best_streak, timezone, webhook_token_hash, webhook_token_last_used_at")
+    .select("best_streak, timezone, webhook_token_hash, webhook_token_last_used_at, aggressivity_level")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -43,6 +44,7 @@ export default async function QgPage() {
       <h1 className="font-display text-lg uppercase tracking-wide text-ink">Le QG</h1>
       <StreakBadge state={streak} />
       <InstallCta />
+      <AggressivityLevelSection initialLevel={profile?.aggressivity_level ?? "sparring"} />
       <IntegrationsSection>
         <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
         <WebhookTokenSection
