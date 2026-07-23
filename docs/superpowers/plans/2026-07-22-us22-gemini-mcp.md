@@ -32,7 +32,7 @@
 ### Task 1: Migration Supabase (`oauth_clients`/`oauth_authorization_codes`/`oauth_tokens`) + types partages
 
 **Files:**
-- Create: `supabase/migrations/20260722150000_create_oauth_mcp.sql`
+- Create: `supabase/migrations/20260723110000_create_oauth_mcp.sql`
 - Modify: `types/index.ts`
 
 **Interfaces:**
@@ -46,7 +46,7 @@ git checkout -b feat/us-22-gemini-mcp
 
 - [ ] **Step 2: Ecrire la migration**
 
-Create `supabase/migrations/20260722150000_create_oauth_mcp.sql`:
+Create `supabase/migrations/20260723110000_create_oauth_mcp.sql`:
 
 ```sql
 -- US-22 : serveur OAuth 2.1 + MCP pour Gemini (PKCE, enregistrement
@@ -135,9 +135,9 @@ create policy "oauth_tokens_delete_own"
 
 ```bash
 echo "Y" | supabase db push
-supabase migration list | grep 20260722150000
+supabase migration list | grep 20260723110000
 ```
-Expected: la migration `20260722150000_create_oauth_mcp` apparait appliquee. Si Docker/Supabase local est eteint, differer jusqu'a `supabase start` - la migration reste committee et sera appliquee par Supabase distant au deploiement (precedent deja accepte dans ce repo).
+Expected: la migration `20260723110000_create_oauth_mcp` apparait appliquee. Si Docker/Supabase local est eteint, differer jusqu'a `supabase start` - la migration reste committee et sera appliquee par Supabase distant au deploiement (precedent deja accepte dans ce repo).
 
 - [ ] **Step 4: Mettre a jour les types partages**
 
@@ -189,7 +189,7 @@ Expected: pas d'erreur.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260722150000_create_oauth_mcp.sql types/index.ts
+git add supabase/migrations/20260723110000_create_oauth_mcp.sql types/index.ts
 git commit -m "feat: tables oauth_clients/oauth_authorization_codes/oauth_tokens (US-22)"
 ```
 

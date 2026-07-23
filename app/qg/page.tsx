@@ -7,6 +7,8 @@ import InstallCta from "@/components/pwa/InstallCta";
 import IntegrationsSection from "@/components/qg/IntegrationsSection";
 import PushReminderToggle from "@/components/qg/PushReminderToggle";
 import WebhookTokenSection from "@/components/qg/WebhookTokenSection";
+import GeminiConnectionSection from "@/components/qg/GeminiConnectionSection";
+import { isGeminiConnected } from "@/lib/oauth-gemini";
 
 // US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
 export default async function QgPage() {
@@ -21,6 +23,8 @@ export default async function QgPage() {
     .select("best_streak, timezone, webhook_token_hash, webhook_token_last_used_at")
     .eq("id", user.id)
     .maybeSingle();
+
+  const geminiConnected = await isGeminiConnected(supabase, user.id);
   const { data: dayResults } = await supabase
     .from("day_results")
     .select("day_date, outcome")
@@ -45,6 +49,7 @@ export default async function QgPage() {
           hasToken={Boolean(profile?.webhook_token_hash)}
           lastUsedAt={profile?.webhook_token_last_used_at ?? null}
         />
+        <GeminiConnectionSection isConnected={geminiConnected} />
       </IntegrationsSection>
       <p className="text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
       <Link href="/pantheon" className="text-sm text-hp underline underline-offset-4">

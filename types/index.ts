@@ -80,6 +80,39 @@ export interface UnlockedHero {
   unlocked_at: string;
 }
 
+// US-22 : serveur OAuth 2.1 + MCP pour Gemini. Client public par defaut
+// (client_secret_hash reste null dans ce MVP, PKCE seul).
+export interface OAuthClient {
+  client_id: string;
+  client_secret_hash: string | null;
+  client_name: string;
+  redirect_uris: string[];
+  created_at: string;
+}
+
+export interface OAuthAuthorizationCode {
+  code_hash: string;
+  client_id: string;
+  user_id: string;
+  redirect_uri: string;
+  code_challenge: string;
+  code_challenge_method: string;
+  scope: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface OAuthToken {
+  id: string;
+  access_token_hash: string;
+  refresh_token_hash: string | null;
+  client_id: string;
+  user_id: string;
+  scope: string;
+  expires_at: string;
+  created_at: string;
+}
+
 export interface Skin {
   id: string; // ex "water_priestess_ember"
   heroId: string; // ref Hero.id

@@ -1,0 +1,85 @@
+import { describe, expect, test } from "vitest";
+import {
+  ADD_TASK_TOOL,
+  buildAddTaskToolResult,
+  buildInitializeResult,
+  buildToolErrorResult,
+  buildToolsListResult,
+  errorResponse,
+  parseJsonRpcRequest,
+  successResponse,
+} from "./mcp-protocol";
+
+describe("parseJsonRpcRequest (US-22)", () => {
+  test("accepte une requete JSON-RPC 2.0 valide avec params", () => {
+    const parsed = parseJsonRpcRequest({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { a: 1 } });
+    expect(parsed).toEqual({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { a: 1 } });
+  });
+
+  test("accepte une notification sans id (id -> null)", () => {
+    const parsed = parseJsonRpcRequest({ jsonrpc: "2.0", method: "notifications/initialized" });
+    expect(parsed?.id).toBeNull();
+  });
+
+  test("rejette un corps sans jsonrpc 2.0", () => {
+    expect(parseJsonRpcRequest({ method: "tools/list" })).toBeNull();
+  });
+
+  test("rejette un corps sans method", () => {
+    expect(parseJsonRpcRequest({ jsonrpc: "2.0" })).toBeNull();
+  });
+
+  test("rejette un id d'un type invalide", () => {
+    expect(parseJsonRpcRequest({ jsonrpc: "2.0", id: {}, method: "tools/list" })).toBeNull();
+  });
+
+  test("rejette un body qui n'est pas un objet", () => {
+    expect(parseJsonRpcRequest("pas un objet")).toBeNull();
+    expect(parseJsonRpcRequest(null)).toBeNull();
+  });
+});
+
+describe("buildInitializeResult / buildToolsListResult", () => {
+  test("initialize expose une version de protocole et les capacites tools", () => {
+    const result = buildInitializeResult() as { capabilities: unknown; protocolVersion: unknown };
+    expect(result.capabilities).toEqual({ tools: {} });
+    expect(typeof result.protocolVersion).toBe("string");
+  });
+
+  test("tools/list expose add_task avec son schema d'entree", () => {
+    const result = buildToolsListResult();
+    expect(result.tools).toEqual([ADD_TASK_TOOL]);
+    expect(ADD_TASK_TOOL.name).toBe("add_task");
+    expect(ADD_TASK_TOOL.inputSchema.required).toEqual(["title"]);
+  });
+});
+
+describe("buildAddTaskToolResult / buildToolErrorResult", () => {
+  test("formate un resultat de succes avec les HP du Boss", () => {
+    const result = buildAddTaskToolResult({ taskId: "t1", dayDate: "2026-07-22", bossMaxHp: 40, bossCurrentHp: 20 });
+    expect(result.isError).toBe(false);
+    expect(result.content).toEqual([
+      { type: "text", text: "Tache ajoutee pour le 2026-07-22. Boss a 20/40 HP." },
+    ]);
+  });
+
+  test("formate un resultat d'erreur outil", () => {
+    const result = buildToolErrorResult("Nomme ton monstre avant de l'invoquer.");
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual([{ type: "text", text: "Nomme ton monstre avant de l'invoquer." }]);
+  });
+});
+
+describe("successResponse / errorResponse", () => {
+  test("enveloppe un resultat en reponse JSON-RPC 2.0", () => {
+    expect(successResponse(1, { ok: true })).toEqual({ jsonrpc: "2.0", id: 1, result: { ok: true } });
+  });
+
+  test("enveloppe une erreur en reponse JSON-RPC 2.0", () => {
+    expect(errorResponse(1, -32601, "Methode inconnue")).toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      error: { code: -32601, message: "Methode inconnue" },
+    });
+  });
+});
