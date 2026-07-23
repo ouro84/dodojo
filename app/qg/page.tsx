@@ -6,6 +6,7 @@ import StreakBadge from "@/components/combat/StreakBadge";
 import InstallCta from "@/components/pwa/InstallCta";
 import IntegrationsSection from "@/components/qg/IntegrationsSection";
 import PushReminderToggle from "@/components/qg/PushReminderToggle";
+import WebhookTokenSection from "@/components/qg/WebhookTokenSection";
 
 // US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
 export default async function QgPage() {
@@ -17,7 +18,7 @@ export default async function QgPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("best_streak, timezone")
+    .select("best_streak, timezone, webhook_token_hash, webhook_token_last_used_at")
     .eq("id", user.id)
     .maybeSingle();
   const { data: dayResults } = await supabase
@@ -40,6 +41,10 @@ export default async function QgPage() {
       <InstallCta />
       <IntegrationsSection>
         <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
+        <WebhookTokenSection
+          hasToken={Boolean(profile?.webhook_token_hash)}
+          lastUsedAt={profile?.webhook_token_last_used_at ?? null}
+        />
       </IntegrationsSection>
       <p className="text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
       <Link href="/pantheon" className="text-sm text-hp underline underline-offset-4">
