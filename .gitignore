@@ -49,3 +49,5 @@ next-env.d.ts
 
 # assets bruts (packs tiers, licences mixtes, non versionnés — voir ASSETS.md)
 /assets/
+
+.worktrees/
