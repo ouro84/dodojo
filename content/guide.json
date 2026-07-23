@@ -109,6 +109,14 @@
         { "type": "ul", "items": ["Ouvre Dodojo dans Safari", "Appuie sur le bouton Partager (le carré avec la flèche)", "Choisis « Sur l'écran d'accueil »", "Confirme — l'icône du Dojo apparaît parmi tes apps"] },
         { "type": "p", "text": "Sur iOS, Safari ne propose pas de bouton d'installation automatique : suis les 4 étapes ci-dessus. Une fois installée, l'app s'ouvre en plein écran, sans la barre d'adresse." }
       ]
+    },
+    {
+      "id": "rappels",
+      "title": "Le rappel du soir",
+      "blocks": [
+        { "type": "p", "text": "Active les rappels de combat dans la section « Intégrations » du QG : si ton Boss est encore vivant à 17h30 (heure locale) et que ta journée n'est pas clôturée, une notification vient te chercher." },
+        { "type": "ul", "items": ["Sur iOS, installe d'abord Dodojo à l'écran d'accueil (Safari ne pousse pas de notifications sur un onglet classique)", "Le bouton « Plus tard » referme la notification sans ouvrir l'app", "Cliquer la notification ouvre directement l'Arène", "Un seul rappel par jour, même avec plusieurs appareils connectés"] }
+      ]
     }
   ]
 }

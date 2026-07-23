@@ -2,6 +2,7 @@
 /// <reference lib="webworker" />
 import { CacheFirst, ExpirationPlugin, Serwist } from "serwist";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
+import type { PushReminderPayload } from "../lib/push-copy";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -64,3 +65,44 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// lib.dom.d.ts n'expose pas encore `actions` sur NotificationOptions (support
+// navigateur réel via ServiceWorkerRegistration.showNotification pourtant
+// bien standard) — extension locale plutôt qu'un cast qui masquerait une
+// vraie erreur de forme sur les autres champs.
+interface NotificationOptionsWithActions extends NotificationOptions {
+  actions?: Array<{ action: string; title: string; icon?: string }>;
+}
+
+// US-11 : notification de rappel (payload JSON envoyé par
+// app/api/cron/push-reminders/route.ts via web-push). "Plus tard" (action)
+// referme sans ouvrir l'app — évite de forcer l'ouverture juste pour dismiss.
+self.addEventListener("push", (event: PushEvent) => {
+  if (!event.data) return;
+  const payload = event.data.json() as PushReminderPayload;
+  const options: NotificationOptionsWithActions = {
+    body: payload.body,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url: payload.url },
+    actions: [{ action: "later", title: "Plus tard" }],
+  };
+  event.waitUntil(self.registration.showNotification(payload.title, options));
+});
+
+// Clic sur la notification : focus un onglet existant sinon ouvre l'Arène
+// (data.url). L'action "Plus tard" ferme déjà la notification (ligne
+// suivante, commune à toutes les actions) sans rien ouvrir de plus.
+self.addEventListener("notificationclick", (event: NotificationEvent) => {
+  event.notification.close();
+  if (event.action === "later") return;
+
+  const url = (event.notification.data as { url?: string } | undefined)?.url ?? "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsList) => {
+      const existing = clientsList[0];
+      if (existing) return existing.focus();
+      return self.clients.openWindow(url);
+    }),
+  );
+});

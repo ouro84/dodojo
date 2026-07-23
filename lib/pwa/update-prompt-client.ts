@@ -56,3 +56,18 @@ export function getUpdatePromptSnapshot(): boolean {
 export function reloadForUpdate(): void {
   serwist?.messageSkipWaiting();
 }
+
+// US-11 : registration active du SW, pour souscrire au Web Push
+// (registration.pushManager.subscribe). `navigator.serviceWorker.ready` se
+// résout dès qu'un SW est actif pour ce scope, quelle que soit la façon dont
+// il a été enregistré — évite de dépendre d'un détail interne de la classe
+// Serwist. Timeout court : en dev (SW jamais enregistré, cf.
+// initUpdatePrompt) ou navigateur non compatible, ne bloque jamais
+// indéfiniment l'appelant.
+export async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
+
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+  const ready = navigator.serviceWorker.ready.catch(() => null);
+  return Promise.race([ready, timeout]);
+}
