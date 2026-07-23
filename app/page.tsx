@@ -48,7 +48,7 @@ export default async function ArenePage() {
     .order("position", { ascending: true });
 
   if (tasksError) {
-    return <ArenaError />;
+    return <ArenaError aggressivityLevel={profile.aggressivity_level} />;
   }
 
   const { data: overdueTasks, error: overdueError } = await supabase
@@ -60,7 +60,7 @@ export default async function ArenePage() {
     .eq("is_abandoned", false);
 
   if (overdueError) {
-    return <ArenaError />;
+    return <ArenaError aggressivityLevel={profile.aggressivity_level} />;
   }
 
   const { data: dayResults } = await supabase
