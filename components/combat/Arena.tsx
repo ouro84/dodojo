@@ -99,12 +99,6 @@ interface DragOverInfo {
   isTopHalf: boolean;
 }
 
-let pulseCounter = 0;
-let xpPulseCounter = 0;
-let comboCounter = 0;
-let heroPulseCounter = 0;
-let optimisticIdCounter = 0;
-
 // La cible de drop est le rect mesuré de la ligne survolée ; le rect
 // "traduit" du dragged suit le pointeur en direct (dnd-kit translate tout
 // l'élément par le delta de pointeur, pas seulement le point de saisie).
@@ -170,6 +164,14 @@ export default function Arena({
   const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const xpPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Compteurs monotones (clés React) : des refs plutôt que des `let` de
+  // module — une mutation en dehors d'un état/effet est un side effect de
+  // rendu (règle react-hooks/globals), et un `let` de module serait de toute
+  // façon partagé entre plusieurs instances d'Arena si le composant remonte.
+  const pulseCounterRef = useRef(0);
+  const xpPulseCounterRef = useRef(0);
+  const comboCounterRef = useRef(0);
+  const optimisticIdCounterRef = useRef(0);
 
   // US-05 : horloge de polling (~45s) pendant que l'Arène est montée, pour
   // détecter le franchissement d'une deadline. Recalculée en `now` plutôt
@@ -184,6 +186,7 @@ export default function Arena({
     taskTitle: string;
   } | null>(null);
   const heroPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroPulseCounterRef = useRef(0);
   const tasksRef = useRef(tasks);
 
   const sensors = useSensors(
@@ -261,8 +264,8 @@ export default function Arena({
       if (freshlyMissed.length > 0) {
         for (const task of freshlyMissed) known.add(task.id);
 
-        heroPulseCounter += 1;
-        const key = heroPulseCounter;
+        heroPulseCounterRef.current += 1;
+        const key = heroPulseCounterRef.current;
         setHeroPulse({ key });
         setDeadlineAlert({ taskId: freshlyMissed[0].id, taskTitle: freshlyMissed[0].title });
 
@@ -285,8 +288,8 @@ export default function Arena({
       const next = current + hits;
       const label = comboLabel(next);
       if (label) {
-        comboCounter += 1;
-        const key = comboCounter;
+        comboCounterRef.current += 1;
+        const key = comboCounterRef.current;
         setComboFlash({ key, label, intensity: comboIntensity(next) });
         if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
         comboTimeoutRef.current = setTimeout(() => {
@@ -304,8 +307,8 @@ export default function Arena({
   }
 
   function triggerPulse(amount: number, kind: Pulse["kind"]) {
-    pulseCounter += 1;
-    const key = pulseCounter;
+    pulseCounterRef.current += 1;
+    const key = pulseCounterRef.current;
     setPulse({
       key,
       amount,
@@ -320,8 +323,8 @@ export default function Arena({
   }
 
   function triggerXpPulse(amount: number, kind: XpPulse["kind"]) {
-    xpPulseCounter += 1;
-    const key = xpPulseCounter;
+    xpPulseCounterRef.current += 1;
+    const key = xpPulseCounterRef.current;
     setXpPulse({ key, amount, kind });
 
     if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
@@ -331,10 +334,10 @@ export default function Arena({
   }
 
   function handleAdd(title: string) {
-    optimisticIdCounter += 1;
+    optimisticIdCounterRef.current += 1;
     const roots = tasks.filter((task) => task.parent_id === null);
     const optimisticTask: Task = {
-      id: `optimistic-${optimisticIdCounter}`,
+      id: `optimistic-${optimisticIdCounterRef.current}`,
       user_id: profile.id,
       parent_id: null,
       title,
@@ -374,10 +377,10 @@ export default function Arena({
   }
 
   function handleAddSubtask(parentId: string, title: string) {
-    optimisticIdCounter += 1;
+    optimisticIdCounterRef.current += 1;
     const siblings = tasks.filter((task) => task.parent_id === parentId);
     const optimisticTask: Task = {
-      id: `optimistic-${optimisticIdCounter}`,
+      id: `optimistic-${optimisticIdCounterRef.current}`,
       user_id: profile.id,
       parent_id: parentId,
       title,
