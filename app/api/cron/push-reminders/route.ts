@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
 import { calculateBossCurrentHp, dayKey, type HpTask } from "@/lib/game-engine";
 import { selectReminderEligibleProfiles, type ReminderCandidate } from "@/lib/push-eligibility";
-import { buildReminderPayload } from "@/lib/push-copy";
+import { buildReminderPayload } from "@/lib/copy/notifications";
 
 // web-push utilise des API Node (crypto) — pas compatible edge runtime.
 export const runtime = "nodejs";
@@ -19,6 +19,7 @@ interface ProfileRow {
   id: string;
   timezone: string;
   last_reminder_sent_on: string | null;
+  aggressivity_level: "sensei" | "sparring" | "street";
 }
 interface TaskRow extends HpTask {
   user_id: string;
@@ -67,7 +68,7 @@ export async function GET(request: Request): Promise<Response> {
   const candidateDates = adjacentUtcDates(now);
 
   const [profilesResult, tasksResult, dayResultsResult] = await Promise.all([
-    supabase.from("profiles").select("id, timezone, last_reminder_sent_on").in("id", userIds),
+    supabase.from("profiles").select("id, timezone, last_reminder_sent_on, aggressivity_level").in("id", userIds),
     supabase
       .from("tasks")
       .select("user_id, day_date, parent_id, is_abandoned, is_completed")
@@ -120,7 +121,7 @@ export async function GET(request: Request): Promise<Response> {
 
     const today = dayKey(now, profile.timezone);
     const remaining = calculateBossCurrentHp(candidate.todayTasks);
-    const payload = JSON.stringify(buildReminderPayload(remaining));
+    const payload = JSON.stringify(buildReminderPayload(remaining, profile.aggressivity_level));
 
     let sentOnce = false;
     for (const sub of subsByUser.get(profileId) ?? []) {
