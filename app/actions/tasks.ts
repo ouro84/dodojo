@@ -13,6 +13,8 @@ import {
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import type { CascadeTask } from "@/lib/game-engine";
+import { insertTaskForUser } from "@/lib/task-insertion";
+import { validateTaskTitle } from "@/lib/task-title";
 
 export interface TaskActionResult {
   error: string | null;
@@ -36,11 +38,13 @@ async function userToday(
   return dayKey(new Date(), data?.timezone ?? "UTC");
 }
 
+// US-03 : addTask délègue désormais à insertTaskForUser (lib/task-insertion.ts),
+// PARTAGÉE avec la route webhook Siri (app/api/webhook/add-task) — un seul
+// endroit calcule position/day_date/HP (RG-01/RG-02), jamais deux fois.
 export async function addTask(title: string): Promise<TaskActionResult> {
-  const trimmed = title.trim();
-
-  if (!trimmed) {
-    return { error: "Nomme ton monstre avant de l'invoquer." };
+  const validation = validateTaskTitle(title);
+  if ("error" in validation) {
+    return { error: validation.error };
   }
 
   const supabase = await createClient();
@@ -52,35 +56,25 @@ export async function addTask(title: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const today = await userToday(supabase, user.id);
-  const { data: roots, error: rootsError } = await supabase
-    .from("tasks")
-    .select("position")
-    .eq("user_id", user.id)
-    .eq("day_date", today)
-    .is("parent_id", null);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .maybeSingle();
 
-  if (rootsError) {
-    return { error: "Le monstre a résisté à l'invocation. Réessaie." };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from("tasks")
-    .insert({
-      user_id: user.id,
-      title: trimmed,
-      day_date: today,
-      position: nextSiblingPosition(roots ?? []),
-    })
-    .select("id")
-    .single();
-
-  if (error || !inserted) {
+  let outcome;
+  try {
+    outcome = await insertTaskForUser(supabase, {
+      userId: user.id,
+      title: validation.title,
+      timezone: profile?.timezone ?? "UTC",
+    });
+  } catch {
     return { error: "Le monstre a résisté à l'invocation. Réessaie." };
   }
 
   revalidatePath("/");
-  return { error: null, id: inserted.id };
+  return { error: null, id: outcome.taskId };
 }
 
 export async function addSubtask(
