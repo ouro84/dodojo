@@ -4,9 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { goldBalance } from "@/lib/game-engine";
 import { CharacterSelect } from "@/components/shop/CharacterSelect";
 
-// US-18 : l'Échoppe (Character Select). Solde d'or dérivé, possession lue depuis
-// unlocked_heroes, héros équipé depuis profiles. 3 états UI (Loading via
-// loading.tsx, Error ci-dessous, Empty naturel — catalogue toujours peuplé).
+// US-18/US-53 : l'Échoppe (Character Select + tenues). Solde d'or dérivé,
+// possession lue depuis unlocked_heroes/unlocked_skins, équipé depuis profiles.
 export default async function EchoppePage() {
   const supabase = await createClient();
   const {
@@ -18,12 +17,16 @@ export default async function EchoppePage() {
     { data: profile, error: pErr },
     { data: results, error: rErr },
     { data: owned, error: oErr },
-    { data: ownedSkinsForBalance, error: sErr },
+    { data: ownedSkins, error: sErr },
   ] = await Promise.all([
-    supabase.from("profiles").select("equipped_hero_id").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("equipped_hero_id, equipped_skin_id")
+      .eq("id", user.id)
+      .maybeSingle(),
     supabase.from("day_results").select("gold_earned").eq("user_id", user.id),
     supabase.from("unlocked_heroes").select("hero_id, price_paid").eq("user_id", user.id),
-    supabase.from("unlocked_skins").select("price_paid").eq("user_id", user.id),
+    supabase.from("unlocked_skins").select("hero_id, skin_id, price_paid").eq("user_id", user.id),
   ]);
 
   if (pErr || rErr || oErr || sErr || !profile) {
@@ -39,8 +42,9 @@ export default async function EchoppePage() {
     );
   }
 
-  const balance = goldBalance(results ?? [], owned ?? [], ownedSkinsForBalance ?? []);
+  const balance = goldBalance(results ?? [], owned ?? [], ownedSkins ?? []);
   const ownedIds = (owned ?? []).map((r) => r.hero_id);
+  const ownedSkinIds = (ownedSkins ?? []).map((r) => r.skin_id);
 
   return (
     <main className="flex flex-1 flex-col items-center gap-4 px-6 py-8">
@@ -53,6 +57,8 @@ export default async function EchoppePage() {
       <CharacterSelect
         ownedIds={ownedIds}
         equippedId={profile.equipped_hero_id}
+        ownedSkinIds={ownedSkinIds}
+        equippedSkinId={profile.equipped_skin_id}
         balance={balance}
       />
     </main>

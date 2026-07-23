@@ -975,7 +975,7 @@ Dans `components/shop/CharacterSelect.tsx`, remplacer l'import et la signature d
 ```tsx
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { HEROES, getHero, isHeroOwned, DEFAULT_HERO_ID } from "@/lib/heroes";
 import { getSkinsForHero, isSkinOwned, defaultSkinIdFor } from "@/lib/hero-skins";
 import {
@@ -1016,14 +1016,18 @@ export function CharacterSelect({
   const affordable = balance >= selected.price;
 
   // Quand la sélection de héros change, réinitialise la tenue prévisualisée :
-  // l'équipée s'il s'agit du héros actif, sinon sa tenue par défaut.
-  useEffect(() => {
+  // l'équipée s'il s'agit du héros actif, sinon sa tenue par défaut. Ajustement
+  // pendant le rendu (pas d'effet) pour éviter un rendu en cascade —
+  // react-hooks/set-state-in-effect (cf. PushReminderToggle, US-11).
+  const [prevSelectedId, setPrevSelectedId] = useState(selectedId);
+  if (selectedId !== prevSelectedId) {
+    setPrevSelectedId(selectedId);
     setSelectedSkinId(
-      selected.id === equippedId
-        ? (equippedSkinId ?? defaultSkinIdFor(selected.id))
-        : defaultSkinIdFor(selected.id),
+      selectedId === equippedId
+        ? (equippedSkinId ?? defaultSkinIdFor(selectedId))
+        : defaultSkinIdFor(selectedId),
     );
-  }, [selected.id, equippedId, equippedSkinId]);
+  }
 
   function onAction() {
     setError(null);
