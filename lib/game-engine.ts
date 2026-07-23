@@ -196,15 +196,29 @@ export function calculateBossCurrentHp(tasks: HpTask[]): number {
 
 export const HERO_MAX_HP = 100;
 export const HERO_DAMAGE_PER_OVERDUE_TASK = 20;
+export const HERO_DAMAGE_PER_MISSED_DEADLINE = 10;
 
 export type OverdueTask = Pick<Task, "is_abandoned" | "is_completed">;
 
-export function calculateHeroHp(overdueTasks: OverdueTask[]): number {
-  const unresolvedCount = overdueTasks.filter(
-    (task) => !task.is_abandoned && !task.is_completed,
-  ).length;
+// US-05 : le pool HP Héros accepte un poids par tâche (overdue reporté = -20,
+// deadline horaire ratée = -10) plutôt qu'un poids fixe pour toute la liste.
+export type HeroHpPenaltyTask = Pick<Task, "is_abandoned" | "is_completed"> & {
+  weight: number;
+};
 
-  return Math.max(0, HERO_MAX_HP - unresolvedCount * HERO_DAMAGE_PER_OVERDUE_TASK);
+export function calculateHeroHp(penaltyTasks: HeroHpPenaltyTask[]): number {
+  const damage = penaltyTasks
+    .filter((task) => !task.is_abandoned && !task.is_completed)
+    .reduce((total, task) => total + task.weight, 0);
+
+  return Math.max(0, HERO_MAX_HP - damage);
+}
+
+// Construit les entrées pondérées du pool HP Héros pour des tâches en retard
+// (reportées d'un jour précédent, poids -20). Utilisé par le Rituel du Réveil
+// et l'Arène.
+export function overdueHpPenalties(tasks: OverdueTask[]): HeroHpPenaltyTask[] {
+  return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
 }
 
 export type KoTier = "perfect" | "ko" | null;

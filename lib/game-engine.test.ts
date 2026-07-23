@@ -4,6 +4,7 @@ import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
+  overdueHpPenalties,
   computeGoldEarned,
   computeToggleCascade,
   currentStreak,
@@ -145,31 +146,61 @@ describe("calculateBossCurrentHp (RG-02)", () => {
   });
 });
 
-describe("calculateHeroHp (pénalité procrastination)", () => {
-  test("100 HP quand aucune tâche n'est en retard", () => {
+describe("calculateHeroHp (pool HP Héros pondéré, US-05)", () => {
+  test("100 HP quand aucune pénalité", () => {
     expect(calculateHeroHp([])).toBe(100);
   });
 
-  test("retire 20 HP par tâche en retard non résolue", () => {
-    const tasks = [
-      makeTask({ id: "1" }),
-      makeTask({ id: "2" }),
+  test("retire le poids de chaque pénalité non résolue", () => {
+    const penalties = [
+      { ...makeTask({ id: "1" }), weight: 20 },
+      { ...makeTask({ id: "2" }), weight: 10 },
     ];
-    expect(calculateHeroHp(tasks)).toBe(60);
+    expect(calculateHeroHp(penalties)).toBe(70);
   });
 
-  test("ignore les tâches en retard déjà complétées ou abandonnées", () => {
-    const tasks = [
-      makeTask({ id: "1", is_completed: true }),
-      makeTask({ id: "2", is_abandoned: true }),
-      makeTask({ id: "3" }),
+  test("ignore les pénalités déjà complétées ou abandonnées", () => {
+    const penalties = [
+      { ...makeTask({ id: "1", is_completed: true }), weight: 20 },
+      { ...makeTask({ id: "2", is_abandoned: true }), weight: 10 },
+      { ...makeTask({ id: "3" }), weight: 20 },
     ];
-    expect(calculateHeroHp(tasks)).toBe(80);
+    expect(calculateHeroHp(penalties)).toBe(80);
   });
 
   test("plafonne à 0, jamais négatif", () => {
-    const tasks = Array.from({ length: 10 }, (_, i) => makeTask({ id: `t${i}` }));
-    expect(calculateHeroHp(tasks)).toBe(0);
+    const penalties = Array.from({ length: 10 }, (_, i) => ({
+      ...makeTask({ id: `t${i}` }),
+      weight: 20,
+    }));
+    expect(calculateHeroHp(penalties)).toBe(0);
+  });
+
+  test("combine un poids -20 (retard reporté) et un poids -10 (deadline ratée) sur deux tâches distinctes", () => {
+    const penalties = [
+      { ...makeTask({ id: "overdue-1" }), weight: 20 },
+      { ...makeTask({ id: "deadline-1" }), weight: 10 },
+    ];
+    expect(calculateHeroHp(penalties)).toBe(70);
+  });
+
+  test("une pénalité résolue (cochée) libère son poids immédiatement", () => {
+    const penalties = [
+      { ...makeTask({ id: "1" }), weight: 10 },
+      { ...makeTask({ id: "1", is_completed: true }), weight: 10 },
+    ];
+    // Cocher la tâche (2e entrée) doit faire remonter le HP à 100.
+    expect(calculateHeroHp([penalties[1]])).toBe(100);
+  });
+});
+
+describe("overdueHpPenalties (US-05)", () => {
+  test("attribue le poids -20 à chaque tâche en retard, en conservant ses champs", () => {
+    const tasks = [makeTask({ id: "1" }), makeTask({ id: "2", is_completed: true })];
+    expect(overdueHpPenalties(tasks)).toEqual([
+      { ...tasks[0], weight: 20 },
+      { ...tasks[1], weight: 20 },
+    ]);
   });
 });
 
