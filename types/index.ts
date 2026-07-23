@@ -9,6 +9,7 @@ export interface Profile {
   best_streak: number;
   timezone: string;
   equipped_hero_id: string;
+  equipped_skin_id: string | null;
   has_seen_tutorial: boolean;
   last_reminder_sent_on: string | null;
   webhook_token_hash: string | null;
@@ -110,6 +111,24 @@ export interface OAuthToken {
   scope: string;
   expires_at: string;
   created_at: string;
+}
+
+export interface Skin {
+  id: string; // ex "water_priestess_ember"
+  heroId: string; // ref Hero.id
+  name: string;
+  price: number; // 0 pour la tenue "default"
+  isDefault: boolean;
+  swatchColor: string; // hex, puce dans l'Échoppe
+}
+
+export interface UnlockedSkin {
+  id: string;
+  user_id: string;
+  hero_id: string;
+  skin_id: string;
+  price_paid: number;
+  unlocked_at: string;
 }
 
 // US-11 : ligne brute de push_subscriptions. Distinct du sous-ensemble soumis

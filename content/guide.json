@@ -79,6 +79,14 @@
       ]
     },
     {
+      "id": "tenues",
+      "title": "Tenues",
+      "blocks": [
+        { "type": "p", "text": "Chaque combattant possédé peut porter jusqu'à 4 tenues (recolors) que tu débloques et équipes depuis l'Échoppe, sous le stage de sélection." },
+        { "type": "p", "text": "Purement cosmétique : une tenue ne change ni les HP, ni l'XP, ni l'or gagné — juste le style de ton combattant dans l'Arène." }
+      ]
+    },
+    {
       "id": "pantheon",
       "title": "Le Panthéon",
       "blocks": [

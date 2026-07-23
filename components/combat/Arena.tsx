@@ -43,6 +43,7 @@ import {
   type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
+import { getHeroSpritePrefix } from "@/lib/hero-skins";
 import { DEFAULT_BOSS_ID, getBoss } from "@/lib/bosses";
 import { DEFAULT_BACKGROUND_ID, getBackground } from "@/lib/backgrounds";
 import { buildShareCardParams } from "@/lib/share-card";
@@ -206,6 +207,11 @@ export default function Arena({
   // US-18 : héros affiché = celui équipé (fallback défaut si id inconnu).
   const equippedHero =
     getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;
+  // US-53 : tenue équipée (null = tenue par défaut du héros).
+  const equippedHeroFramePrefix = getHeroSpritePrefix(
+    equippedHero.id,
+    profile.equipped_skin_id,
+  );
   const isEmpty = activeTasks.length === 0;
 
   // US-29 : étape du coach. "add" tant qu'aucune tâche active ; "strike" tant
@@ -736,7 +742,7 @@ export default function Arena({
         <div className="relative">
           <VersusScene
             heroName={equippedHero.name}
-            heroFramePrefix={equippedHero.idleFramePrefix}
+            heroFramePrefix={equippedHeroFramePrefix}
             heroFrameCount={equippedHero.idleFrameCount}
             heroHp={heroHp}
             heroMaxHp={HERO_MAX_HP}
