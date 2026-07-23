@@ -2,9 +2,10 @@ interface HeroBarProps {
   heroName: string;
   currentHp: number;
   maxHp: number;
+  alarm?: boolean;
 }
 
-export default function HeroBar({ heroName, currentHp, maxHp }: HeroBarProps) {
+export default function HeroBar({ heroName, currentHp, maxHp, alarm = false }: HeroBarProps) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
 
   return (
@@ -15,7 +16,7 @@ export default function HeroBar({ heroName, currentHp, maxHp }: HeroBarProps) {
         aria-valuemin={0}
         aria-valuemax={maxHp}
         aria-label={`Vie du héros : ${currentHp} sur ${maxHp}`}
-        className="h-3.5 overflow-hidden rounded-sm bg-hp-dim"
+        className={`h-3.5 overflow-hidden rounded-sm bg-hp-dim ${alarm ? "hero-alarm" : ""}`}
       >
         <div
           className="ml-auto h-full bg-hp transition-[width] duration-300 ease-out"
