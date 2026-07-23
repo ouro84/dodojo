@@ -11,6 +11,9 @@ export interface Profile {
   equipped_hero_id: string;
   has_seen_tutorial: boolean;
   last_reminder_sent_on: string | null;
+  webhook_token_hash: string | null;
+  webhook_token_created_at: string | null;
+  webhook_token_last_used_at: string | null;
   created_at: string;
 }
 
