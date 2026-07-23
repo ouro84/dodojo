@@ -31,8 +31,24 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Routes publiques (accessibles sans session) : connexion ET inscription.
   const path = request.nextUrl.pathname;
+
+  // US-58 (PWA) : routes techniques toujours accessibles, authentifié ou non —
+  // le navigateur les récupère (lien <head> du manifest, enregistrement du
+  // service worker, fallback offline) même sur un visiteur anonyme sur
+  // /welcome avant inscription. Distinct de isPublicRoute (qui redirige un
+  // utilisateur déjà connecté loin de /login ou /welcome) : ces routes ne
+  // redirigent jamais, dans aucun sens.
+  const isTechnicalRoute =
+    path === "/manifest.webmanifest" ||
+    path.startsWith("/serwist/") ||
+    path === "/offline";
+
+  if (isTechnicalRoute) {
+    return supabaseResponse;
+  }
+
+  // Routes publiques (accessibles sans session) : connexion ET inscription.
   const isPublicRoute = path.startsWith("/login") || path.startsWith("/welcome");
 
   // US-29 (A1) : un visiteur non authentifié est envoyé vers /welcome (signup-first) ;
