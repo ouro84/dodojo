@@ -221,6 +221,45 @@ export function overdueHpPenalties(tasks: OverdueTask[]): HeroHpPenaltyTask[] {
   return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
 }
 
+export type DeadlineTask = Pick<
+  Task,
+  "id" | "title" | "deadline_at" | "is_completed" | "is_abandoned"
+>;
+
+// US-05 : tâches dont la deadline est dépassée et qui ne sont ni complétées ni
+// abandonnées. Alimente le pool HP Héros (poids -10, cf. deadlineHpPenalties)
+// et déclenche l'animation "Attaque Surprise" au polling (Arena.tsx). `now`
+// explicite pour rester testable sans horloge système réelle.
+export function missedDeadlineTasks(tasks: DeadlineTask[], now: Date): DeadlineTask[] {
+  const nowMs = now.getTime();
+  return tasks.filter(
+    (task) =>
+      task.deadline_at !== null &&
+      !task.is_completed &&
+      !task.is_abandoned &&
+      new Date(task.deadline_at).getTime() <= nowMs,
+  );
+}
+
+// US-05 : badge agrégé "N deadlines à venir aujourd'hui" — tâches actives à
+// deadline non nulle et pas encore dépassée.
+export function upcomingDeadlineCount(tasks: DeadlineTask[], now: Date): number {
+  const nowMs = now.getTime();
+  return tasks.filter(
+    (task) =>
+      task.deadline_at !== null &&
+      !task.is_completed &&
+      !task.is_abandoned &&
+      new Date(task.deadline_at).getTime() > nowMs,
+  ).length;
+}
+
+// Construit les entrées pondérées du pool HP Héros pour des deadlines ratées du
+// jour courant (poids -10, cf. spec US-05).
+export function deadlineHpPenalties(tasks: DeadlineTask[]): HeroHpPenaltyTask[] {
+  return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_MISSED_DEADLINE }));
+}
+
 export type KoTier = "perfect" | "ko" | null;
 
 // US-16 : décide, de façon pure, si terrasser le Boss déclenche une célébration

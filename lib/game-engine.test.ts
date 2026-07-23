@@ -5,6 +5,9 @@ import {
   calculateBossMaxHp,
   calculateHeroHp,
   overdueHpPenalties,
+  missedDeadlineTasks,
+  upcomingDeadlineCount,
+  deadlineHpPenalties,
   computeGoldEarned,
   computeToggleCascade,
   currentStreak,
@@ -201,6 +204,62 @@ describe("overdueHpPenalties (US-05)", () => {
       { ...tasks[0], weight: 20 },
       { ...tasks[1], weight: 20 },
     ]);
+  });
+});
+
+describe("missedDeadlineTasks (US-05)", () => {
+  const now = new Date("2026-07-22T14:00:00.000Z");
+
+  test("retient une tâche dont la deadline est dépassée et non résolue", () => {
+    const tasks = [makeTask({ id: "1", deadline_at: "2026-07-22T13:00:00.000Z" })];
+    expect(missedDeadlineTasks(tasks, now)).toEqual(tasks);
+  });
+
+  test("ignore une deadline pas encore atteinte", () => {
+    const tasks = [makeTask({ id: "1", deadline_at: "2026-07-22T15:00:00.000Z" })];
+    expect(missedDeadlineTasks(tasks, now)).toEqual([]);
+  });
+
+  test("ignore une tâche sans deadline", () => {
+    expect(missedDeadlineTasks([makeTask({ id: "1", deadline_at: null })], now)).toEqual([]);
+  });
+
+  test("ignore une deadline dépassée mais déjà complétée ou abandonnée", () => {
+    const tasks = [
+      makeTask({ id: "1", deadline_at: "2026-07-22T13:00:00.000Z", is_completed: true }),
+      makeTask({ id: "2", deadline_at: "2026-07-22T13:00:00.000Z", is_abandoned: true }),
+    ];
+    expect(missedDeadlineTasks(tasks, now)).toEqual([]);
+  });
+
+  test("une deadline pile égale à l'heure courante compte comme ratée", () => {
+    const tasks = [makeTask({ id: "1", deadline_at: "2026-07-22T14:00:00.000Z" })];
+    expect(missedDeadlineTasks(tasks, now)).toEqual(tasks);
+  });
+});
+
+describe("upcomingDeadlineCount (US-05)", () => {
+  const now = new Date("2026-07-22T14:00:00.000Z");
+
+  test("compte les deadlines actives pas encore dépassées", () => {
+    const tasks = [
+      makeTask({ id: "1", deadline_at: "2026-07-22T15:00:00.000Z" }),
+      makeTask({ id: "2", deadline_at: "2026-07-22T16:00:00.000Z" }),
+      makeTask({ id: "3", deadline_at: "2026-07-22T13:00:00.000Z" }), // déjà ratée
+      makeTask({ id: "4", deadline_at: null }),
+    ];
+    expect(upcomingDeadlineCount(tasks, now)).toBe(2);
+  });
+
+  test("0 quand aucune tâche n'a de deadline", () => {
+    expect(upcomingDeadlineCount([makeTask({ id: "1" })], now)).toBe(0);
+  });
+});
+
+describe("deadlineHpPenalties (US-05)", () => {
+  test("attribue le poids -10 à chaque deadline ratée", () => {
+    const tasks = [makeTask({ id: "1" })];
+    expect(deadlineHpPenalties(tasks)).toEqual([{ ...tasks[0], weight: 10 }]);
   });
 });
 
