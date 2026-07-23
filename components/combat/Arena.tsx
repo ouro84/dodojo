@@ -26,6 +26,11 @@ import {
   currentStreak,
   HERO_MAX_HP,
   koOutcome,
+  overdueHpPenalties,
+  deadlineHpPenalties,
+  missedDeadlineTasks,
+  upcomingDeadlineCount,
+  HERO_DAMAGE_PER_MISSED_DEADLINE,
   collectAbandonCascade,
   applyRageQuitPenalty,
   RAGE_QUIT_XP_PENALTY,
@@ -48,6 +53,7 @@ import {
   undoRageQuit as undoRageQuitAction,
   reorderSiblings as reorderSiblingsAction,
   setTaskCompleted as setTaskCompletedAction,
+  setTaskDeadline as setTaskDeadlineAction,
 } from "@/app/actions/tasks";
 import { closeDay as closeDayAction } from "@/app/actions/day";
 import { markTutorialSeen } from "@/app/actions/profile";
@@ -92,11 +98,6 @@ interface DragOverInfo {
   overTaskId: string;
   isTopHalf: boolean;
 }
-
-let pulseCounter = 0;
-let xpPulseCounter = 0;
-let comboCounter = 0;
-let optimisticIdCounter = 0;
 
 // La cible de drop est le rect mesuré de la ligne survolée ; le rect
 // "traduit" du dragged suit le pointeur en direct (dnd-kit translate tout
@@ -163,6 +164,30 @@ export default function Arena({
   const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const xpPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Compteurs monotones (clés React) : des refs plutôt que des `let` de
+  // module — une mutation en dehors d'un état/effet est un side effect de
+  // rendu (règle react-hooks/globals), et un `let` de module serait de toute
+  // façon partagé entre plusieurs instances d'Arena si le composant remonte.
+  const pulseCounterRef = useRef(0);
+  const xpPulseCounterRef = useRef(0);
+  const comboCounterRef = useRef(0);
+  const optimisticIdCounterRef = useRef(0);
+
+  // US-05 : horloge de polling (~45s) pendant que l'Arène est montée, pour
+  // détecter le franchissement d'une deadline. Recalculée en `now` plutôt
+  // qu'à chaque frame : cf. design (pas de replay au chargement).
+  const [now, setNow] = useState(() => new Date());
+  const knownMissedDeadlineIdsRef = useRef<Set<string>>(
+    new Set(missedDeadlineTasks(initialTasks, new Date()).map((t) => t.id)),
+  );
+  const [heroPulse, setHeroPulse] = useState<{ key: number } | null>(null);
+  const [deadlineAlert, setDeadlineAlert] = useState<{
+    taskId: string;
+    taskTitle: string;
+  } | null>(null);
+  const heroPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroPulseCounterRef = useRef(0);
+  const tasksRef = useRef(tasks);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -172,11 +197,15 @@ export default function Arena({
 
   const maxHp = calculateBossMaxHp(tasks);
   const currentHp = calculateBossCurrentHp(tasks);
-  const heroHp = calculateHeroHp(overdueTasks);
+  const activeTasks = tasks.filter((task) => !task.is_abandoned);
+  const missedDeadlines = missedDeadlineTasks(activeTasks, now);
+  const heroHp = calculateHeroHp([
+    ...overdueHpPenalties(overdueTasks),
+    ...deadlineHpPenalties(missedDeadlines),
+  ]);
   // US-18 : héros affiché = celui équipé (fallback défaut si id inconnu).
   const equippedHero =
     getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;
-  const activeTasks = tasks.filter((task) => !task.is_abandoned);
   const isEmpty = activeTasks.length === 0;
 
   // US-29 : étape du coach. "add" tant qu'aucune tâche active ; "strike" tant
@@ -211,7 +240,45 @@ export default function Arena({
       if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
       if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
       if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
+      if (heroPulseTimeoutRef.current) clearTimeout(heroPulseTimeoutRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  // US-05 : polling léger (~45s) pendant que l'Arène est montée. Ne se
+  // déclenche jamais rétroactivement pour une deadline déjà ratée avant le
+  // montage (cf. knownMissedDeadlineIdsRef, initialisé au chargement).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const tick = new Date();
+      const missedNow = missedDeadlineTasks(
+        tasksRef.current.filter((task) => !task.is_abandoned),
+        tick,
+      );
+      const known = knownMissedDeadlineIdsRef.current;
+      const freshlyMissed = missedNow.filter((task) => !known.has(task.id));
+
+      if (freshlyMissed.length > 0) {
+        for (const task of freshlyMissed) known.add(task.id);
+
+        heroPulseCounterRef.current += 1;
+        const key = heroPulseCounterRef.current;
+        setHeroPulse({ key });
+        setDeadlineAlert({ taskId: freshlyMissed[0].id, taskTitle: freshlyMissed[0].title });
+
+        if (heroPulseTimeoutRef.current) clearTimeout(heroPulseTimeoutRef.current);
+        heroPulseTimeoutRef.current = setTimeout(() => {
+          setHeroPulse((current) => (current?.key === key ? null : current));
+        }, 1400);
+      }
+
+      setNow(tick);
+    }, 45_000);
+
+    return () => clearInterval(timer);
   }, []);
 
   // Combo : incrémente de `hits` (tâches terminées d'un coup) et flashe la
@@ -221,8 +288,8 @@ export default function Arena({
       const next = current + hits;
       const label = comboLabel(next);
       if (label) {
-        comboCounter += 1;
-        const key = comboCounter;
+        comboCounterRef.current += 1;
+        const key = comboCounterRef.current;
         setComboFlash({ key, label, intensity: comboIntensity(next) });
         if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
         comboTimeoutRef.current = setTimeout(() => {
@@ -240,8 +307,8 @@ export default function Arena({
   }
 
   function triggerPulse(amount: number, kind: Pulse["kind"]) {
-    pulseCounter += 1;
-    const key = pulseCounter;
+    pulseCounterRef.current += 1;
+    const key = pulseCounterRef.current;
     setPulse({
       key,
       amount,
@@ -256,8 +323,8 @@ export default function Arena({
   }
 
   function triggerXpPulse(amount: number, kind: XpPulse["kind"]) {
-    xpPulseCounter += 1;
-    const key = xpPulseCounter;
+    xpPulseCounterRef.current += 1;
+    const key = xpPulseCounterRef.current;
     setXpPulse({ key, amount, kind });
 
     if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
@@ -267,10 +334,10 @@ export default function Arena({
   }
 
   function handleAdd(title: string) {
-    optimisticIdCounter += 1;
+    optimisticIdCounterRef.current += 1;
     const roots = tasks.filter((task) => task.parent_id === null);
     const optimisticTask: Task = {
-      id: `optimistic-${optimisticIdCounter}`,
+      id: `optimistic-${optimisticIdCounterRef.current}`,
       user_id: profile.id,
       parent_id: null,
       title,
@@ -310,10 +377,10 @@ export default function Arena({
   }
 
   function handleAddSubtask(parentId: string, title: string) {
-    optimisticIdCounter += 1;
+    optimisticIdCounterRef.current += 1;
     const siblings = tasks.filter((task) => task.parent_id === parentId);
     const optimisticTask: Task = {
-      id: `optimistic-${optimisticIdCounter}`,
+      id: `optimistic-${optimisticIdCounterRef.current}`,
       user_id: profile.id,
       parent_id: parentId,
       title,
@@ -578,6 +645,33 @@ export default function Arena({
     });
   }
 
+  // US-05 : sauvegarde optimiste d'une deadline (popover ⏰ ou "Repousser +1h").
+  // `deadlineAt` = null pour effacer.
+  function handleSetDeadline(id: string, deadlineAt: string | null) {
+    // US-05 fix : une deadline modifiée (popover ou "Repousser +1h") doit pouvoir
+    // re-déclencher l'Attaque Surprise si elle est ratée à nouveau — sans ce reset,
+    // le Set ne garde en mémoire que le tout premier dépassement.
+    knownMissedDeadlineIdsRef.current.delete(id);
+    const previousSnapshot = tasks;
+    setTasks((prev) =>
+      prev.map((task) => (task.id === id ? { ...task, deadline_at: deadlineAt } : task)),
+    );
+    void setTaskDeadlineAction(id, deadlineAt).then((result) => {
+      if (result.error) {
+        setTasks(previousSnapshot);
+        setBanner(result.error);
+      }
+    });
+  }
+
+  // US-05 : action rapide du toast "Attaque Surprise" — repousse la deadline
+  // d'1h à partir de MAINTENANT (pas de l'ancienne deadline ratée).
+  function handlePushDeadlineOneHour(id: string) {
+    const nextDeadline = new Date(Date.now() + 3_600_000).toISOString();
+    handleSetDeadline(id, nextDeadline);
+    setDeadlineAlert(null);
+  }
+
   // US-07 : clôture cérémonielle. Persiste le day_result puis affiche le récap
   // figé (calculé depuis l'état courant des tâches).
   async function handleCrepuscule() {
@@ -646,6 +740,7 @@ export default function Arena({
             heroFrameCount={equippedHero.idleFrameCount}
             heroHp={heroHp}
             heroMaxHp={HERO_MAX_HP}
+            heroAlarm={heroPulse !== null}
             bossName={bossName}
             bossFramePrefix={boss.idleFramePrefix}
             bossFrameCount={boss.idleFrameCount}
@@ -653,6 +748,7 @@ export default function Arena({
             backgroundPath={background.publicPath}
             currentHp={currentHp}
             maxHp={maxHp}
+            upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
             dimmed={isEmpty}
           />
           {pulse?.kind === "damage" && pulse.impactVariant && (
@@ -674,6 +770,13 @@ export default function Arena({
             </span>
           )}
           {pulse && <FloatingText amount={pulse.amount} kind={pulse.kind} />}
+          {heroPulse && (
+            <FloatingText
+              amount={HERO_DAMAGE_PER_MISSED_DEADLINE}
+              kind="damage"
+              anchor="hero"
+            />
+          )}
           {xpPulse && (
             <FloatingText amount={xpPulse.amount} kind={xpPulse.kind} unit="XP" />
           )}
@@ -789,6 +892,34 @@ export default function Arena({
         </div>
       )}
 
+      {deadlineAlert && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-2 rounded-md border border-alert bg-surface px-3 py-2 text-xs text-alert"
+        >
+          <span>
+            ⏰ Attaque Surprise : « {deadlineAlert.taskTitle} » a raté sa deadline
+            (−{HERO_DAMAGE_PER_MISSED_DEADLINE} HP).
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handlePushDeadlineOneHour(deadlineAlert.taskId)}
+              className="font-display uppercase tracking-wide text-xp underline underline-offset-2"
+            >
+              Repousser +1h
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeadlineAlert(null)}
+              className="underline"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
       {isEmpty ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
           <p className="font-display text-lg uppercase tracking-wide text-ink">
@@ -809,9 +940,11 @@ export default function Arena({
         >
           <TaskList
             tasks={activeTasks}
+            timezone={profile.timezone}
             onToggle={handleToggle}
             onAbandon={handleAbandon}
             onAddSubtask={handleAddSubtask}
+            onSetDeadline={handleSetDeadline}
             addingSubtaskParentId={addingSubtaskParentId}
             dragOverInfo={dragOverInfo}
           />

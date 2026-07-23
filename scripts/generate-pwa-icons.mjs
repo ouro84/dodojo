@@ -1,0 +1,73 @@
+// Décline public/icons/logo-source.svg en icônes PWA :
+// - "any" (192/512, fond transparent) — icône standard du manifest.
+// - "maskable" (192/512, fond plein --color-bg) — respecte la zone de
+//   sécurité du crop adaptatif Android (spec maskable icons).
+// - apple-icon (180x180, fond plein) — Next.js sert automatiquement
+//   <link rel="apple-touch-icon"> depuis app/apple-icon.png ; iOS
+//   recommande un fond opaque (pas de transparence) pour cette icône.
+// Pas de vraie déclinaison claire/sombre du logo lui-même : l'app n'a
+// qu'un seul thème (sombre, cf. app/globals.css --color-bg). La passe
+// d'identité visuelle multi-thème est hors scope (issue #51).
+// Usage : npm run generate:icons
+import sharp from "sharp";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SOURCE_SVG = path.join(ROOT, "public", "icons", "logo-source.svg");
+const ICONS_DIR = path.join(ROOT, "public", "icons");
+
+// Fond sombre de l'app (--color-bg dans app/globals.css,
+// oklch(0.14 0.015 25) converti en sRGB) — fond plein des icônes maskable.
+const BRAND_BG = "#0f0706";
+
+// Zone de sécurité maskable : le contenu doit tenir dans un cercle centré
+// de 80% du côté (spec Android adaptive icon). On tasse le logo à 60% du
+// côté pour garder de la marge, la silhouette de flamme débordant jusqu'aux
+// bords de son propre viewBox.
+const MASKABLE_CONTENT_RATIO = 0.6;
+
+async function renderAnyIcon(svgBuffer, size) {
+  return sharp(svgBuffer)
+    .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+}
+
+async function renderMaskableIcon(svgBuffer, size) {
+  const contentSize = Math.round(size * MASKABLE_CONTENT_RATIO);
+  const content = await sharp(svgBuffer)
+    .resize(contentSize, contentSize, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: BRAND_BG },
+  })
+    .composite([{ input: content, gravity: "center" }])
+    .png()
+    .toBuffer();
+}
+
+async function main() {
+  const svgBuffer = await fs.readFile(SOURCE_SVG);
+
+  const any192 = await renderAnyIcon(svgBuffer, 192);
+  const any512 = await renderAnyIcon(svgBuffer, 512);
+  const maskable192 = await renderMaskableIcon(svgBuffer, 192);
+  const maskable512 = await renderMaskableIcon(svgBuffer, 512);
+  const appleIcon = await renderMaskableIcon(svgBuffer, 180);
+
+  await fs.writeFile(path.join(ICONS_DIR, "icon-192.png"), any192);
+  await fs.writeFile(path.join(ICONS_DIR, "icon-512.png"), any512);
+  await fs.writeFile(path.join(ICONS_DIR, "icon-maskable-192.png"), maskable192);
+  await fs.writeFile(path.join(ICONS_DIR, "icon-maskable-512.png"), maskable512);
+  await fs.writeFile(path.join(ROOT, "app", "apple-icon.png"), appleIcon);
+
+  console.log("Icônes PWA générées dans public/icons/ + app/apple-icon.png");
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

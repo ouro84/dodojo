@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { currentStreak, dayKey } from "@/lib/game-engine";
 import StreakBadge from "@/components/combat/StreakBadge";
+import InstallCta from "@/components/pwa/InstallCta";
 
 // US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
 export default async function QgPage() {
@@ -29,6 +30,7 @@ export default async function QgPage() {
     <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
       <h1 className="font-display text-lg uppercase tracking-wide text-ink">Le QG</h1>
       <StreakBadge state={streak} />
+      <InstallCta />
       <p className="text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
       <Link href="/pantheon" className="text-sm text-hp underline underline-offset-4">
         🏆 Le Panthéon

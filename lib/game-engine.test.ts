@@ -4,6 +4,12 @@ import {
   calculateBossCurrentHp,
   calculateBossMaxHp,
   calculateHeroHp,
+  overdueHpPenalties,
+  missedDeadlineTasks,
+  upcomingDeadlineCount,
+  deadlineHpPenalties,
+  deadlineIso,
+  localTimeFromIso,
   computeGoldEarned,
   computeToggleCascade,
   currentStreak,
@@ -145,31 +151,154 @@ describe("calculateBossCurrentHp (RG-02)", () => {
   });
 });
 
-describe("calculateHeroHp (pénalité procrastination)", () => {
-  test("100 HP quand aucune tâche n'est en retard", () => {
+describe("calculateHeroHp (pool HP Héros pondéré, US-05)", () => {
+  test("100 HP quand aucune pénalité", () => {
     expect(calculateHeroHp([])).toBe(100);
   });
 
-  test("retire 20 HP par tâche en retard non résolue", () => {
-    const tasks = [
-      makeTask({ id: "1" }),
-      makeTask({ id: "2" }),
+  test("retire le poids de chaque pénalité non résolue", () => {
+    const penalties = [
+      { ...makeTask({ id: "1" }), weight: 20 },
+      { ...makeTask({ id: "2" }), weight: 10 },
     ];
-    expect(calculateHeroHp(tasks)).toBe(60);
+    expect(calculateHeroHp(penalties)).toBe(70);
   });
 
-  test("ignore les tâches en retard déjà complétées ou abandonnées", () => {
-    const tasks = [
-      makeTask({ id: "1", is_completed: true }),
-      makeTask({ id: "2", is_abandoned: true }),
-      makeTask({ id: "3" }),
+  test("ignore les pénalités déjà complétées ou abandonnées", () => {
+    const penalties = [
+      { ...makeTask({ id: "1", is_completed: true }), weight: 20 },
+      { ...makeTask({ id: "2", is_abandoned: true }), weight: 10 },
+      { ...makeTask({ id: "3" }), weight: 20 },
     ];
-    expect(calculateHeroHp(tasks)).toBe(80);
+    expect(calculateHeroHp(penalties)).toBe(80);
   });
 
   test("plafonne à 0, jamais négatif", () => {
-    const tasks = Array.from({ length: 10 }, (_, i) => makeTask({ id: `t${i}` }));
-    expect(calculateHeroHp(tasks)).toBe(0);
+    const penalties = Array.from({ length: 10 }, (_, i) => ({
+      ...makeTask({ id: `t${i}` }),
+      weight: 20,
+    }));
+    expect(calculateHeroHp(penalties)).toBe(0);
+  });
+
+  test("combine un poids -20 (retard reporté) et un poids -10 (deadline ratée) sur deux tâches distinctes", () => {
+    const penalties = [
+      { ...makeTask({ id: "overdue-1" }), weight: 20 },
+      { ...makeTask({ id: "deadline-1" }), weight: 10 },
+    ];
+    expect(calculateHeroHp(penalties)).toBe(70);
+  });
+
+  test("une pénalité résolue (cochée) libère son poids immédiatement", () => {
+    const penalties = [
+      { ...makeTask({ id: "1" }), weight: 10 },
+      { ...makeTask({ id: "1", is_completed: true }), weight: 10 },
+    ];
+    // Cocher la tâche (2e entrée) doit faire remonter le HP à 100.
+    expect(calculateHeroHp([penalties[1]])).toBe(100);
+  });
+});
+
+describe("overdueHpPenalties (US-05)", () => {
+  test("attribue le poids -20 à chaque tâche en retard, en conservant ses champs", () => {
+    const tasks = [makeTask({ id: "1" }), makeTask({ id: "2", is_completed: true })];
+    expect(overdueHpPenalties(tasks)).toEqual([
+      { ...tasks[0], weight: 20 },
+      { ...tasks[1], weight: 20 },
+    ]);
+  });
+});
+
+describe("missedDeadlineTasks (US-05)", () => {
+  const now = new Date("2026-07-22T14:00:00.000Z");
+
+  test("retient une tâche dont la deadline est dépassée et non résolue", () => {
+    const tasks = [makeTask({ id: "1", deadline_at: "2026-07-22T13:00:00.000Z" })];
+    expect(missedDeadlineTasks(tasks, now)).toEqual(tasks);
+  });
+
+  test("ignore une deadline pas encore atteinte", () => {
+    const tasks = [makeTask({ id: "1", deadline_at: "2026-07-22T15:00:00.000Z" })];
+    expect(missedDeadlineTasks(tasks, now)).toEqual([]);
+  });
+
+  test("ignore une tâche sans deadline", () => {
+    expect(missedDeadlineTasks([makeTask({ id: "1", deadline_at: null })], now)).toEqual([]);
+  });
+
+  test("ignore une deadline dépassée mais déjà complétée ou abandonnée", () => {
+    const tasks = [
+      makeTask({ id: "1", deadline_at: "2026-07-22T13:00:00.000Z", is_completed: true }),
+      makeTask({ id: "2", deadline_at: "2026-07-22T13:00:00.000Z", is_abandoned: true }),
+    ];
+    expect(missedDeadlineTasks(tasks, now)).toEqual([]);
+  });
+
+  test("une deadline pile égale à l'heure courante compte comme ratée", () => {
+    const tasks = [makeTask({ id: "1", deadline_at: "2026-07-22T14:00:00.000Z" })];
+    expect(missedDeadlineTasks(tasks, now)).toEqual(tasks);
+  });
+});
+
+describe("upcomingDeadlineCount (US-05)", () => {
+  const now = new Date("2026-07-22T14:00:00.000Z");
+
+  test("compte les deadlines actives pas encore dépassées", () => {
+    const tasks = [
+      makeTask({ id: "1", deadline_at: "2026-07-22T15:00:00.000Z" }),
+      makeTask({ id: "2", deadline_at: "2026-07-22T16:00:00.000Z" }),
+      makeTask({ id: "3", deadline_at: "2026-07-22T13:00:00.000Z" }), // déjà ratée
+      makeTask({ id: "4", deadline_at: null }),
+    ];
+    expect(upcomingDeadlineCount(tasks, now)).toBe(2);
+  });
+
+  test("0 quand aucune tâche n'a de deadline", () => {
+    expect(upcomingDeadlineCount([makeTask({ id: "1" })], now)).toBe(0);
+  });
+});
+
+describe("deadlineHpPenalties (US-05)", () => {
+  test("attribue le poids -10 à chaque deadline ratée", () => {
+    const tasks = [makeTask({ id: "1" })];
+    expect(deadlineHpPenalties(tasks)).toEqual([{ ...tasks[0], weight: 10 }]);
+  });
+});
+
+describe("deadlineIso / localTimeFromIso (US-05, conversion heure locale <-> ISO)", () => {
+  test("construit l'ISO UTC d'une heure locale Europe/Paris (UTC+2 en été)", () => {
+    expect(deadlineIso("2026-07-22", "14:00", "Europe/Paris")).toBe(
+      "2026-07-22T12:00:00.000Z",
+    );
+  });
+
+  test("construit l'ISO UTC d'une heure locale déjà en UTC", () => {
+    expect(deadlineIso("2026-07-22", "09:30", "UTC")).toBe("2026-07-22T09:30:00.000Z");
+  });
+
+  test("round-trip : localTimeFromIso restitue la même heure locale (Europe/Paris)", () => {
+    const iso = deadlineIso("2026-07-22", "14:00", "Europe/Paris");
+    expect(localTimeFromIso(iso, "Europe/Paris")).toBe("14:00");
+  });
+
+  test("round-trip sur un fuseau à décalage négatif (America/New_York)", () => {
+    const iso = deadlineIso("2026-07-22", "08:15", "America/New_York");
+    expect(localTimeFromIso(iso, "America/New_York")).toBe("08:15");
+  });
+
+  test("round-trip sur minuit pile", () => {
+    const iso = deadlineIso("2026-07-22", "00:00", "Europe/Paris");
+    expect(localTimeFromIso(iso, "Europe/Paris")).toBe("00:00");
+  });
+
+  test("passage à l'heure d'été Europe/Paris : 01:30 (pré-transition, CET +1) reste correct", () => {
+    // 2026-03-29 : Europe/Paris passe de CET (+1) à CEST (+2) à 02h00 locale
+    // (01h00 UTC). 01:30 locale est une heure valide PRE-transition (+1) ;
+    // un offset probé au mauvais instant (naïf, déjà post-transition à +2)
+    // renverrait à tort 23:30 UTC la veille au lieu de 00:30.
+    const iso = deadlineIso("2026-03-29", "01:30", "Europe/Paris");
+    expect(iso).toBe("2026-03-29T00:30:00.000Z");
+    expect(localTimeFromIso(iso, "Europe/Paris")).toBe("01:30");
   });
 });
 
