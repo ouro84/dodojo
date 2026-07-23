@@ -139,6 +139,7 @@ export async function GET(request: Request) {
                 {/* eslint-disable-next-line @next/next/no-img-element -- Satori exige un <img> natif */}
                 <img
                   src={heroFrameSrc}
+                  alt={hero.name}
                   width={160}
                   height={160}
                   style={{ imageRendering: "pixelated" }}
@@ -152,6 +153,7 @@ export async function GET(request: Request) {
                 {/* eslint-disable-next-line @next/next/no-img-element -- Satori exige un <img> natif */}
                 <img
                   src={bossFrameSrc}
+                  alt={boss.name}
                   width={160}
                   height={160}
                   style={{
