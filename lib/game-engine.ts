@@ -265,7 +265,7 @@ export function deadlineHpPenalties(tasks: DeadlineTask[]): HeroHpPenaltyTask[] 
 // choisir — la deadline est toujours bornée au day_date de la tâche.
 // L'offset du fuseau est recalculé par itération à point fixe : on le
 // calcule d'abord à l'instant "naïf" (HH:MM interprété comme UTC), on
-// obtient un premier candidat, puis on recalcule l'offset à CET instant
+// obtient un premier candidat, puis on recalcule l'offset à cet instant
 // candidat (pas au point de départ) — s'il a changé (transition DST entre
 // les deux instants), on réajuste une seconde fois. Deux itérations
 // suffisent pour tout delta DST réel (1h ou 2h). Nécessaire car un offset
