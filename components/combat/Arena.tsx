@@ -49,6 +49,7 @@ import {
   undoRageQuit as undoRageQuitAction,
   reorderSiblings as reorderSiblingsAction,
   setTaskCompleted as setTaskCompletedAction,
+  setTaskDeadline as setTaskDeadlineAction,
 } from "@/app/actions/tasks";
 import { closeDay as closeDayAction } from "@/app/actions/day";
 import { markTutorialSeen } from "@/app/actions/profile";
@@ -579,6 +580,21 @@ export default function Arena({
     });
   }
 
+  // US-05 : sauvegarde optimiste d'une deadline (popover ⏰ ou "Repousser +1h").
+  // `deadlineAt` = null pour effacer.
+  function handleSetDeadline(id: string, deadlineAt: string | null) {
+    const previousSnapshot = tasks;
+    setTasks((prev) =>
+      prev.map((task) => (task.id === id ? { ...task, deadline_at: deadlineAt } : task)),
+    );
+    void setTaskDeadlineAction(id, deadlineAt).then((result) => {
+      if (result.error) {
+        setTasks(previousSnapshot);
+        setBanner(result.error);
+      }
+    });
+  }
+
   // US-07 : clôture cérémonielle. Persiste le day_result puis affiche le récap
   // figé (calculé depuis l'état courant des tâches).
   async function handleCrepuscule() {
@@ -810,9 +826,11 @@ export default function Arena({
         >
           <TaskList
             tasks={activeTasks}
+            timezone={profile.timezone}
             onToggle={handleToggle}
             onAbandon={handleAbandon}
             onAddSubtask={handleAddSubtask}
+            onSetDeadline={handleSetDeadline}
             addingSubtaskParentId={addingSubtaskParentId}
             dragOverInfo={dragOverInfo}
           />
