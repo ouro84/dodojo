@@ -26,6 +26,7 @@ import {
   currentStreak,
   HERO_MAX_HP,
   koOutcome,
+  overdueHpPenalties,
   collectAbandonCascade,
   applyRageQuitPenalty,
   RAGE_QUIT_XP_PENALTY,
@@ -172,7 +173,7 @@ export default function Arena({
 
   const maxHp = calculateBossMaxHp(tasks);
   const currentHp = calculateBossCurrentHp(tasks);
-  const heroHp = calculateHeroHp(overdueTasks);
+  const heroHp = calculateHeroHp(overdueHpPenalties(overdueTasks));
   // US-18 : héros affiché = celui équipé (fallback défaut si id inconnu).
   const equippedHero =
     getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;

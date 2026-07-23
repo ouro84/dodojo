@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { Task } from "@/types";
-import { calculateHeroHp, dayKey, HERO_MAX_HP, planWakeUp } from "@/lib/game-engine";
+import {
+  calculateHeroHp,
+  dayKey,
+  HERO_MAX_HP,
+  overdueHpPenalties,
+  planWakeUp,
+} from "@/lib/game-engine";
 import {
   annihilateOverdueOlderThan,
   annihilateOverdueTask,
@@ -39,7 +45,7 @@ export default function WakeUpRitual({ overdueTasks, timezone, onResolved }: Wak
   const [error, setError] = useState<string | null>(null);
 
   const groups = useMemo(() => planWakeUp(tasks), [tasks]);
-  const heroHp = calculateHeroHp(tasks);
+  const heroHp = calculateHeroHp(overdueHpPenalties(tasks));
   const todayKey = dayKey(new Date(), timezone);
 
   async function run(
