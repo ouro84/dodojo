@@ -10,6 +10,7 @@ interface VersusSceneProps {
   heroFrameCount: number;
   heroHp: number;
   heroMaxHp: number;
+  heroAlarm?: boolean;
   bossName: string;
   bossFramePrefix: string;
   bossFrameCount: number;
@@ -17,6 +18,7 @@ interface VersusSceneProps {
   backgroundPath: string;
   currentHp: number;
   maxHp: number;
+  upcomingDeadlineCount?: number;
   dimmed?: boolean;
 }
 
@@ -29,6 +31,7 @@ export default function VersusScene({
   heroFrameCount,
   heroHp,
   heroMaxHp,
+  heroAlarm = false,
   bossName,
   bossFramePrefix,
   bossFrameCount,
@@ -36,6 +39,7 @@ export default function VersusScene({
   backgroundPath,
   currentHp,
   maxHp,
+  upcomingDeadlineCount = 0,
   dimmed = false,
 }: VersusSceneProps) {
   return (
@@ -54,13 +58,21 @@ export default function VersusScene({
       <div className="absolute inset-x-0 top-0 z-[5] h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
       <div className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 p-2">
         <div className="flex-1">
-          <HeroBar heroName={heroName} currentHp={heroHp} maxHp={heroMaxHp} />
+          <HeroBar heroName={heroName} currentHp={heroHp} maxHp={heroMaxHp} alarm={heroAlarm} />
         </div>
         <div className="flex flex-col items-center pt-1">
           <MidnightTimer />
         </div>
         <div className="flex-1">
           <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} />
+          {upcomingDeadlineCount > 0 && (
+            <p
+              className="mt-0.5 text-right text-[0.65rem] uppercase tracking-wide text-alert drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+              aria-label={`${upcomingDeadlineCount} deadline${upcomingDeadlineCount > 1 ? "s" : ""} à venir aujourd'hui`}
+            >
+              ⏰ {upcomingDeadlineCount} à venir
+            </p>
+          )}
         </div>
       </div>
       <IdleSprite

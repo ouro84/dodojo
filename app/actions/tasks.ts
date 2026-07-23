@@ -448,9 +448,16 @@ export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
     .eq("day_date", today)
     .is("parent_id", null);
 
+  // US-05 : la deadline (déjà passée la veille) est effacée au report pour ne
+  // pas cumuler le malus "deadline ratée" (-10) avec le malus "retard reporté"
+  // (-20) déjà appliqué par le mécanisme existant sur la même tâche.
   const { error } = await supabase
     .from("tasks")
-    .update({ day_date: today, position: nextSiblingPosition(roots ?? []) })
+    .update({
+      day_date: today,
+      position: nextSiblingPosition(roots ?? []),
+      deadline_at: null,
+    })
     .or(`id.eq.${id},parent_id.eq.${id}`)
     .eq("user_id", user.id)
     .eq("is_abandoned", false);
@@ -492,7 +499,7 @@ export async function deferAllOverdue(): Promise<TaskActionResult> {
   const today = await userToday(supabase, user.id);
   const { error } = await supabase
     .from("tasks")
-    .update({ day_date: today })
+    .update({ day_date: today, deadline_at: null })
     .eq("user_id", user.id)
     .lt("day_date", today)
     .eq("is_completed", false)
@@ -526,6 +533,36 @@ export async function annihilateOverdueOlderThan(days: number): Promise<TaskActi
     .eq("is_abandoned", false);
 
   if (error) return { error: "Impossible d'annihiler les vieux restes. Réessaie." };
+  revalidatePath("/");
+  return { error: null };
+}
+
+// US-05 : fixe/modifie/efface l'heure limite d'une tâche (popover ⏰ sur
+// TaskRow, ou le bouton "Repousser +1h" de l'Attaque Surprise). `deadlineAt` =
+// ISO complet (UTC) ou null pour effacer.
+export async function setTaskDeadline(
+  id: string,
+  deadlineAt: string | null,
+): Promise<TaskActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Session expirée. Reconnecte-toi." };
+  }
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ deadline_at: deadlineAt })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return { error: "Impossible de fixer cette deadline. Réessaie." };
+  }
+
   revalidatePath("/");
   return { error: null };
 }

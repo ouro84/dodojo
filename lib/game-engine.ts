@@ -196,15 +196,115 @@ export function calculateBossCurrentHp(tasks: HpTask[]): number {
 
 export const HERO_MAX_HP = 100;
 export const HERO_DAMAGE_PER_OVERDUE_TASK = 20;
+export const HERO_DAMAGE_PER_MISSED_DEADLINE = 10;
 
 export type OverdueTask = Pick<Task, "is_abandoned" | "is_completed">;
 
-export function calculateHeroHp(overdueTasks: OverdueTask[]): number {
-  const unresolvedCount = overdueTasks.filter(
-    (task) => !task.is_abandoned && !task.is_completed,
-  ).length;
+// US-05 : le pool HP Héros accepte un poids par tâche (overdue reporté = -20,
+// deadline horaire ratée = -10) plutôt qu'un poids fixe pour toute la liste.
+export type HeroHpPenaltyTask = Pick<Task, "is_abandoned" | "is_completed"> & {
+  weight: number;
+};
 
-  return Math.max(0, HERO_MAX_HP - unresolvedCount * HERO_DAMAGE_PER_OVERDUE_TASK);
+export function calculateHeroHp(penaltyTasks: HeroHpPenaltyTask[]): number {
+  const damage = penaltyTasks
+    .filter((task) => !task.is_abandoned && !task.is_completed)
+    .reduce((total, task) => total + task.weight, 0);
+
+  return Math.max(0, HERO_MAX_HP - damage);
+}
+
+// Construit les entrées pondérées du pool HP Héros pour des tâches en retard
+// (reportées d'un jour précédent, poids -20). Utilisé par le Rituel du Réveil
+// et l'Arène.
+export function overdueHpPenalties(tasks: OverdueTask[]): HeroHpPenaltyTask[] {
+  return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
+}
+
+export type DeadlineTask = Pick<
+  Task,
+  "id" | "title" | "deadline_at" | "is_completed" | "is_abandoned"
+>;
+
+// US-05 : tâches dont la deadline est dépassée et qui ne sont ni complétées ni
+// abandonnées. Alimente le pool HP Héros (poids -10, cf. deadlineHpPenalties)
+// et déclenche l'animation "Attaque Surprise" au polling (Arena.tsx). `now`
+// explicite pour rester testable sans horloge système réelle.
+export function missedDeadlineTasks(tasks: DeadlineTask[], now: Date): DeadlineTask[] {
+  const nowMs = now.getTime();
+  return tasks.filter(
+    (task) =>
+      task.deadline_at !== null &&
+      !task.is_completed &&
+      !task.is_abandoned &&
+      new Date(task.deadline_at).getTime() <= nowMs,
+  );
+}
+
+// US-05 : badge agrégé "N deadlines à venir aujourd'hui" — tâches actives à
+// deadline non nulle et pas encore dépassée.
+export function upcomingDeadlineCount(tasks: DeadlineTask[], now: Date): number {
+  const nowMs = now.getTime();
+  return tasks.filter(
+    (task) =>
+      task.deadline_at !== null &&
+      !task.is_completed &&
+      !task.is_abandoned &&
+      new Date(task.deadline_at).getTime() > nowMs,
+  ).length;
+}
+
+// Construit les entrées pondérées du pool HP Héros pour des deadlines ratées du
+// jour courant (poids -10, cf. spec US-05).
+export function deadlineHpPenalties(tasks: DeadlineTask[]): HeroHpPenaltyTask[] {
+  return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_MISSED_DEADLINE }));
+}
+
+// US-05 : construit l'ISO UTC d'une deadline "aujourd'hui à HH:MM" dans le
+// fuseau donné (valeur brute d'un <input type="time">). Jamais de date à
+// choisir — la deadline est toujours bornée au day_date de la tâche.
+// L'offset du fuseau est recalculé par itération à point fixe : on le
+// calcule d'abord à l'instant "naïf" (HH:MM interprété comme UTC), on
+// obtient un premier candidat, puis on recalcule l'offset à cet instant
+// candidat (pas au point de départ) — s'il a changé (transition DST entre
+// les deux instants), on réajuste une seconde fois. Deux itérations
+// suffisent pour tout delta DST réel (1h ou 2h). Nécessaire car un offset
+// calculé uniquement à l'instant naïf peut être celui d'après la
+// transition alors que l'heure locale demandée est valide avant celle-ci
+// (ex. 01:30 Europe/Paris le 2026-03-29, jour de passage à l'heure d'été).
+export function deadlineIso(dayDate: string, timeHHMM: string, timezone: string): string {
+  const [year, month, day] = dayDate.split("-").map(Number);
+  const [hours, minutes] = timeHHMM.split(":").map(Number);
+  const naiveUtc = Date.UTC(year, month - 1, day, hours, minutes);
+
+  const offsetAt = (instantMs: number): number => {
+    const instant = new Date(instantMs);
+    const tzString = instant.toLocaleString("en-US", { timeZone: timezone });
+    const utcString = instant.toLocaleString("en-US", { timeZone: "UTC" });
+    return new Date(tzString).getTime() - new Date(utcString).getTime();
+  };
+
+  const initialOffset = offsetAt(naiveUtc);
+  let candidate = naiveUtc - initialOffset;
+  const refinedOffset = offsetAt(candidate);
+  if (refinedOffset !== initialOffset) {
+    candidate = naiveUtc - refinedOffset;
+  }
+  return new Date(candidate).toISOString();
+}
+
+// US-05 : heure locale HH:MM (fuseau donné) d'un horodatage ISO, pour
+// pré-remplir le <input type="time"> du popover ⏰.
+export function localTimeFromIso(iso: string, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${hour}:${minute}`;
 }
 
 export type KoTier = "perfect" | "ko" | null;
