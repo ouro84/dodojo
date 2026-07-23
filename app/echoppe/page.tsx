@@ -18,13 +18,15 @@ export default async function EchoppePage() {
     { data: profile, error: pErr },
     { data: results, error: rErr },
     { data: owned, error: oErr },
+    { data: ownedSkinsForBalance, error: sErr },
   ] = await Promise.all([
     supabase.from("profiles").select("equipped_hero_id").eq("id", user.id).maybeSingle(),
     supabase.from("day_results").select("gold_earned").eq("user_id", user.id),
     supabase.from("unlocked_heroes").select("hero_id, price_paid").eq("user_id", user.id),
+    supabase.from("unlocked_skins").select("price_paid").eq("user_id", user.id),
   ]);
 
-  if (pErr || rErr || oErr || !profile) {
+  if (pErr || rErr || oErr || sErr || !profile) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
         <p role="alert" className="max-w-[32ch] text-sm text-hp">
@@ -37,7 +39,7 @@ export default async function EchoppePage() {
     );
   }
 
-  const balance = goldBalance(results ?? [], owned ?? []);
+  const balance = goldBalance(results ?? [], owned ?? [], ownedSkinsForBalance ?? []);
   const ownedIds = (owned ?? []).map((r) => r.hero_id);
 
   return (

@@ -30,12 +30,12 @@ export async function purchaseHero(heroId: string): Promise<ShopActionResult> {
 
   if (isHeroOwned(heroId, ownedIds)) return { error: null };
 
-  const { data: results } = await supabase
-    .from("day_results")
-    .select("gold_earned")
-    .eq("user_id", user.id);
+  const [{ data: results }, { data: ownedSkins }] = await Promise.all([
+    supabase.from("day_results").select("gold_earned").eq("user_id", user.id),
+    supabase.from("unlocked_skins").select("price_paid").eq("user_id", user.id),
+  ]);
 
-  const balance = goldBalance(results ?? [], owned ?? []);
+  const balance = goldBalance(results ?? [], owned ?? [], ownedSkins ?? []);
   if (balance < hero.price) {
     return { error: "Pas assez d'or, champion. Va terrasser des Boss." };
   }
