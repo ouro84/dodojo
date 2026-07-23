@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { getServiceWorkerRegistration } from "@/lib/pwa/update-prompt-client";
 import { urlBase64ToUint8Array } from "@/lib/pwa/push-subscribe";
 import { subscribeToPush, unsubscribeFromPush } from "@/app/actions/push";
@@ -32,10 +32,15 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<ToggleStatus>(() => computeStatus(hasSubscription));
-
-  useEffect(() => {
+  // Ajustement d'état pendant le rendu (pattern React recommandé) plutôt
+  // qu'un useEffect : évite le rendu en cascade signalé par
+  // react-hooks/set-state-in-effect tout en recalculant le statut si la
+  // prop serveur change (ex. navigation retour au QG).
+  const [prevHasSubscription, setPrevHasSubscription] = useState(hasSubscription);
+  if (hasSubscription !== prevHasSubscription) {
+    setPrevHasSubscription(hasSubscription);
     setStatus(computeStatus(hasSubscription));
-  }, [hasSubscription]);
+  }
 
   function activate() {
     setError(null);
