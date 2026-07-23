@@ -23,7 +23,14 @@ const serwist = new Serwist({
   // chunks JS/CSS du build Next.js (hashés, donc déjà versionnés) +
   // additionalPrecacheEntries (police, manifest, page offline — voir route.ts).
   precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
+  // false : le nouveau SW doit rester en `waiting` (pas d'activation auto) pour
+  // que l'évènement `waiting` de @serwist/window se déclenche → toast "Nouvelle
+  // version disponible" (usePwaUpdatePrompt) → l'utilisateur choisit de recharger
+  // via reloadForUpdate()/messageSkipWaiting() (lib/pwa/update-prompt-client.ts).
+  // À `true`, le SW s'auto-active immédiatement : le toast ne s'affiche jamais
+  // et le rechargement (guardé par hadControllerBeforeRegistration) survient
+  // silencieusement, sans consentement utilisateur.
+  skipWaiting: false,
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
