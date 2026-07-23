@@ -61,14 +61,16 @@ Contours noirs, blancs/hautes lumières et teintes hors bande (typiquement la pe
 
 Calibration par héros (issue de l'histogramme, à re-vérifier visuellement en implémentation) :
 
-| Héros | hueMin–hueMax (bande costume) | minSat | Tenues (hueShift) |
-|-------|-------------------------------|--------|--------------------|
-| Water Priestess | 180–255 | 0.35 | Crimson (+180), Verdant (vers 140°), Amethyst (vers 280°) |
-| Leaf Ranger | 150–195 | 0.4 | Crimson, Amethyst (idem cibles) |
-| Crystal Mauler | 165–240 | 0.3 | Ember, Verdant |
-| Fire Knight | 0–60 | 0.35 (peu sélectif, mono-palette assumé) | Shadow Purple (+250) uniquement — seule variante jugée acceptable en revue visuelle |
-| Ground Monk | 0–30 | 0.35 | 1 variante à calibrer en implémentation (même limite que Fire Knight) |
-| Wind Hashashin | 15–45 | 0.35 | 1 variante à calibrer en implémentation |
+Trois cibles de teinte absolue partagées entre les héros Tier A (mêmes noms, `hueShift` par héros = cible − teinte de base de sa bande) : **Ember** (~15°, rouge-orange), **Verdant** (~140°, vert), **Amethyst** (~280°, violet).
+
+| Héros | hueMin–hueMax (bande costume) | minSat | Tenues (hueShift calculé) |
+|-------|-------------------------------|--------|---------------------------|
+| Water Priestess | 180–255 (base ~225°) | 0.35 | Ember (+150), Verdant (+275 soit −85), Amethyst (+55) |
+| Leaf Ranger | 150–195 (base ~185°) | 0.4 | Ember (+190 soit −170), Verdant (−45), Amethyst (+95) |
+| Crystal Mauler | 165–240 (base ~205°) | 0.3 | Ember (+170 soit −190), Verdant (−65), Amethyst (+75) |
+| Fire Knight | 0–60 (base ~15°) | 0.35 (peu sélectif, mono-palette assumé) | Shadow Purple (+250) uniquement — seule variante jugée acceptable en revue visuelle |
+| Ground Monk | 0–30 (base ~15°) | 0.35 | Verdant (+125) — 1 seule variante (Tier B), à recalibrer visuellement en implémentation |
+| Wind Hashashin | 15–45 (base ~30°) | 0.35 | Azure (+180, vers 210°) — 1 seule variante (Tier B), à recalibrer visuellement en implémentation |
 
 ### Tier C — overlay tint (Metal Bladekeeper)
 
