@@ -21,4 +21,11 @@ describe("isPublicRoute (garde de session proxy.ts)", () => {
     expect(isPublicRoute("/")).toBe(false);
     expect(isPublicRoute("/qg")).toBe(false);
   });
+
+  test("/oauth/* et /.well-known/* sont publics (US-22 : Gemini n'a pas de cookie Supabase)", () => {
+    expect(isPublicRoute("/oauth/register")).toBe(true);
+    expect(isPublicRoute("/oauth/authorize")).toBe(true);
+    expect(isPublicRoute("/api/mcp")).toBe(true);
+    expect(isPublicRoute("/.well-known/oauth-authorization-server")).toBe(true);
+  });
 });

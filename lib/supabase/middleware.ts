@@ -78,6 +78,15 @@ export async function updateSession(request: NextRequest) {
 // /welcome casserait silencieusement leurs appelants externes (GitHub
 // Actions, iOS Shortcuts, Gemini). Voir le garde ci-dessus pour la nuance
 // avec les utilisateurs déjà authentifiés.
+// US-22 : /oauth/* et /.well-known/* s'ajoutent à /api/* (US-11) — routes
+// techniques appelées sans cookie Supabase (Gemini), gèrent leur propre
+// authentification (PKCE, Bearer, service-role).
 export function isPublicRoute(path: string): boolean {
-  return path.startsWith("/login") || path.startsWith("/welcome") || path.startsWith("/api/");
+  return (
+    path.startsWith("/login") ||
+    path.startsWith("/welcome") ||
+    path.startsWith("/api/") ||
+    path.startsWith("/oauth/") ||
+    path.startsWith("/.well-known/")
+  );
 }
