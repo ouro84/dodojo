@@ -48,22 +48,36 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Routes publiques (accessibles sans session) : connexion ET inscription.
-  const isPublicRoute = path.startsWith("/login") || path.startsWith("/welcome");
-
   // US-29 (A1) : un visiteur non authentifié est envoyé vers /welcome (signup-first) ;
   // /login reste accessible via un lien.
-  if (!user && !isPublicRoute) {
+  if (!user && !isPublicRoute(path)) {
     const url = request.nextUrl.clone();
     url.pathname = "/welcome";
     return NextResponse.redirect(url);
   }
 
-  if (user && isPublicRoute) {
+  // Distinct de isPublicRoute : /login et /welcome uniquement. isPublicRoute
+  // inclut aussi /api/* (US-11) pour laisser passer les appelants externes
+  // sans cookie (cron, futurs webhooks/OAuth) — mais un utilisateur DÉJÀ
+  // authentifié qui appelle une route /api/* protégée par sa propre logique
+  // (ex. /api/share-card, US-20) ne doit jamais être bounced vers "/" : seule
+  // une visite de /login ou /welcome déjà connecté doit rediriger.
+  if (user && (path.startsWith("/login") || path.startsWith("/welcome"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
   return supabaseResponse;
+}
+
+// Routes publiques (accessibles sans session) : connexion, inscription, et
+// toute route technique sous /api/ (cron, webhooks, futurs endpoints
+// OAuth/MCP) — ces routes s'authentifient par leur propre mécanisme (secret,
+// token, session OAuth), jamais par cookie Supabase. Les rediriger vers
+// /welcome casserait silencieusement leurs appelants externes (GitHub
+// Actions, iOS Shortcuts, Gemini). Voir le garde ci-dessus pour la nuance
+// avec les utilisateurs déjà authentifiés.
+export function isPublicRoute(path: string): boolean {
+  return path.startsWith("/login") || path.startsWith("/welcome") || path.startsWith("/api/");
 }
