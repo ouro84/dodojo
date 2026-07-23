@@ -290,6 +290,16 @@ describe("deadlineIso / localTimeFromIso (US-05, conversion heure locale <-> ISO
     const iso = deadlineIso("2026-07-22", "00:00", "Europe/Paris");
     expect(localTimeFromIso(iso, "Europe/Paris")).toBe("00:00");
   });
+
+  test("passage à l'heure d'été Europe/Paris : 01:30 (pré-transition, CET +1) reste correct", () => {
+    // 2026-03-29 : Europe/Paris passe de CET (+1) à CEST (+2) à 02h00 locale
+    // (01h00 UTC). 01:30 locale est une heure valide PRE-transition (+1) ;
+    // un offset probé au mauvais instant (naïf, déjà post-transition à +2)
+    // renverrait à tort 23:30 UTC la veille au lieu de 00:30.
+    const iso = deadlineIso("2026-03-29", "01:30", "Europe/Paris");
+    expect(iso).toBe("2026-03-29T00:30:00.000Z");
+    expect(localTimeFromIso(iso, "Europe/Paris")).toBe("01:30");
+  });
 });
 
 describe("koOutcome (US-16, palier PERFECT/K.O.)", () => {

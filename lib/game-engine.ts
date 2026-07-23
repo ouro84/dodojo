@@ -262,18 +262,35 @@ export function deadlineHpPenalties(tasks: DeadlineTask[]): HeroHpPenaltyTask[] 
 
 // US-05 : construit l'ISO UTC d'une deadline "aujourd'hui à HH:MM" dans le
 // fuseau donné (valeur brute d'un <input type="time">). Jamais de date à
-// choisir — la deadline est toujours bornée au day_date de la tâche. Même
-// trick d'offset DST-aware que dayKey : on compare la même instant formaté
-// dans le fuseau cible et en UTC pour en déduire le décalage exact.
+// choisir — la deadline est toujours bornée au day_date de la tâche.
+// L'offset du fuseau est recalculé par itération à point fixe : on le
+// calcule d'abord à l'instant "naïf" (HH:MM interprété comme UTC), on
+// obtient un premier candidat, puis on recalcule l'offset à CET instant
+// candidat (pas au point de départ) — s'il a changé (transition DST entre
+// les deux instants), on réajuste une seconde fois. Deux itérations
+// suffisent pour tout delta DST réel (1h ou 2h). Nécessaire car un offset
+// calculé uniquement à l'instant naïf peut être celui d'après la
+// transition alors que l'heure locale demandée est valide avant celle-ci
+// (ex. 01:30 Europe/Paris le 2026-03-29, jour de passage à l'heure d'été).
 export function deadlineIso(dayDate: string, timeHHMM: string, timezone: string): string {
   const [year, month, day] = dayDate.split("-").map(Number);
   const [hours, minutes] = timeHHMM.split(":").map(Number);
   const naiveUtc = Date.UTC(year, month - 1, day, hours, minutes);
-  const asIfUtc = new Date(naiveUtc);
-  const tzString = asIfUtc.toLocaleString("en-US", { timeZone: timezone });
-  const utcString = asIfUtc.toLocaleString("en-US", { timeZone: "UTC" });
-  const offsetMs = new Date(tzString).getTime() - new Date(utcString).getTime();
-  return new Date(naiveUtc - offsetMs).toISOString();
+
+  const offsetAt = (instantMs: number): number => {
+    const instant = new Date(instantMs);
+    const tzString = instant.toLocaleString("en-US", { timeZone: timezone });
+    const utcString = instant.toLocaleString("en-US", { timeZone: "UTC" });
+    return new Date(tzString).getTime() - new Date(utcString).getTime();
+  };
+
+  const initialOffset = offsetAt(naiveUtc);
+  let candidate = naiveUtc - initialOffset;
+  const refinedOffset = offsetAt(candidate);
+  if (refinedOffset !== initialOffset) {
+    candidate = naiveUtc - refinedOffset;
+  }
+  return new Date(candidate).toISOString();
 }
 
 // US-05 : heure locale HH:MM (fuseau donné) d'un horodatage ISO, pour
