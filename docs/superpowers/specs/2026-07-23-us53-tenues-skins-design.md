@@ -61,16 +61,16 @@ Contours noirs, blancs/hautes lumières et teintes hors bande (typiquement la pe
 
 Calibration par héros (issue de l'histogramme, à re-vérifier visuellement en implémentation) :
 
-Trois cibles de teinte absolue partagées entre les héros Tier A (mêmes noms, `hueShift` par héros = cible − teinte de base de sa bande) : **Ember** (~15°, rouge-orange), **Verdant** (~140°, vert), **Amethyst** (~280°, violet).
+Trois cibles de teinte absolue partagées entre les héros Tier A (mêmes cibles techniques, `hueShift` par héros = cible − teinte de base de sa bande) : **Braise** (~15°, rouge-orange), **Sylvestre** (~140°, vert), **Astral** (~280°, violet). Noms d'affichage en français, à consonance RP plutôt que des mots de couleur bruts (cf. `lib/hero-skins.ts`, `Skin.name`) — l'identifiant technique (`Skin.id`) garde le mot anglais d'origine (ember/verdant/amethyst), jamais affiché à l'utilisateur.
 
 | Héros | hueMin–hueMax (bande costume) | minSat | Tenues (hueShift calculé) |
 |-------|-------------------------------|--------|---------------------------|
-| Water Priestess | 180–255 (base ~225°) | 0.35 | Ember (+150), Verdant (+275 soit −85), Amethyst (+55) |
-| Leaf Ranger | 150–195 (base ~185°) | 0.4 | Ember (+190 soit −170), Amethyst (+95) — **Verdant retiré** (redondant avec le vert déjà dominant du costume, jugé peu distinctif en revue visuelle) |
-| Crystal Mauler | 165–240 (base ~205°) | 0.3 | Ember (+170 soit −190), Verdant (−65), Amethyst (+75) |
-| Fire Knight | 0–60 (base ~15°) | 0.35 (peu sélectif, mono-palette assumé) | Shadow Purple (+250) uniquement — seule variante jugée acceptable en revue visuelle |
-| Ground Monk | 0–30 (base ~15°) | 0.35 | Shadow Purple (+250, même cible que Fire Knight — technique déjà validée en revue visuelle) — 1 seule variante (Tier B), remplace un premier essai Verdant jugé peu convaincant |
-| Wind Hashashin | 15–45 (base ~30°) | 0.35 | Azure (+180, vers 210°) — 1 seule variante (Tier B), à recalibrer visuellement en implémentation |
+| Water Priestess | 180–255 (base ~225°) | 0.35 | Braise (+150), Sylvestre (+275 soit −85), Astral (+55) |
+| Leaf Ranger | 150–195 (base ~185°) | 0.4 | Braise (+190 soit −170), Astral (+95) — **Sylvestre retiré** (redondant avec le vert déjà dominant du costume, jugé peu distinctif en revue visuelle) |
+| Crystal Mauler | 165–240 (base ~205°) | 0.3 | Braise (+170 soit −190), Sylvestre (−65), Astral (+75) |
+| Fire Knight | 0–60 (base ~15°) | 0.35 (peu sélectif, mono-palette assumé) | Éclipse (+250) uniquement — seule variante jugée acceptable en revue visuelle |
+| Ground Monk | 0–30 (base ~15°) | 0.35 | Éclipse (+250, même cible que Fire Knight — technique déjà validée en revue visuelle) — 1 seule variante (Tier B), remplace un premier essai Sylvestre jugé peu convaincant |
+| Wind Hashashin | 15–45 (base ~30°) | 0.35 | Blizzard (+180, vers 210°) — 1 seule variante (Tier B), à recalibrer visuellement en implémentation |
 
 ### Tier C — overlay tint (Metal Bladekeeper)
 
@@ -78,8 +78,8 @@ Pixels `saturation < 0.15` (le gris métal dominant) : appliquer un overlay *mul
 
 | Tenue | Couleur multiply |
 |-------|-------------------|
-| Bronze | `#8a6a3a` |
-| Acier sombre | `#3a3f47` |
+| Bronze Ancien | `#8a6a3a` |
+| Acier Noirci | `#3a3f47` |
 
 ### Sortie
 
