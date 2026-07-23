@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { AggressivityLevel, DayOutcome } from "@/types";
 import type { ShareCardParams } from "@/lib/share-card";
 import { crepusculeHeader, crepusculeLine } from "@/lib/copy/rituals";
+import { randomSeed } from "@/lib/copy/variant";
 import ShareButton from "./ShareButton";
 
 interface CrepusculeRecapProps {
@@ -39,6 +41,8 @@ export default function CrepusculeRecap({
   onDismiss,
 }: CrepusculeRecapProps) {
   const victory = outcome === "victory";
+  // Seed figé au montage : voir PerfectOverlay pour la raison.
+  const [seed] = useState(randomSeed);
 
   return (
     <div
@@ -55,7 +59,7 @@ export default function CrepusculeRecap({
         {crepusculeHeader(aggressivityLevel, victory)}
       </p>
       <p className="max-w-[30ch] text-sm text-muted">
-        {crepusculeLine(aggressivityLevel, { victory, username, bossName })}
+        {crepusculeLine(aggressivityLevel, { victory, username, bossName }, seed)}
       </p>
 
       {/* Carte de score arcade — self-contained (prête export PNG US-20). */}

@@ -50,6 +50,7 @@ import { buildShareCardParams } from "@/lib/share-card";
 import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
 import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
 import { deadlineAlertLine } from "@/lib/copy/deadline";
+import { randomSeed } from "@/lib/copy/variant";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
@@ -145,6 +146,8 @@ export default function Arena({
   const [banner, setBanner] = useState<string | null>(null);
   // US-15 : id en attente de confirmation de Rage Quit + toast d'annulation.
   const [rageQuitConfirmId, setRageQuitConfirmId] = useState<string | null>(null);
+  // Seed figé à l'ouverture de la confirmation (voir PerfectOverlay pour la raison).
+  const [rageQuitConfirmSeed, setRageQuitConfirmSeed] = useState(0);
   const [undoState, setUndoState] = useState<{
     id: string;
     tasksSnapshot: Task[];
@@ -189,7 +192,11 @@ export default function Arena({
   const [deadlineAlert, setDeadlineAlert] = useState<{
     taskId: string;
     taskTitle: string;
+    message: string;
   } | null>(null);
+  // Seed figé au moment où l'Arène devient vide (voir PerfectOverlay pour la
+  // raison) — un nouveau passage à vide tire une nouvelle punchline.
+  const [emptyStateSeed, setEmptyStateSeed] = useState(randomSeed);
   const heroPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heroPulseCounterRef = useRef(0);
   const tasksRef = useRef(tasks);
@@ -258,6 +265,12 @@ export default function Arena({
     tasksRef.current = tasks;
   }, [tasks]);
 
+  // Nouveau tirage de punchline empty state à chaque passage à vide (pas à
+  // chaque re-rendu pendant que l'Arène reste vide — cf. poll ~45s).
+  useEffect(() => {
+    if (isEmpty) setEmptyStateSeed(randomSeed());
+  }, [isEmpty]);
+
   // US-05 : polling léger (~45s) pendant que l'Arène est montée. Ne se
   // déclenche jamais rétroactivement pour une deadline déjà ratée avant le
   // montage (cf. knownMissedDeadlineIdsRef, initialisé au chargement).
@@ -277,7 +290,14 @@ export default function Arena({
         heroPulseCounterRef.current += 1;
         const key = heroPulseCounterRef.current;
         setHeroPulse({ key });
-        setDeadlineAlert({ taskId: freshlyMissed[0].id, taskTitle: freshlyMissed[0].title });
+        setDeadlineAlert({
+          taskId: freshlyMissed[0].id,
+          taskTitle: freshlyMissed[0].title,
+          message: deadlineAlertLine(level, {
+            taskTitle: freshlyMissed[0].title,
+            damage: HERO_DAMAGE_PER_MISSED_DEADLINE,
+          }),
+        });
 
         if (heroPulseTimeoutRef.current) clearTimeout(heroPulseTimeoutRef.current);
         heroPulseTimeoutRef.current = setTimeout(() => {
@@ -592,6 +612,7 @@ export default function Arena({
   // (action punitive, D5). La confirmation déclenche le Rage Quit.
   function handleAbandon(id: string) {
     setRageQuitConfirmId(id);
+    setRageQuitConfirmSeed(randomSeed());
   }
 
   function confirmRageQuit() {
@@ -865,10 +886,14 @@ export default function Arena({
               Rage Quit ?
             </p>
             <p className="text-xs text-muted">
-              {rageQuitConfirmBody(level, {
-                taskTitle: tasks.find((task) => task.id === rageQuitConfirmId)?.title ?? "",
-                penalty: RAGE_QUIT_XP_PENALTY,
-              })}
+              {rageQuitConfirmBody(
+                level,
+                {
+                  taskTitle: tasks.find((task) => task.id === rageQuitConfirmId)?.title ?? "",
+                  penalty: RAGE_QUIT_XP_PENALTY,
+                },
+                rageQuitConfirmSeed,
+              )}
             </p>
             <div className="flex gap-2">
               <button
@@ -911,12 +936,7 @@ export default function Arena({
           role="alert"
           className="flex items-center justify-between gap-2 rounded-md border border-alert bg-surface px-3 py-2 text-xs text-alert"
         >
-          <span>
-            {deadlineAlertLine(level, {
-              taskTitle: deadlineAlert.taskTitle,
-              damage: HERO_DAMAGE_PER_MISSED_DEADLINE,
-            })}
-          </span>
+          <span>{deadlineAlert.message}</span>
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
@@ -941,7 +961,7 @@ export default function Arena({
           <p className="font-display text-lg uppercase tracking-wide text-ink">
             {emptyStateTitle(level)}
           </p>
-          <p className="max-w-[24ch] text-sm text-muted">{emptyStateBody(level)}</p>
+          <p className="max-w-[24ch] text-sm text-muted">{emptyStateBody(level, emptyStateSeed)}</p>
         </div>
       ) : (
         <DndContext

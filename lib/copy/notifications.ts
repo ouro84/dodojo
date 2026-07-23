@@ -44,6 +44,22 @@ const REMINDER_TEMPLATES: ReminderTemplate[] = [
     street: (n) =>
       `Termine-le, bordel : ${n} ${pluralize(n, "point de vie", "points de vie")} planqué${n <= 1 ? "" : "s"} dans tes tâches du jour.`,
   },
+  {
+    sensei: (n) =>
+      `Une petite pensée pour ${n} ${pluralize(n, "tâche", "tâches")} qui patiente${n <= 1 ? "" : "nt"} encore aujourd'hui.`,
+    sparring: (n) =>
+      `Petit rappel : ${n} ${pluralize(n, "tâche", "tâches")} encore debout${n <= 1 ? "e" : "s"} avant ce soir.`,
+    street: (n) =>
+      `Yo, rappel : ${n} ${pluralize(n, "tâche", "tâches")} encore debout${n <= 1 ? "e" : "s"}, bouge ton cul.`,
+  },
+  {
+    sensei: (n) =>
+      `Le dojo referme bientôt sa porte. ${n} ${pluralize(n, "tâche", "tâches")} attend${n <= 1 ? "" : "ent"} ta décision.`,
+    sparring: (n) =>
+      `Le Crépuscule approche à grands pas : ${n} ${pluralize(n, "tâche", "tâches")} encore en jeu.`,
+    street: (n) =>
+      `Le Crépuscule rapplique, merde : ${n} ${pluralize(n, "tâche", "tâches")} encore en jeu. Grouille.`,
+  },
 ];
 
 export function buildReminderPayload(

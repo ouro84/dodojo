@@ -10,6 +10,7 @@ import {
   planWakeUp,
 } from "@/lib/game-engine";
 import { wakeUpSubtitle } from "@/lib/copy/rituals";
+import { randomSeed } from "@/lib/copy/variant";
 import {
   annihilateOverdueOlderThan,
   annihilateOverdueTask,
@@ -50,6 +51,8 @@ export default function WakeUpRitual({
   const [tasks, setTasks] = useState<Task[]>(overdueTasks);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Seed figé au montage : voir PerfectOverlay pour la raison.
+  const [seed] = useState(randomSeed);
 
   const groups = useMemo(() => planWakeUp(tasks), [tasks]);
   const heroHp = calculateHeroHp(overdueHpPenalties(tasks));
@@ -92,7 +95,7 @@ export default function WakeUpRitual({
         <p className="font-display text-xl uppercase tracking-wide text-hp">
           Rituel du Réveil
         </p>
-        <p className="text-sm text-muted">{wakeUpSubtitle(aggressivityLevel)}</p>
+        <p className="text-sm text-muted">{wakeUpSubtitle(aggressivityLevel, seed)}</p>
       </header>
 
       {/* A5 : jauge Héro, animée en motion-safe uniquement (A7). */}

@@ -3,6 +3,10 @@
 > Date : 2026-07-23
 > Statut : Livrable interne, non exposé en UI. Base pour une revue produit marketing du ton, hors périmètre de ce document.
 
+## 0. Pools de variantes (retour utilisateur post-#54)
+
+Chaque texte descriptif ("body") liste ci-dessous porte désormais **5-6 variantes par niveau** au lieu d'un texte unique, pour éviter la répétition perçue par l'utilisateur en usage réel. Mécanisme : `lib/copy/variant.ts` (`pickVariant(pool, seed)`), le `seed` étant **figé au déclenchement de l'évènement** (mount d'un overlay via `useState(randomSeed)`, ou transition d'état côté `Arena.tsx`) — jamais recalculé à chaque re-rendu, sinon le texte changerait sous les yeux de l'utilisateur pendant l'affichage (ex. poll ~45s des deadlines). Les tags courts (`emptyStateTitle`, `levelUpTitle`, `koHeader`, `crepusculeHeader`) restent des chaînes fixes, sans pool : convention arcade (« PERFECT ! », « K.O. ! » identiques à chaque fois, comme dans un vrai jeu de combat) — la répétition n'y est pas perçue comme un défaut. Garde-fou inchangé sur tout le pool, à tous les niveaux : jamais d'attaque personnelle réelle contre le joueur.
+
 ## 1. Table des textes "voix" (Sensei/Boss) — migrés vers `lib/copy/`
 
 | Scénario | Voix | Ancien emplacement | Nouveau (`lib/copy/`) |

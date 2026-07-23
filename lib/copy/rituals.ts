@@ -1,12 +1,31 @@
 import type { AggressivityLevel } from "../../types";
+import { pickVariant, randomSeed } from "./variant";
 
-export function wakeUpSubtitle(level: AggressivityLevel): string {
-  const lines: Record<AggressivityLevel, string> = {
-    sensei: "Les tâches d'hier attendent encore une réponse. Prends un instant, règle-les avant d'avancer.",
-    sparring: "Les monstres que tu as fuis hier sont revenus. Règle tes comptes avant d'entrer dans l'Arène.",
-    street: "Tes monstres d'hier sont pas partis, ils t'ont attendu. Nettoie ce bordel avant d'entrer.",
+export function wakeUpSubtitle(level: AggressivityLevel, seed: number = randomSeed()): string {
+  const pools: Record<AggressivityLevel, string[]> = {
+    sensei: [
+      "Les tâches d'hier attendent encore une réponse. Prends un instant, règle-les avant d'avancer.",
+      "Ce qui n'a pas été traité hier reste là, tranquillement. Occupe-t'en avant de continuer.",
+      "Quelques restes de la veille patientent. Rien d'urgent, mais rien qui se règle seul non plus.",
+      "Avant d'avancer, un instant pour ce qui traîne depuis hier.",
+      "Le dojo attend que tu règles ces quelques restes avant d'ouvrir un nouveau combat.",
+    ],
+    sparring: [
+      "Les monstres que tu as fuis hier sont revenus. Règle tes comptes avant d'entrer dans l'Arène.",
+      "Il reste des comptes à régler d'hier. Passe par là avant l'Arène.",
+      "Les restes de la veille t'attendent au tournant. On règle ça d'abord.",
+      "Hier n'est pas totalement fini pour toi. Termine, puis on entre.",
+      "Quelques monstres d'hier traînent encore. Avant l'Arène, tu les règles.",
+    ],
+    street: [
+      "Tes monstres d'hier sont pas partis, ils t'ont attendu. Nettoie ce bordel avant d'entrer.",
+      "Ça, c'est les restes d'hier, et ouais, ils sont encore là. Dégage-moi ça avant d'avancer.",
+      "T'as cru que fuir hier suffisait ? Non. Nettoie, putain, avant d'entrer dans l'Arène.",
+      "Les monstres d'hier ont fait le pied de grue toute la nuit. Réglé-moi ça direct.",
+      "Bordel de restes de la veille encore plantés là. On nettoie avant de taper la suite.",
+    ],
   };
-  return lines[level];
+  return pickVariant(pools[level], seed);
 }
 
 export function crepusculeHeader(level: AggressivityLevel, victory: boolean): string {
@@ -25,22 +44,62 @@ interface CrepusculeLineArgs {
   bossName: string;
 }
 
-export function crepusculeLine(level: AggressivityLevel, args: CrepusculeLineArgs): string {
+export function crepusculeLine(
+  level: AggressivityLevel,
+  args: CrepusculeLineArgs,
+  seed: number = randomSeed(),
+): string {
   const { victory, username, bossName } = args;
 
   if (victory) {
-    const lines: Record<AggressivityLevel, string> = {
-      sensei: `${username}, ${bossName} s'est incliné. Repose-toi, la rue attendra ta prochaine sortie.`,
-      sparring: `${username}, tu as terrassé ${bossName}. La rue est calme pour ce soir.`,
-      street: `${username}, ${bossName} est au tapis, putain. La rue te doit le respect ce soir.`,
+    const pools: Record<AggressivityLevel, Array<(u: string, b: string) => string>> = {
+      sensei: [
+        (u, b) => `${u}, ${b} s'est incliné. Repose-toi, la rue attendra ta prochaine sortie.`,
+        (u, b) => `Journée close, ${u}. ${b} n'a plus rien à te disputer ce soir.`,
+        (u, b) => `${b} recule pour aujourd'hui, ${u}. Le repos aussi fait partie du chemin.`,
+        (u, b) => `${u}, la journée se referme sur ${b} vaincu. Rien à ajouter, tout est fait.`,
+        (u, b) => `${b} s'efface, ${u}. Un jour de plus, calmement mené à son terme.`,
+      ],
+      sparring: [
+        (u, b) => `${u}, tu as terrassé ${b}. La rue est calme pour ce soir.`,
+        (u, b) => `${b} plié, journée bouclée, ${u}. Va souffler un peu.`,
+        (u, b) => `${u}, encore une journée pliée. ${b} n'a pas fait le poids.`,
+        (u, b) => `${b} est tombé pour de bon ce soir, ${u}. Bien joué.`,
+        (u, b) => `Journée terminée, ${u}. ${b} range ses affaires, tu peux ranger les tiennes aussi.`,
+      ],
+      street: [
+        (u, b) => `${u}, ${b} est au tapis, putain. La rue te doit le respect ce soir.`,
+        (u, b) => `NETTOYÉ, ${u} ! ${b} valait rien face à toi ce soir.`,
+        (u, b) => `${b} dégagé, journée pliée, ${u}. Même le Crépuscule applaudit, bordel.`,
+        (u, b) => `${u}, tu viens de fermer boutique sur ${b}. Prochaine victime demain.`,
+        (u, b) => `${b} en miettes, ${u}. La rue s'en souviendra un moment, merde.`,
+      ],
     };
-    return lines[level];
+    return pickVariant(pools[level], seed)(username, bossName);
   }
 
-  const lines: Record<AggressivityLevel, string> = {
-    sensei: `${username}, tu poses les armes pour ce soir. Aucune honte à ça — demain reste un autre combat.`,
-    sparring: `${username}, tu poses les armes. Pas de honte — demain est un autre combat.`,
-    street: `${username}, tu esquives ce soir ? D'accord. Mais ce combat t'attend au tournant, demain.`,
+  const pools: Record<AggressivityLevel, Array<(u: string) => string>> = {
+    sensei: [
+      (u) => `${u}, tu poses les armes pour ce soir. Aucune honte à ça — demain reste un autre combat.`,
+      (u) => `${u}, la journée s'arrête ici. Ce n'est pas un échec, juste une pause.`,
+      (u) => `Tu t'arrêtes là ce soir, ${u}. Demain reprend où tu l'as laissé.`,
+      (u) => `${u}, rien ne presse à forcer la fin. Reviens demain, l'esprit reposé.`,
+      (u) => `La journée se clôt sans victoire, ${u}. Elle compte quand même.`,
+    ],
+    sparring: [
+      (u) => `${u}, tu poses les armes. Pas de honte — demain est un autre combat.`,
+      (u) => `${u}, journée pas terminée, mais on arrête là pour ce soir.`,
+      (u) => `Tu rentres sans le K.O. ce soir, ${u}. Ça arrive, demain on recommence.`,
+      (u) => `${u}, pas de victoire cette fois. Repos, et on retente demain.`,
+      (u) => `Journée close sans avoir plié le Boss, ${u}. Pas grave, il attendra.`,
+    ],
+    street: [
+      (u) => `${u}, tu esquives ce soir ? D'accord. Mais ce combat t'attend au tournant, demain.`,
+      (u) => `Tu rentres bredouille, ${u}. Le Boss aura de la marge, mais demain il paiera.`,
+      (u) => `${u}, pas de K.O. ce soir. Tant pis, on remet ça direct demain.`,
+      (u) => `Bon, ${u}, ce soir c'est match nul. Le Boss t'attend de pied ferme demain.`,
+      (u) => `${u}, tu lâches l'affaire pour aujourd'hui. Le combat, lui, n'oublie rien.`,
+    ],
   };
-  return lines[level];
+  return pickVariant(pools[level], seed)(username);
 }
