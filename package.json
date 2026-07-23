@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "sync:guide": "node scripts/sync-guide.mjs"
+    "sync:guide": "node scripts/sync-guide.mjs",
+    "generate:icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
