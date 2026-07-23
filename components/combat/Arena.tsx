@@ -648,6 +648,10 @@ export default function Arena({
   // US-05 : sauvegarde optimiste d'une deadline (popover ⏰ ou "Repousser +1h").
   // `deadlineAt` = null pour effacer.
   function handleSetDeadline(id: string, deadlineAt: string | null) {
+    // US-05 fix : une deadline modifiée (popover ou "Repousser +1h") doit pouvoir
+    // re-déclencher l'Attaque Surprise si elle est ratée à nouveau — sans ce reset,
+    // le Set ne garde en mémoire que le tout premier dépassement.
+    knownMissedDeadlineIdsRef.current.delete(id);
     const previousSnapshot = tasks;
     setTasks((prev) =>
       prev.map((task) => (task.id === id ? { ...task, deadline_at: deadlineAt } : task)),
