@@ -99,6 +99,16 @@
         { "type": "p", "text": "Après un K.O. en direct ou au Rituel du Crépuscule, un bouton « Partager » génère une carte façon écran de score d'arcade : ton pseudo, ton combattant, le Boss du jour, les dégâts infligés, l'XP gagnée et ta série en cours." },
         { "type": "ul", "items": ["Victoire, retraite ou défaite : les trois issues sont partageables, dans l'esprit dojo qui assume la défaite plutôt que de la cacher", "Un jour qui franchit un palier de série (7/30/100) affiche une carte spéciale avec les flammes du palier", "Le partage utilise la feuille de partage native de ton appareil ; à défaut, la carte est copiée dans le presse-papier ou téléchargée"] }
       ]
+    },
+    {
+      "id": "installation",
+      "title": "Installer Dodojo",
+      "blocks": [
+        { "type": "p", "text": "Dodojo s'installe comme une vraie app, à l'écran d'accueil, sans passer par un store." },
+        { "type": "p", "text": "Sur Android (Chrome) : un bouton « Installer Dodojo » apparaît au QG dès que ton navigateur le permet. Tu peux aussi utiliser le menu du navigateur (⋮ → Installer l'application)." },
+        { "type": "ul", "items": ["Ouvre Dodojo dans Safari", "Appuie sur le bouton Partager (le carré avec la flèche)", "Choisis « Sur l'écran d'accueil »", "Confirme — l'icône du Dojo apparaît parmi tes apps"] },
+        { "type": "p", "text": "Sur iOS, Safari ne propose pas de bouton d'installation automatique : suis les 4 étapes ci-dessus. Une fois installée, l'app s'ouvre en plein écran, sans la barre d'adresse." }
+      ]
     }
   ]
 }
