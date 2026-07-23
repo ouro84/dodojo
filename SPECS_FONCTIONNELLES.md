@@ -209,6 +209,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
 ### 🔮 SPRINT 3 : SCALABILITÉ & INTÉGRATIONS
 
 #### US-03 : Intégration profonde Siri / Google Assistant
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us03-siri-design.md`. **Re-scopé iOS uniquement** (Android couvert par US-22, Gemini). Pattern iOS Shortcuts + webhook (`POST /api/webhook/add-task`, token personnel hashé en base, affiché une seule fois, section « Intégrations » au QG). Doc utilisateur obligatoire (Manuel du Dojo).
 *   **Standard :** En tant que Héros mobile, je veux utiliser l'assistant natif de mon téléphone pour ajouter un monstre à l'Arène sans ouvrir l'app.
 *   **BDD :**
     ```gherkin
@@ -218,6 +219,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-22 : Ajout de tâche vocale via Gemini (Serveur MCP connecté)
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us22-gemini-mcp-design.md`. Serveur OAuth 2.1 complet côté Dodojo (PKCE + enregistrement dynamique RFC 7591, tables `oauth_clients`/`oauth_authorization_codes`/`oauth_tokens`), route MCP `/api/mcp` (tool `add_task`). **Risque assumé** : specs exactes des Connected Apps Gemini à revalider à l'implémentation (écosystème en évolution rapide).
 *   **Standard :** En tant que Héros mobile, je veux dire "OK Google, ajoute la tâche [X] à Dodojo" pour créer un monstre dans l'Arène sans ouvrir l'application, via Gemini connecté à un serveur MCP exposé par l'application.
 *   **Note technique :** Depuis le remplacement de Google Assistant par Gemini sur Android (2026), le mécanisme n'est plus App Actions mais une "Connected App" MCP : l'application expose un endpoint MCP (route Next.js sur Vercel) avec un tool `add_task(title)`, que l'utilisateur relie une fois dans Gemini via OAuth (liaison compte Gemini ↔ session Supabase). Le tool réutilise strictement `lib/game-engine.ts` pour l'insertion et le recalcul des HP (RG-01/RG-02) — aucune duplication de la logique de heal du Boss. Complète/précise US-03 côté Google (Siri conserve son mécanisme natif propre).
 *   **BDD :**
@@ -230,6 +232,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-05 : Deadlines horaires (Attaques surprises du Boss)
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us05-deadlines-design.md`. Deadline = heure du jour courant (`tasks.deadline_at`, déjà en base), icône ⏰ sur `TaskRow` (racine + sous-tâche). Malus -10 HP réutilisant le pool Héros existant (`calculateHeroHp`), auto-résolu en cochant/abandonnant la tâche, effacé au report via le Rituel du Réveil. Détection par polling client (~30-60s), pas de replay au chargement.
 *   **Standard :** En tant que Héros défié par le temps, je veux lier une heure limite à une tâche pour simuler une attaque imminente.
 *   **BDD :**
     ```gherkin
@@ -239,6 +242,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-11 : Notifications push de rappel (Provocations du Boss)
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us11-push-design.md`. Dépend de la PWA (#58). Heure fixe 17h30 locale, opt-in via toggle QG, table `push_subscriptions` (policy DELETE autorisée), idempotence via `profiles.last_reminder_sent_on`, cron Vercel (~15-30 min) ciblant les profils éligibles, pool de punchlines variées (`lib/push-copy.ts`).
 *   **Standard :** En tant que Héros distrait, je veux recevoir des notifications sous forme de provocations pour me faire revenir au combat.
 *   **BDD :**
     ```gherkin
@@ -257,6 +261,7 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     ```
 
 #### US-20 : Partage de victoires (Réseaux / Guildes)
+> Design détaillé : `docs/superpowers/specs/2026-07-22-us20-partage-victoire-design.md`. Carte PNG portrait 9:16 (branding + lien retour), générée serveur (`@vercel/og`), partageable depuis `PerfectOverlay` et le récap Crépuscule, sur les 3 issues (victory/retreat/defeat).
 *   **Standard :** En tant que Héros fier, je veux générer une image rétro de ma victoire pour crâner auprès de mes pairs.
 *   **BDD :**
     ```gherkin
