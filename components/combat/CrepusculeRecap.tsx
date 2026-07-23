@@ -1,6 +1,8 @@
 "use client";
 
 import type { DayOutcome } from "@/types";
+import type { ShareCardParams } from "@/lib/share-card";
+import ShareButton from "./ShareButton";
 
 interface CrepusculeRecapProps {
   outcome: DayOutcome;
@@ -12,6 +14,8 @@ interface CrepusculeRecapProps {
   xpEarned: number;
   remainingMonsters: number;
   streak: number;
+  // US-20 : paramètres pré-calculés de la carte partageable pour ce récap.
+  shareCardParams: ShareCardParams;
   onDismiss: () => void;
 }
 
@@ -28,6 +32,7 @@ export default function CrepusculeRecap({
   xpEarned,
   remainingMonsters,
   streak,
+  shareCardParams,
   onDismiss,
 }: CrepusculeRecapProps) {
   const victory = outcome === "victory";
@@ -79,6 +84,8 @@ export default function CrepusculeRecap({
           {streak}ᵉ victoire d&apos;affilée
         </p>
       )}
+
+      <ShareButton params={shareCardParams} source="crepuscule" />
 
       <button
         type="button"
