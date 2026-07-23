@@ -53,7 +53,12 @@ export async function resetShopState(): Promise<void> {
     { user_id: uid, hero_id: "fire_knight", price_paid: 0 },
     { onConflict: "user_id,hero_id" },
   );
-  await admin.from("profiles").update({ equipped_hero_id: "fire_knight" }).eq("id", uid);
+  // US-53 : reset des tenues (compte e2e unique partagé).
+  await admin.from("unlocked_skins").delete().eq("user_id", uid);
+  await admin
+    .from("profiles")
+    .update({ equipped_hero_id: "fire_knight", equipped_skin_id: null })
+    .eq("id", uid);
   // Sème un day_result victory (or suffisant pour acheter) — idempotent (upsert).
   await admin.from("day_results").upsert(
     {
