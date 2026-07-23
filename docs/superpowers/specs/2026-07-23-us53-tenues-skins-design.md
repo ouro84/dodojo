@@ -40,9 +40,9 @@ Déterminée par analyse d'histogramme HSL des frames idle (bucket 15°/0.25/0.2
 |------|-------|-----------|------------------------|
 | A — séparation nette | Water Priestess, Leaf Ranger, Crystal Mauler | Recolor masqué (hue-shift ciblé par bande de teinte) | 4 |
 | B — mono-palette | Fire Knight, Ground Monk, Wind Hashashin | Recolor global accepté (masquage peu efficace, documenté comme limite d'art source) | 2 |
-| C — quasi-neutre (métal) | Metal Bladekeeper | Overlay tint multiply (le hue-rotate ne fait presque rien sur du gris désaturé) | 2 |
+| C — quasi-neutre (métal) | Metal Bladekeeper | Overlay tint multiply (le hue-rotate ne fait presque rien sur du gris désaturé) | 3 |
 
-Total : 20 tenues cataloguées, 13 achetables (7 défauts gratuits).
+Total : 21 tenues cataloguées, 14 achetables (7 défauts gratuits).
 
 ## 4. Génération technique (pipeline)
 
@@ -167,6 +167,25 @@ Active la bande **« Tenues (bientôt) »** prévue dans `app/echoppe/page.tsx` 
 - **Empty** : héros sans tenue alternative encore calibrée (Ground Monk/Wind Hashashin en attente de calibration finale, §4) → bande affiche uniquement le défaut, pas de swatch verrouillée fantôme.
 
 ## 8. Découpage technique
+
+### `lib/game-engine.ts` (modif — correction transverse)
+
+`goldBalance` ne soustrayait jusqu'ici que `unlocked_heroes.price_paid` (US-18). Sans correction, une tenue achetée ne débiterait jamais le solde. Nouvelle signature :
+
+```ts
+export function goldBalance(
+  dayResults: Pick<DayResult, "gold_earned">[],
+  unlockedHeroes: Pick<UnlockedHero, "price_paid">[],
+  unlockedSkins: Pick<UnlockedSkin, "price_paid">[],
+): number {
+  const earned = dayResults.reduce((sum, r) => sum + r.gold_earned, 0);
+  const spentHeroes = unlockedHeroes.reduce((sum, h) => sum + h.price_paid, 0);
+  const spentSkins = unlockedSkins.reduce((sum, s) => sum + s.price_paid, 0);
+  return earned - spentHeroes - spentSkins;
+}
+```
+
+Paramètre **requis** (pas de valeur par défaut) pour qu'un appelant qui l'omet échoue à la compilation plutôt que de calculer un solde faux. Trois call sites existants à mettre à jour : `app/actions/shop.ts` (`purchaseHero`), `app/echoppe/page.tsx`, `app/pantheon/page.tsx`.
 
 ### `scripts/generate-hero-skins.mjs`
 - Génération offline (§4), lit `assets/MC/`, écrit `public/sprites/mc/<slug>/skins/<skin_id>/idle/`.
