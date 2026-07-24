@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "sync:guide": "node scripts/sync-guide.mjs",
+    "prebuild": "node scripts/pull-guide.mjs --prebuild",
+    "pull:guide": "node scripts/pull-guide.mjs",
     "generate:icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
@@ -22,10 +23,11 @@
     "next": "16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@notionhq/client": "^5.23.2",
     "@playwright/test": "^1.61.1",
     "@serwist/turbopack": "^9.5.12",
     "@tailwindcss/postcss": "^4",
