@@ -9,6 +9,10 @@ nouvelle section versionnée et datée.
 
 ## [Unreleased]
 
+### Corrections
+- Issue #70 : 2 migrations SQL (`add_profile_aggressivity_level`, `create_oauth_mcp`) jamais poussées en production — corrigeait à la fois l'échec d'enregistrement du pseudo/ton du Dojo à l'onboarding, l'échec de mise à jour de la Dojo Gauge au QG, et probablement l'absence de Dodojo dans les Apps connectées de Gemini (l'auto-enregistrement de client `POST /oauth/register` échouait faute de table `oauth_clients`).
+- Issue #70 : "Reporter" un reste au Rituel du Réveil n'affichait plus la tâche dans l'Arène (même effet visible qu'"Annihiler") — la base était correctement mise à jour mais l'Arène ne remontait jamais les tâches reportées dans son state local à la fermeture de l'overlay ; `deferOverdueTask`/`deferAllOverdue` renvoient désormais les lignes reportées, fusionnées côté client.
+
 ### Produit
 - Issue #68 : Manuel du Dojo refondu en articles multi-pages (sommaire par catégorie + page par article), source Notion restructurée en base (19 articles publiés) avec sync automatique au build (`prebuild`), remplace l'ancien mono-bloc `content/guide.json`.
 - US-49/US-54 : Jauge d'agressivité (Dojo Gauge) réglable à tout moment (Sensei/Sparring/Street), réglable dès l'onboarding et modifiable au QG — pilote le ton du Sensei et du Boss sur tous les scénarios "voix" de l'app (heal, Perfect/K.O., rituels, Rage Quit, Attaque Surprise, notifications, erreurs). Registre de copy centralisé `lib/copy/` + audit interne exhaustif des textes de l'app. Chaque texte descriptif porte 5-6 variantes par niveau (tirage stable, figé à l'ouverture de l'overlay) pour éviter la répétition ; niveau Street ponctué de clins d'œil 4ᵉ mur.

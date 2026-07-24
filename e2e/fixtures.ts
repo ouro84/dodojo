@@ -92,6 +92,67 @@ export async function resetOnboardingUser(): Promise<void> {
   if (u) await admin.auth.admin.deleteUser(u.id);
 }
 
+// US-08 (bug #70) : sème une tâche "reste" (day_date dans le passé) sur le
+// compte e2e fixe, pour pouvoir tester réellement le Rituel du Réveil
+// bloquant (jusqu'ici couvert par un test.fixme faute de route de seed —
+// cf. e2e/wake-up-ritual.spec.ts). Retourne l'id créé pour le nettoyage.
+export async function seedOverdueTask(title: string, daysAgo = 1): Promise<string> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "Seed overdue task : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
+    );
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const { data: users } = await admin.auth.admin.listUsers();
+  const uid = users?.users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("Seed overdue task : utilisateur test introuvable.");
+
+  const dayDate = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+  const { data, error } = await admin
+    .from("tasks")
+    .insert({ user_id: uid, title, day_date: dayDate })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(`Seed overdue task : insert échoué (${error?.message ?? "inconnu"}).`);
+  }
+  return data.id as string;
+}
+
+// Vérifie l'état réel en base d'une tâche (RG-04 : jamais de DELETE côté
+// app, seulement is_abandoned/is_completed - cf. e2e/wake-up-ritual.spec.ts).
+export async function getTaskById(
+  id: string,
+): Promise<{ is_abandoned: boolean; abandon_reason: string | null; day_date: string } | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  if (!url || !key) {
+    throw new Error("Get task e2e : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE manquants.");
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const { data } = await admin
+    .from("tasks")
+    .select("is_abandoned, abandon_reason, day_date")
+    .eq("id", id)
+    .maybeSingle();
+  return data ?? null;
+}
+
+// Nettoyage du reste semé ci-dessus (service_role bypass RLS - pas
+// l'exception applicative RG-04, ceci est un utilitaire de test uniquement).
+export async function deleteTaskById(id: string): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  if (!url || !key) {
+    throw new Error("Delete task e2e : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE manquants.");
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  await admin.from("tasks").delete().eq("id", id);
+}
+
 // US-12 : purge les day_results du compte de test et sème une série contrôlée.
 export async function seedStreak(
   rows: Array<{ day_date: string; outcome: "victory" | "retreat" | "defeat" }>,

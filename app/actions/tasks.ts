@@ -15,6 +15,7 @@ import {
 import type { CascadeTask } from "@/lib/game-engine";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
+import type { Task } from "@/types";
 
 export interface TaskActionResult {
   error: string | null;
@@ -22,6 +23,7 @@ export interface TaskActionResult {
   level?: number;
   xp?: number;
   leveledUp?: boolean;
+  deferredTasks?: Task[];
 }
 
 // Le "jour" du jeu est le jour local de l'utilisateur (RG-03), pas l'UTC.
@@ -445,7 +447,7 @@ export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
   // US-05 : la deadline (déjà passée la veille) est effacée au report pour ne
   // pas cumuler le malus "deadline ratée" (-10) avec le malus "retard reporté"
   // (-20) déjà appliqué par le mécanisme existant sur la même tâche.
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("tasks")
     .update({
       day_date: today,
@@ -454,11 +456,16 @@ export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
     })
     .or(`id.eq.${id},parent_id.eq.${id}`)
     .eq("user_id", user.id)
-    .eq("is_abandoned", false);
+    .eq("is_abandoned", false)
+    .select();
 
   if (error) return { error: "Impossible de reporter ce reste. Réessaie." };
   revalidatePath("/");
-  return { error: null };
+  // Bug #70 : les lignes mises à jour sont renvoyées explicitement — le
+  // Rituel du Réveil est un overlay client qui ne re-fetch jamais l'Arène en
+  // se fermant, donc sans ça la tâche reportée reste invisible côté client
+  // (day_date correct en base, mais jamais montrée) jusqu'au prochain rechargement.
+  return { error: null, deferredTasks: (updated ?? []) as Task[] };
 }
 
 // US-08 (D6) : annihiler = is_abandoned (RG-04, jamais DELETE). Ton non-punitif
@@ -491,17 +498,20 @@ export async function deferAllOverdue(): Promise<TaskActionResult> {
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
   const today = await userToday(supabase, user.id);
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("tasks")
     .update({ day_date: today, deadline_at: null })
     .eq("user_id", user.id)
     .lt("day_date", today)
     .eq("is_completed", false)
-    .eq("is_abandoned", false);
+    .eq("is_abandoned", false)
+    .select();
 
   if (error) return { error: "Impossible de tout reporter. Réessaie." };
   revalidatePath("/");
-  return { error: null };
+  // Bug #70 : voir deferOverdueTask ci-dessus — même besoin de renvoyer les
+  // lignes reportées pour que le Rituel du Réveil les remonte à l'Arène.
+  return { error: null, deferredTasks: (updated ?? []) as Task[] };
 }
 
 // US-08 (A4) : action groupée — annihile les restes plus vieux que `days` jours.

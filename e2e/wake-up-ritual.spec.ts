@@ -1,24 +1,53 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./fixtures";
+import { login, seedOverdueTask, deleteTaskById, getTaskById } from "./fixtures";
 
-// Le Réveil (US-08) dépend de tâches d'un jour local passé. Le compte e2e
-// fixe (ADR-04) ne permet pas de voyager dans le temps sans route de seed
-// dédiée. Tant qu'elle n'existe pas, on documente le scénario et la couverture
-// repose sur les tests unitaires planWakeUp/summarizeDay (lib/game-engine) +
-// vérification manuelle. Ne pas supprimer : ce fichier acte la dette e2e.
+// Le Réveil (US-08) dépend de tâches d'un jour local passé. seedOverdueTask
+// (e2e/fixtures.ts) insère directement un reste via le client service_role,
+// ce qui débloque enfin la couverture e2e réelle (auparavant un test.fixme,
+// cf. historique git — la dette e2e est soldée par bug #70).
 test.describe("Rituel du Réveil (US-08)", () => {
-  test.beforeEach(async ({ page }) => {
-    await login(page);
-  });
+  test("Reporter fait réapparaître la tâche dans la liste du jour (bug #70)", async ({ page }) => {
+    const title = `E2E reste reporter ${Date.now()}`;
+    const taskId = await seedOverdueTask(title);
+    try {
+      await login(page);
 
-  test.fixme(
-    "overlay bloquant : Reporter re-soigne le Boss, Annihiler abandonne (jamais DELETE)",
-    async ({ page }) => {
-      // Prérequis : seedOverdueTask (route de test à implémenter avec l'infra e2e).
       const ritual = page.getByRole("alertdialog", { name: "Rituel du Réveil" });
       await expect(ritual).toBeVisible();
-      // Reporter : la tâche revient au jour J et le Boss est soigné (RG-02).
-      // Annihiler : la tâche disparaît de la liste mais reste en base (is_abandoned, RG-04).
-    },
-  );
+      await expect(ritual.getByText(title)).toBeVisible();
+
+      // Bug #70 : avant le fix, la tâche reportée disparaissait de l'Arène
+      // (state client jamais mis à jour) - même effet visible qu'Annihiler.
+      await ritual.getByLabel(`Reporter "${title}"`).click();
+      await expect(ritual.getByText(title)).toBeHidden();
+
+      await expect(page.getByText(title)).toBeVisible();
+    } finally {
+      await deleteTaskById(taskId);
+    }
+  });
+
+  test("Annihiler abandonne le reste sans jamais le supprimer (RG-04)", async ({ page }) => {
+    const title = `E2E reste annihiler ${Date.now()}`;
+    const taskId = await seedOverdueTask(title);
+    try {
+      await login(page);
+
+      const ritual = page.getByRole("alertdialog", { name: "Rituel du Réveil" });
+      await expect(ritual).toBeVisible();
+      await expect(ritual.getByText(title)).toBeVisible();
+
+      await ritual.getByLabel(`Annihiler "${title}"`).click();
+      await expect(ritual.getByText(title)).toBeHidden();
+
+      // Ni dans le Rituel (résolu), ni dans l'Arène...
+      await expect(page.getByText(title)).toHaveCount(0);
+      // ...mais toujours en base (is_abandoned=true), jamais un DELETE (RG-04).
+      await expect
+        .poll(() => getTaskById(taskId))
+        .toMatchObject({ is_abandoned: true, abandon_reason: "annihilated" });
+    } finally {
+      await deleteTaskById(taskId);
+    }
+  });
 });

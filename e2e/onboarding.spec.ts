@@ -22,6 +22,14 @@ test("Onboarding complet (US-29)", async ({ page }) => {
 
   // Choix d'un avatar puis validation.
   await page.getByRole("button", { name: "Prêtresse de l'Eau" }).click();
+  await page.getByRole("button", { name: /Continuer/ }).click();
+
+  // Bug #70 (prod) : cette étape "ton du Dojo" écrit `profiles.aggressivity_level`
+  // à la création du profil — la migration manquante en prod faisait échouer
+  // TOUT l'insert (message "Le dojo n'a pas pu enregistrer ton nom"), pas
+  // seulement le réglage. Ce test doit donc réellement traverser l'étape
+  // (elle ne l'était pas avant, laissant ce chemin non couvert).
+  await page.getByRole("button", { name: "Street" }).click();
   await page.getByRole("button", { name: /Entrer dans l'Arène/ }).click();
 
   await page.waitForURL("/");
