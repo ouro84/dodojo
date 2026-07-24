@@ -51,6 +51,7 @@ import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
 import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
 import { deadlineAlertLine } from "@/lib/copy/deadline";
 import { randomSeed } from "@/lib/copy/variant";
+import { resolveAggressivityLevel } from "@/lib/aggressivity";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
@@ -128,7 +129,7 @@ export default function Arena({
     getBackground(backgroundId) ?? getBackground(DEFAULT_BACKGROUND_ID)!;
   const bossName = boss.name;
   const [profile, setProfile] = useState<Profile>(initialProfile);
-  const level = profile.aggressivity_level;
+  const level = resolveAggressivityLevel(profile.aggressivity_level);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
