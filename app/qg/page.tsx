@@ -10,6 +10,7 @@ import WebhookTokenSection from "@/components/qg/WebhookTokenSection";
 import GeminiConnectionSection from "@/components/qg/GeminiConnectionSection";
 import AggressivityLevelSection from "@/components/qg/AggressivityLevelSection";
 import { isGeminiConnected } from "@/lib/oauth-gemini";
+import { resolveAggressivityLevel } from "@/lib/aggressivity";
 
 // US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
 export default async function QgPage() {
@@ -44,7 +45,7 @@ export default async function QgPage() {
       <h1 className="font-display text-lg uppercase tracking-wide text-ink">Le QG</h1>
       <StreakBadge state={streak} />
       <InstallCta />
-      <AggressivityLevelSection initialLevel={profile?.aggressivity_level ?? "sparring"} />
+      <AggressivityLevelSection initialLevel={resolveAggressivityLevel(profile?.aggressivity_level)} />
       <IntegrationsSection>
         <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
         <WebhookTokenSection
