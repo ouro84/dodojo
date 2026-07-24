@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { abandonViaUi, login } from "./fixtures";
 
-// US-07 : clôturer la journée (Rituel du Crépuscule) écrit un day_result et
+// US-07 : clôturer la journée (Dernier Round) écrit un day_result et
 // affiche le récap figé. Testable via l'UI sans triche horaire (tout le jour même).
-test.describe("Rituel du Crépuscule (US-07)", () => {
+test.describe("Dernier Round (US-07)", () => {
   let title: string | undefined;
 
   test.beforeEach(async ({ page }) => {
@@ -31,9 +31,9 @@ test.describe("Rituel du Crépuscule (US-07)", () => {
     await page.getByRole("button", { name: "Ajouter" }).click();
     await expect(page.locator("li", { hasText: title })).toBeVisible();
 
-    await page.getByRole("button", { name: "Rituel du Crépuscule" }).click();
+    await page.getByRole("button", { name: "Dernier Round" }).click();
 
-    const recap = page.getByRole("dialog", { name: "Rituel du Crépuscule" });
+    const recap = page.getByRole("dialog", { name: "Dernier Round" });
     await expect(recap).toBeVisible();
     await expect(recap).toHaveAttribute("data-outcome", "retreat");
     await recap.getByRole("button", { name: "Continuer" }).click();
@@ -50,8 +50,8 @@ test.describe("Rituel du Crépuscule (US-07)", () => {
       await page.getByRole("button", { name: "Ajouter" }).click();
       const row = page.locator("li", { hasText: title });
       await row.getByRole("checkbox").check();
-      await page.getByRole("button", { name: "Rituel du Crépuscule" }).click();
-      const recap = page.getByRole("dialog", { name: "Rituel du Crépuscule" });
+      await page.getByRole("button", { name: "Dernier Round" }).click();
+      const recap = page.getByRole("dialog", { name: "Dernier Round" });
       await expect(recap).toHaveAttribute("data-outcome", "victory");
     },
   );

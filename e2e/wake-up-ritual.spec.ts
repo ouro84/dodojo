@@ -5,14 +5,14 @@ import { login, seedOverdueTask, deleteTaskById, getTaskById } from "./fixtures"
 // (e2e/fixtures.ts) insère directement un reste via le client service_role,
 // ce qui débloque enfin la couverture e2e réelle (auparavant un test.fixme,
 // cf. historique git — la dette e2e est soldée par bug #70).
-test.describe("Rituel du Réveil (US-08)", () => {
+test.describe("Le Réveil (US-08)", () => {
   test("Reporter fait réapparaître la tâche dans la liste du jour (bug #70)", async ({ page }) => {
     const title = `E2E reste reporter ${Date.now()}`;
     const taskId = await seedOverdueTask(title);
     try {
       await login(page);
 
-      const ritual = page.getByRole("alertdialog", { name: "Rituel du Réveil" });
+      const ritual = page.getByRole("alertdialog", { name: "Le Réveil" });
       await expect(ritual).toBeVisible();
       await expect(ritual.getByText(title)).toBeVisible();
 
@@ -33,7 +33,7 @@ test.describe("Rituel du Réveil (US-08)", () => {
     try {
       await login(page);
 
-      const ritual = page.getByRole("alertdialog", { name: "Rituel du Réveil" });
+      const ritual = page.getByRole("alertdialog", { name: "Le Réveil" });
       await expect(ritual).toBeVisible();
       await expect(ritual.getByText(title)).toBeVisible();
 

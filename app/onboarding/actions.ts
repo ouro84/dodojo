@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getHero } from "@/lib/heroes";
+import type { AggressivityLevel } from "@/types";
 
 export interface CreateProfileState {
   error: string | null;
@@ -15,12 +16,12 @@ export async function createProfile(
   const username = String(formData.get("username") ?? "").trim();
   const timezone = String(formData.get("timezone") ?? "UTC").trim() || "UTC";
   const starterId = String(formData.get("starterId") ?? "").trim();
-  const aggressivityLevelRaw = String(formData.get("aggressivityLevel") ?? "sparring").trim();
-  const aggressivityLevel: "sensei" | "sparring" | "street" = (
-    ["sensei", "sparring", "street"] as const
-  ).includes(aggressivityLevelRaw as "sensei" | "sparring" | "street")
-    ? (aggressivityLevelRaw as "sensei" | "sparring" | "street")
-    : "sparring";
+  const aggressivityLevelRaw = String(formData.get("aggressivityLevel") ?? "direct").trim();
+  const aggressivityLevel: AggressivityLevel = (
+    ["doux", "direct", "brut"] as const
+  ).includes(aggressivityLevelRaw as AggressivityLevel)
+    ? (aggressivityLevelRaw as AggressivityLevel)
+    : "direct";
 
   if (!username) {
     return { error: "Un pseudo de combattant, ça se choisit. Tape quelque chose." };
