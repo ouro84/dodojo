@@ -41,4 +41,23 @@ test("Onboarding complet (US-29)", async ({ page }) => {
   // Coach étape "strike" : cocher la tâche termine le tuto.
   await page.getByLabel(/Marquer "Prendre en main Dodojo" comme accomplie/).check();
   await expect(page.getByText(/Coche-la pour frapper/)).toBeHidden();
+
+  // Issue #50 : le parcours d'un nouvel utilisateur ne s'arrête pas au 1er
+  // combat — il continue vers le QG (où le ton "Street" choisi plus haut doit
+  // déjà être reflété, régression bug #70) puis le Manuel du Dojo, avant de
+  // revenir à l'Arène.
+  await page.getByRole("link", { name: "QG" }).click();
+  await page.waitForURL("/qg");
+  const dojoGaugeSection = page.locator("section", { hasText: "Dojo Gauge" });
+  await expect(
+    dojoGaugeSection.getByRole("button", { name: /Street/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("link", { name: /Manuel du Dojo/ }).click();
+  await page.waitForURL("/guide");
+  await expect(page.getByRole("heading", { name: "Manuel du Dojo" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Arène" }).click();
+  await page.waitForURL("/");
+  await expect(page.getByText(/Prendre en main Dodojo/)).toBeHidden();
 });
