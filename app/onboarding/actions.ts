@@ -48,7 +48,7 @@ export async function createProfile(
   });
 
   if (error) {
-    return { error: "Le dojo n'a pas pu enregistrer ton nom. Réessaie." };
+    return { error: "Dodojo n'a pas pu enregistrer ton nom. Réessaie." };
   }
 
   await supabase.from("unlocked_heroes").insert({
