@@ -1,0 +1,1 @@
+Chaque jour, un Boss se dresse sur ta route. Tes tâches sont ses points de vie : plus tu en ajoutes, plus il est coriace. Chaque tâche accomplie lui rentre dedans. Vide sa jauge avant le soir et la rue est à toi.

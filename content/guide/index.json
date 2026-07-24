@@ -1,0 +1,210 @@
+[
+  {
+    "titre": "Le principe",
+    "slug": "principe",
+    "section": "Démarrage",
+    "ordre": 10,
+    "resume": "Le concept central : le Boss du jour et sa jauge de HP.",
+    "motsCles": [],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Installer Dodojo",
+    "slug": "installation",
+    "section": "Démarrage",
+    "ordre": 20,
+    "resume": "Installer Dodojo sur ton téléphone comme une vraie app.",
+    "motsCles": [
+      "installation"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Le barème de combat",
+    "slug": "hp",
+    "section": "Combat",
+    "ordre": 10,
+    "resume": "Comment les tâches et sous-tâches affectent les HP du Boss.",
+    "motsCles": [
+      "combat"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Force & niveaux",
+    "slug": "xp",
+    "section": "Combat",
+    "ordre": 20,
+    "resume": "Gagner de l'XP et monter de niveau.",
+    "motsCles": [
+      "combat"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Les Deadlines & Attaques Surprises",
+    "slug": "deadlines",
+    "section": "Combat",
+    "ordre": 30,
+    "resume": "Fixer une heure limite sur une tâche et gérer les Attaques Surprises.",
+    "motsCles": [
+      "combat"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Le Rage Quit",
+    "slug": "rage",
+    "section": "Combat",
+    "ordre": 40,
+    "resume": "Abandonner une tâche en cours de journée : le malus et l'annulation.",
+    "motsCles": [
+      "combat"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Les combos",
+    "slug": "combo",
+    "section": "Combat",
+    "ordre": 50,
+    "resume": "Enchaîner les tâches sans t'arrêter pour faire monter le combo.",
+    "motsCles": [
+      "combat"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Le Rituel du Réveil",
+    "slug": "reveil",
+    "section": "Rituels",
+    "ordre": 10,
+    "resume": "Le rituel bloquant qui solde les restes de la veille à l'ouverture.",
+    "motsCles": [
+      "rituel"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Le Rituel du Crépuscule",
+    "slug": "crepuscule",
+    "section": "Rituels",
+    "ordre": 20,
+    "resume": "Clôturer sa journée : victoire, retraite ou défaite.",
+    "motsCles": [
+      "rituel"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Séries & jokers",
+    "slug": "streak",
+    "section": "Progression",
+    "ordre": 10,
+    "resume": "Construire sa série de victoires avec un budget de jokers hebdo.",
+    "motsCles": [
+      "progression"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Or & Échoppe",
+    "slug": "or",
+    "section": "Progression",
+    "ordre": 20,
+    "resume": "Gagner de l'or à la clôture du jour et débloquer des combattants.",
+    "motsCles": [
+      "progression"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Tenues",
+    "slug": "tenues",
+    "section": "Progression",
+    "ordre": 30,
+    "resume": "Débloquer et équiper des tenues cosmétiques pour ses combattants.",
+    "motsCles": [
+      "progression"
+    ],
+    "majLe": "2026-07-24T07:36:00.000Z"
+  },
+  {
+    "titre": "Le Panthéon",
+    "slug": "pantheon",
+    "section": "Progression",
+    "ordre": 40,
+    "resume": "La salle des trophées : records, dégâts, or et journal de combat.",
+    "motsCles": [
+      "progression"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Le Boss du jour",
+    "slug": "roster",
+    "section": "Progression",
+    "ordre": 50,
+    "resume": "Le tirage quotidien du Boss et de son décor.",
+    "motsCles": [
+      "progression"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Partager sa victoire",
+    "slug": "partage",
+    "section": "Progression",
+    "ordre": 60,
+    "resume": "Générer une carte de victoire à partager après un K.O.",
+    "motsCles": [
+      "progression",
+      "partage"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Régler le ton du Dojo",
+    "slug": "agressivite",
+    "section": "Réglages",
+    "ordre": 10,
+    "resume": "Régler le ton du Sensei et du Boss (Dojo Gauge).",
+    "motsCles": [
+      "reglage"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Le rappel du soir",
+    "slug": "rappels",
+    "section": "Intégrations",
+    "ordre": 10,
+    "resume": "Activer une notification si le Boss est encore vivant en fin d'après-midi.",
+    "motsCles": [
+      "integration"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Ajouter une tâche à la voix (Siri)",
+    "slug": "siri",
+    "section": "Intégrations",
+    "ordre": 20,
+    "resume": "Ajouter une tâche à la voix depuis iPhone via un raccourci Siri.",
+    "motsCles": [
+      "integration"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  },
+  {
+    "titre": "Ajouter une tâche à la voix (Gemini / Android)",
+    "slug": "gemini",
+    "section": "Intégrations",
+    "ordre": 30,
+    "resume": "Connecter Dodojo à Gemini pour ajouter des tâches à la voix sur Android.",
+    "motsCles": [
+      "integration"
+    ],
+    "majLe": "2026-07-24T07:26:00.000Z"
+  }
+]

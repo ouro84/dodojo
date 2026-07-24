@@ -64,7 +64,7 @@ export default async function QgPage() {
       <Link href="/echoppe" className="text-sm text-gold underline underline-offset-4">
         🛒 L&apos;Échoppe
       </Link>
-      <Link href="/guide#or" className="text-xs text-faint underline underline-offset-4">
+      <Link href="/guide/or" className="text-xs text-faint underline underline-offset-4">
         Comment gagner de l&apos;or ?
       </Link>
       <Link href="/guide" className="text-sm text-ink underline underline-offset-4">
