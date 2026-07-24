@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { AggressivityLevel, DayOutcome } from "@/types";
 import type { ShareCardParams } from "@/lib/share-card";
 import { crepusculeHeader, crepusculeLine } from "@/lib/copy/rituals";
 import { randomSeed } from "@/lib/copy/variant";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import ShareButton from "./ShareButton";
 
 interface CrepusculeRecapProps {
@@ -43,10 +44,14 @@ export default function CrepusculeRecap({
   const victory = outcome === "victory";
   // Seed figé au montage : voir PerfectOverlay pour la raison.
   const [seed] = useState(randomSeed);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(overlayRef, { active: true, onEscape: onDismiss });
 
   return (
     <div
+      ref={overlayRef}
       role="dialog"
+      aria-modal="true"
       aria-label="Rituel du Crépuscule"
       data-outcome={outcome}
       className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[oklch(0.08_0_0_/_88%)] px-4 text-center"

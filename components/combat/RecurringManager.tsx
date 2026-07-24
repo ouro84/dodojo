@@ -135,6 +135,7 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
                     {DAYS.map((d) => (
                       <span
                         key={d.i}
+                        aria-label={`${d.label} : ${t.weekdays.includes(d.i) ? "actif" : "inactif"}`}
                         className={`text-[10px] font-display uppercase ${
                           t.weekdays.includes(d.i) ? "text-hp" : "text-faint"
                         }`}

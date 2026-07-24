@@ -19,7 +19,7 @@ export default function HeroBar({ heroName, currentHp, maxHp, alarm = false }: H
         className={`h-3.5 overflow-hidden rounded-sm bg-hp-dim ${alarm ? "hero-alarm" : ""}`}
       >
         <div
-          className="ml-auto h-full bg-hp transition-[width] duration-300 ease-out"
+          className="ml-auto h-full bg-hp transition-[width] duration-300 ease-out motion-reduce:transition-none"
           style={{ width: `${pct}%` }}
         />
       </div>

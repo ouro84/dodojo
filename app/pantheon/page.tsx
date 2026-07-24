@@ -112,8 +112,18 @@ export default async function PantheonPage() {
           <span className="text-xs text-xp">Niveau {profile.level}</span>
         </div>
         <p className="text-xs text-gold">{activeTitle}</p>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-border">
-          <div className="h-full rounded-full bg-xp" style={{ width: `${xpPct}%` }} />
+        <div
+          role="progressbar"
+          aria-valuenow={xpPct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Expérience"
+          className="h-2 w-full overflow-hidden rounded-full bg-border"
+        >
+          <div
+            className="h-full rounded-full bg-xp transition-[width] duration-300 ease-out motion-reduce:transition-none"
+            style={{ width: `${xpPct}%` }}
+          />
         </div>
         <p className="text-right text-[10px] text-faint">
           {profile.xp} / {xpThreshold} XP

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { KoTier } from "@/lib/game-engine";
 import type { ShareCardParams } from "@/lib/share-card";
 import type { AggressivityLevel } from "@/types";
 import { koHeader, koLine, milestoneLine } from "@/lib/copy/combat";
 import { randomSeed } from "@/lib/copy/variant";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import ShareButton from "./ShareButton";
 
 interface PerfectOverlayProps {
@@ -48,10 +49,14 @@ export default function PerfectOverlay({
   // re-rendu (ex. Arena re-render pendant le poll deadline ~45s) tant que ce
   // KO reste affiché — un nouveau KO = un nouveau montage = un nouveau seed.
   const [seed] = useState(randomSeed);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(overlayRef, { active: true, onEscape: onContinue });
 
   return (
     <div
+      ref={overlayRef}
       role="alertdialog"
+      aria-modal="true"
       aria-label={isPerfect ? "Perfect — Boss vaincu" : "K.O. — Boss vaincu"}
       className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-lg bg-[oklch(0.08_0_0_/_78%)] px-4 text-center"
     >
