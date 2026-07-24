@@ -1,0 +1,53 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import ArticleMarkdown from "@/components/guide/ArticleMarkdown";
+import { chargerCorpsArticle, chargerIndexGuide } from "@/lib/guide";
+
+export async function generateStaticParams() {
+  const articles = await chargerIndexGuide();
+  return articles.map((article) => ({ slug: article.slug }));
+}
+
+async function trouverMeta(slug: string) {
+  const articles = await chargerIndexGuide();
+  return articles.find((article) => article.slug === slug) ?? null;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const meta = await trouverMeta(slug);
+  if (!meta) return { title: "Manuel du Dojo" };
+  return { title: `${meta.titre} — Manuel du Dojo` };
+}
+
+export default async function GuideArticlePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const [meta, contenu] = await Promise.all([trouverMeta(slug), chargerCorpsArticle(slug)]);
+  if (!meta || contenu === null) notFound();
+
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
+      <Link href="/guide" className="text-xs text-muted underline underline-offset-4">
+        ← Tout le Manuel
+      </Link>
+      <header className="flex flex-col gap-1">
+        <p className="text-xs uppercase tracking-wide text-gold">{meta.section}</p>
+        <h1 className="font-display text-lg uppercase tracking-wide text-ink">{meta.titre}</h1>
+      </header>
+      <article>
+        <ArticleMarkdown contenu={contenu} />
+      </article>
+      <Link href="/qg" className="self-center text-xs text-muted underline underline-offset-4">
+        Retour au QG
+      </Link>
+    </main>
+  );
+}
