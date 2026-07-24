@@ -57,7 +57,7 @@ export default function CrepusculeRecap({
       className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[oklch(0.08_0_0_/_88%)] px-4 text-center"
     >
       <p
-        className={`font-display text-3xl uppercase tracking-wide ${
+        className={`font-hud text-3xl font-semibold uppercase tracking-wide ${
           victory ? "text-hp" : "text-ink"
         }`}
       >
@@ -76,7 +76,7 @@ export default function CrepusculeRecap({
         <dt className="text-faint">Abandons</dt>
         <dd className="text-right text-ink">{tasksAbandoned}</dd>
         <dt className="text-faint">XP gagnée</dt>
-        <dd className="text-right text-xp">+{xpEarned}</dd>
+        <dd className="text-right text-xp-text">+{xpEarned}</dd>
       </dl>
 
       {!victory && remainingMonsters > 0 && (
@@ -87,7 +87,7 @@ export default function CrepusculeRecap({
       )}
       {streak > 0 && (
         <p
-          className={`font-display text-xs uppercase tracking-wide text-hp ${
+          className={`font-hud text-xs font-semibold uppercase tracking-wide text-hp-text ${
             victory ? "streak-flames" : ""
           }`}
         >

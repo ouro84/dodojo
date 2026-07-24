@@ -950,7 +950,7 @@ export default function Arena({
           <button
             type="button"
             onClick={handleUndoRageQuit}
-            className="shrink-0 font-display uppercase tracking-wide text-xp underline underline-offset-2"
+            className="shrink-0 font-display uppercase tracking-wide text-xp-text underline underline-offset-2"
           >
             Annuler
           </button>
@@ -967,7 +967,7 @@ export default function Arena({
             <button
               type="button"
               onClick={() => handlePushDeadlineOneHour(deadlineAlert.taskId)}
-              className="font-display uppercase tracking-wide text-xp underline underline-offset-2"
+              className="font-display uppercase tracking-wide text-xp-text underline underline-offset-2"
             >
               Repousser +1h
             </button>
@@ -1010,7 +1010,7 @@ export default function Arena({
           />
           <DragOverlay>
             {activeDragTaskId && (
-              <div className="min-w-0 max-w-xs break-words rounded-md border border-hp bg-surface px-3 py-2 text-sm text-ink shadow-lg">
+              <div className="min-w-0 max-w-xs break-words rounded-md border border-hp bg-surface px-3 py-2 text-sm text-ink">
                 {tasks.find((task) => task.id === activeDragTaskId)?.title}
               </div>
             )}

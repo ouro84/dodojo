@@ -51,13 +51,13 @@ export default async function PantheonPage() {
   if (profileError || dayError || !profile) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-        <p className="font-display text-sm uppercase tracking-wide text-alert">
+        <p className="font-hud text-sm font-semibold uppercase tracking-wide text-alert">
           Le Panthéon est scellé
         </p>
         <p className="max-w-[28ch] text-xs text-muted">
           Impossible de charger tes faits d&apos;armes. Réessaie dans un instant.
         </p>
-        <Link href="/pantheon" className="text-xs text-xp underline underline-offset-4">
+        <Link href="/pantheon" className="text-xs text-xp-text underline underline-offset-4">
           Réessayer
         </Link>
         <BottomNav active="qg" />
@@ -83,14 +83,14 @@ export default async function PantheonPage() {
   if (results.length === 0) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-        <h1 className="font-display text-lg uppercase tracking-wide text-ink">
+        <h1 className="font-hud text-lg font-semibold uppercase tracking-wide text-ink">
           Le Panthéon
         </h1>
         <p className="max-w-[30ch] text-sm text-muted">
           Aucun combat à ton palmarès, {profile.username}. Va terrasser ton
           premier Boss.
         </p>
-        <Link href="/" className="text-sm text-hp underline underline-offset-4">
+        <Link href="/" className="text-sm text-hp-text underline underline-offset-4">
           Rejoindre l&apos;Arène
         </Link>
         <BottomNav active="qg" />
@@ -100,7 +100,7 @@ export default async function PantheonPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 py-6">
-      <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
+      <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
         Le Panthéon
       </h1>
 
@@ -108,8 +108,8 @@ export default async function PantheonPage() {
       <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
         <p className="font-display text-xs uppercase tracking-wide text-muted">Héros</p>
         <div className="flex items-baseline justify-between">
-          <span className="font-display text-base text-ink">{profile.username}</span>
-          <span className="text-xs text-xp">Niveau {profile.level}</span>
+          <span className="font-hud text-base font-semibold text-ink">{profile.username}</span>
+          <span className="text-xs text-xp-text">Niveau {profile.level}</span>
         </div>
         <p className="text-xs text-gold">{activeTitle}</p>
         <div
@@ -145,7 +145,7 @@ export default async function PantheonPage() {
         {stats.bestDay && (
           <p className="text-[11px] text-muted">
             Record :{" "}
-            <span className="text-hp">{stats.bestDay.damage} dégâts</span> le{" "}
+            <span className="text-hp-text">{stats.bestDay.damage} dégâts</span> le{" "}
             {stats.bestDay.day_date.slice(8, 10)}/{stats.bestDay.day_date.slice(5, 7)}
           </p>
         )}

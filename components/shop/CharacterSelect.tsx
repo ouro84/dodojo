@@ -131,7 +131,7 @@ export function CharacterSelect({
         </div>
         <div className="text-xs text-muted">Élément : {selected.element}</div>
         {error && (
-          <p role="alert" className="text-xs text-hp">
+          <p role="alert" className="text-xs text-hp-text">
             {error}
           </p>
         )}

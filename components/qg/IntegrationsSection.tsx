@@ -11,7 +11,7 @@ interface IntegrationsSectionProps {
 export default function IntegrationsSection({ children }: IntegrationsSectionProps) {
   return (
     <section className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-      <p className="font-display text-xs uppercase tracking-wide text-muted">Intégrations</p>
+      <p className="font-hud text-xs font-semibold uppercase tracking-wide text-muted">Intégrations</p>
       <div className="flex flex-col gap-3">{children}</div>
     </section>
   );

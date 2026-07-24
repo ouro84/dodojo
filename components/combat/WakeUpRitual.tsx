@@ -199,7 +199,7 @@ export default function WakeUpRitual({
                   onClick={() =>
                     run(() => completeOverdueTask(task.id), [task.id, ...childIds(task.id)])
                   }
-                  className="rounded border border-xp px-3 py-2.5 text-xs text-xp disabled:opacity-50"
+                  className="rounded border border-xp px-3 py-2.5 text-xs text-xp-text disabled:opacity-50"
                 >
                   Terminé
                 </button>

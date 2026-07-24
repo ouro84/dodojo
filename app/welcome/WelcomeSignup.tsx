@@ -81,7 +81,7 @@ export default function WelcomeSignup() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-hp px-4 py-2 font-display uppercase tracking-wide text-ink disabled:opacity-50"
+        className="rounded-md bg-hp px-3 py-1.5 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
       >
         {pending ? "…" : "Rejoindre le dojo"}
       </button>

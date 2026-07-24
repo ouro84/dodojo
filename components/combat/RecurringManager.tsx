@@ -73,7 +73,7 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
     <div className="flex w-full flex-col gap-4">
       {/* Création */}
       <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
-        <p className="font-display text-xs uppercase tracking-wide text-muted">
+        <p className="font-hud text-xs font-semibold uppercase tracking-wide text-muted">
           Nouvelle quête récurrente
         </p>
         <input
@@ -106,7 +106,7 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
           type="button"
           onClick={handleCreate}
           disabled={pending || !title.trim() || selectedDays.size === 0}
-          className="rounded-md border border-hp px-4 py-2 font-display text-xs uppercase tracking-wide text-hp disabled:opacity-40"
+          className="rounded-md border border-hp px-4 py-2 font-display text-xs uppercase tracking-wide text-hp-text disabled:opacity-40"
         >
           {pending ? "…" : "Créer la routine"}
         </button>
@@ -137,7 +137,7 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
                         key={d.i}
                         aria-label={`${d.label} : ${t.weekdays.includes(d.i) ? "actif" : "inactif"}`}
                         className={`text-[10px] font-display uppercase ${
-                          t.weekdays.includes(d.i) ? "text-hp" : "text-faint"
+                          t.weekdays.includes(d.i) ? "text-hp-text" : "text-faint"
                         }`}
                       >
                         {d.short}

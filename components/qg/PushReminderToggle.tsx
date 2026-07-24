@@ -125,7 +125,7 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
           Autorise les notifications dans les réglages du navigateur pour activer ce rappel.
         </p>
       )}
-      {error && <p className="text-xs text-hp">{error}</p>}
+      {error && <p className="text-xs text-hp-text">{error}</p>}
     </div>
   );
 }

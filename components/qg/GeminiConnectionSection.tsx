@@ -37,7 +37,7 @@ export default function GeminiConnectionSection({ isConnected }: GeminiConnectio
             type="button"
             disabled={pending}
             onClick={disconnect}
-            className="rounded-md border border-border bg-bg px-3 py-2.5 font-display text-[10px] uppercase tracking-wide text-hp disabled:opacity-50"
+            className="rounded-md border border-border bg-bg px-3 py-2.5 font-display text-[10px] uppercase tracking-wide text-hp-text disabled:opacity-50"
           >
             Déconnecter
           </button>
@@ -50,7 +50,7 @@ export default function GeminiConnectionSection({ isConnected }: GeminiConnectio
           Dans l&apos;app Gemini : réglages puis Apps connectées puis cherche Dodojo.
         </p>
       )}
-      {error && <p className="text-xs text-hp">{error}</p>}
+      {error && <p className="text-xs text-hp-text">{error}</p>}
     </div>
   );
 }

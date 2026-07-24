@@ -19,13 +19,13 @@ export default function UpdateToast() {
   return (
     <div
       role="status"
-      className="fixed inset-x-4 bottom-4 z-30 flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3 shadow-lg"
+      className="fixed inset-x-4 bottom-4 z-30 flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3"
     >
       <p className="text-xs text-ink">Nouvelle version disponible.</p>
       <button
         type="button"
         onClick={reloadForUpdate}
-        className="rounded-md bg-xp px-3 py-1.5 font-display text-[10px] uppercase tracking-wide text-ink"
+        className="rounded-md bg-hp px-3 py-1.5 font-display text-[10px] uppercase tracking-wide text-ink"
       >
         Recharger
       </button>

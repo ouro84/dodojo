@@ -47,7 +47,7 @@ export default async function GuideArticlePage({
       <BackLink href="/guide" label="Tout le Manuel" />
       <header className="flex flex-col gap-1">
         <p className="text-xs uppercase tracking-wide text-gold">{meta.section}</p>
-        <h1 className="font-display text-lg uppercase tracking-wide text-ink">{meta.titre}</h1>
+        <h1 className="font-hud text-lg font-semibold uppercase tracking-wide text-ink">{meta.titre}</h1>
       </header>
       <article>
         <ArticleMarkdown contenu={contenu} />

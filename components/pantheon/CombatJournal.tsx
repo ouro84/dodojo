@@ -16,7 +16,7 @@ interface CombatJournalProps {
 }
 
 const OUTCOME_LABEL: Record<DayOutcome, { icon: string; label: string; className: string }> = {
-  victory: { icon: "✓", label: "Victoire", className: "text-hp" },
+  victory: { icon: "✓", label: "Victoire", className: "text-hp-text" },
   retreat: { icon: "↩", label: "Retraite", className: "text-gold" },
   defeat: { icon: "✗", label: "Défaite", className: "text-alert" },
 };

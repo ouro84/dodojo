@@ -36,10 +36,10 @@ export default async function EchoppePage() {
   if (pErr || rErr || oErr || sErr || !profile) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-        <p role="alert" className="max-w-[32ch] text-sm text-hp">
+        <p role="alert" className="max-w-[32ch] text-sm text-hp-text">
           L&apos;Échoppe est fermée un instant. Réessaie.
         </p>
-        <Link href="/echoppe" className="text-sm text-xp underline underline-offset-4">
+        <Link href="/echoppe" className="text-sm text-xp-text underline underline-offset-4">
           Réessayer
         </Link>
         <BottomNav active="echoppe" />
