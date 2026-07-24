@@ -34,10 +34,21 @@
   --color-hp-dim: oklch(0.3 0.08 25);
   --color-xp: oklch(0.54 0.17 275);
   --color-xp-dim: oklch(0.28 0.08 275);
+  /* Audit #67 (PR 3/7) : `hp`/`xp` bruts en COULEUR DE TEXTE sur fond neutre
+     (bg/surface/surface-2) mesurent 3.4-3.9:1, sous 4.5:1 - le fix WCAG du
+     24/07 n'a corrigé que le pairing inverse (ink-sur-hp/xp, boutons pleins).
+     Variantes dédiées, même teinte/chroma, calculées pour >=4.5:1 sur les 3
+     fonds neutres. Réservées à l'usage "texte" (jamais bg-hp-text/border-hp-text). */
+  --color-hp-text: oklch(0.64 0.19 25);
+  --color-xp-text: oklch(0.625 0.17 275);
   --color-gold: oklch(0.85 0.13 85);
   --color-gold-ink: oklch(0.22 0.03 85);
   --color-alert: oklch(0.62 0.17 55);
   --color-alert-dim: oklch(0.28 0.06 55);
+  /* Audit #67 (PR 3/7) : token informel `oklch(0.15 0.02 55)` utilisé sur
+     ArenaError, jamais nommé - suit la convention gold-ink (texte lisible
+     sur un fond alert plein). */
+  --color-alert-ink: oklch(0.15 0.02 55);
 
   --font-display: "BoldPixels", "Courier New", monospace;
   --font-hud: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo,

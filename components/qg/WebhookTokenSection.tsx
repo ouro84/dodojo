@@ -82,7 +82,7 @@ export default function WebhookTokenSection({ hasToken, lastUsedAt }: WebhookTok
 
       {revealedToken && (
         <div className="flex flex-col gap-1 rounded-md border border-hp bg-bg p-2">
-          <p className="text-xs text-hp">Copie-le maintenant, il ne sera plus affiché ensuite.</p>
+          <p className="text-xs text-hp-text">Copie-le maintenant, il ne sera plus affiché ensuite.</p>
           <code className="break-all text-xs text-ink">{revealedToken}</code>
           <div className="flex gap-2">
             <button
@@ -96,22 +96,22 @@ export default function WebhookTokenSection({ hasToken, lastUsedAt }: WebhookTok
               type="button"
               disabled={pending}
               onClick={testShortcut}
-              className="rounded-md border border-border bg-surface px-2.5 py-2.5 text-[10px] uppercase tracking-wide text-xp disabled:opacity-50"
+              className="rounded-md border border-border bg-surface px-2.5 py-2.5 text-[10px] uppercase tracking-wide text-xp-text disabled:opacity-50"
             >
               Tester mon raccourci
             </button>
           </div>
           {testResult === "success" && (
-            <p className="text-xs text-xp">Raccourci fonctionnel : une tâche de test a été ajoutée.</p>
+            <p className="text-xs text-xp-text">Raccourci fonctionnel : une tâche de test a été ajoutée.</p>
           )}
-          {testResult === "error" && <p className="text-xs text-hp">Le test a échoué. Vérifie le token.</p>}
+          {testResult === "error" && <p className="text-xs text-hp-text">Le test a échoué. Vérifie le token.</p>}
         </div>
       )}
 
       {tokenExists && (
         <p className="text-xs text-faint">Dernière utilisation : {formatLastUsed(lastUsedAt)}</p>
       )}
-      {error && <p className="text-xs text-hp">{error}</p>}
+      {error && <p className="text-xs text-hp-text">{error}</p>}
     </div>
   );
 }

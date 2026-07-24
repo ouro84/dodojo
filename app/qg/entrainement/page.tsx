@@ -47,7 +47,7 @@ export default async function EntrainementPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
-      <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
+      <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
         Mode Entraînement
       </h1>
       <p className="text-center text-xs text-muted">

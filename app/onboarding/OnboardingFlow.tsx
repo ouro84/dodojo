@@ -51,7 +51,7 @@ export default function OnboardingFlow() {
           type="button"
           disabled={trimmed.length < 2}
           onClick={() => setStep("avatar")}
-          className="rounded-md bg-hp px-4 py-2 font-display uppercase tracking-wide text-ink disabled:opacity-50"
+          className="rounded-md bg-hp px-3 py-1.5 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
         >
           Continuer
         </button>
@@ -78,7 +78,7 @@ export default function OnboardingFlow() {
           <button
             type="button"
             onClick={() => setStep("agressivite")}
-            className="flex-1 rounded-md bg-hp px-4 py-2 font-display uppercase tracking-wide text-ink"
+            className="flex-1 rounded-md bg-hp px-3 py-1.5 font-display text-xs uppercase tracking-wide text-ink"
           >
             Continuer
           </button>
@@ -128,7 +128,7 @@ export default function OnboardingFlow() {
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-md bg-hp px-4 py-2 font-display uppercase tracking-wide text-ink disabled:opacity-50"
+          className="flex-1 rounded-md bg-hp px-3 py-1.5 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
         >
           {pending ? "…" : "Entrer dans l'Arène"}
         </button>

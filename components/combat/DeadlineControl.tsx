@@ -75,7 +75,7 @@ export default function DeadlineControl({
           role="dialog"
           aria-modal="true"
           aria-label={`Deadline de "${taskTitle}"`}
-          className="absolute right-0 top-full z-20 mt-1 flex flex-col gap-2 rounded-md border border-border bg-surface p-2 shadow-lg"
+          className="absolute right-0 top-full z-20 mt-1 flex flex-col gap-2 rounded-md border border-border bg-surface p-2"
         >
           <label htmlFor={`deadline-${taskId}`} className="text-xs text-muted">
             Heure limite

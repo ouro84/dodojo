@@ -14,7 +14,7 @@ export default function ArenaCoach({ step, onSuggest, onSkip }: ArenaCoachProps)
       role="status"
       className="pointer-events-none sticky bottom-3 z-40 mx-auto flex w-full max-w-md justify-center px-4"
     >
-      <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-2 rounded-lg border border-gold bg-surface p-4 text-center shadow-lg">
+      <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-2 rounded-lg border border-border bg-surface p-4 text-center">
         {step === "add" ? (
           <>
             <p className="text-sm text-ink">
@@ -23,7 +23,7 @@ export default function ArenaCoach({ step, onSuggest, onSkip }: ArenaCoachProps)
             <button
               type="button"
               onClick={onSuggest}
-              className="rounded-md border border-gold px-4 py-2 font-display text-xs uppercase tracking-wide text-gold"
+              className="rounded-md border border-hp px-4 py-2 font-display text-xs uppercase tracking-wide text-hp-text"
             >
               ⚡ Prendre en main Dodojo
             </button>

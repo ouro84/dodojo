@@ -19,7 +19,7 @@ export default function ArenaError({ aggressivityLevel = "sparring" }: ArenaErro
       </div>
       <Link
         href="/"
-        className="rounded-md bg-alert px-4 py-2 font-display text-xs uppercase tracking-wide text-[oklch(0.15_0.02_55)]"
+        className="rounded-md bg-alert px-4 py-2 font-display text-xs uppercase tracking-wide text-alert-ink"
       >
         Réessayer
       </Link>
