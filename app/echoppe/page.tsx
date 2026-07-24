@@ -6,9 +6,9 @@ import { goldBalance } from "@/lib/game-engine";
 import { CharacterSelect } from "@/components/shop/CharacterSelect";
 import BottomNav from "@/components/ui/BottomNav";
 
-export const metadata: Metadata = { title: "Échoppe — Dodojo" };
+export const metadata: Metadata = { title: "Le Marché Noir — Dodojo" };
 
-// US-18/US-53 : l'Échoppe (Character Select + tenues). Solde d'or dérivé,
+// US-18/US-53 : le Marché Noir (Character Select + tenues). Solde d'or dérivé,
 // possession lue depuis unlocked_heroes/unlocked_skins, équipé depuis profiles.
 export default async function EchoppePage() {
   const supabase = await createClient();
@@ -37,7 +37,7 @@ export default async function EchoppePage() {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
         <p role="alert" className="max-w-[32ch] text-sm text-hp-text">
-          L&apos;Échoppe est fermée un instant. Réessaie.
+          Le Marché Noir est fermé un instant. Réessaie.
         </p>
         <Link href="/echoppe" className="text-sm text-xp-text underline underline-offset-4">
           Réessayer
