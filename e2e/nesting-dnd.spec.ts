@@ -40,9 +40,25 @@ async function dragOnto(
   await page.mouse.move(handleCenter.x, handleCenter.y - 10, { steps: 5 });
   await page.mouse.move(handleCenter.x, finalY, { steps: 15 });
   await page.mouse.up();
+  // dnd-kit's PointerSensor appelle setPointerCapture() sur pointerdown ; sans
+  // un pointermove après le mouseup, la capture reste résiduelle côté navigateur
+  // dans certains runs, si bien qu'un clic ultérieur sur un autre bouton (× dans
+  // le afterEach) est livré à l'élément capturé plutôt qu'à sa cible réelle —
+  // observé en snapshot : le bouton "×" reste marqué [active] (:active CSS)
+  // sans jamais ouvrir sa modale. Ce mouvement force la relâche complète.
+  await page.mouse.move(handleCenter.x + 20, finalY + 20, { steps: 3 });
 }
 
 test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () => {
+  // Flake observé en run complet (jamais en isolation) : le afterEach abandonne
+  // jusqu'à 3 tâches en série (clic + modale de confirmation + round-trip
+  // serveur RG-04 chacune) sous le timeout par défaut (30s) partagé par toute
+  // la boucle — un aléa réseau/charge ponctuel sur l'un des 3 suffit à faire
+  // dépasser le budget total et annule le clic suivant ("Test ended"), pas un
+  // bug logique du drag & drop. Marge doublée pour absorber cet aléa sans
+  // dépendre de sa fréquence.
+  test.describe.configure({ timeout: 60_000 });
+
   const cleanupTitles: string[] = [];
 
   test.beforeEach(async ({ page }) => {

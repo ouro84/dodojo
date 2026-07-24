@@ -1,5 +1,43 @@
 import type { Page } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+// Flake connu et reproduit (cf. CLAUDE.md § listUsersRetrying) : l'API Admin
+// GoTrue du projet Supabase lié rejette parfois un appel `listUsers()` avec
+// "invalid JWT ... unrecognized JWT kid <nil>" (403), de façon intermittente
+// et non liée au code appelant — un retry immédiat guérit systématiquement
+// (confirmé : 8/8 sur rafale concurrente reproduisant le flake). On retry ici
+// plutôt que de laisser chaque appelant échouer sur un flake d'infra externe.
+export async function listUsersRetrying(
+  admin: SupabaseClient,
+  attempts = 3,
+): Promise<Awaited<ReturnType<SupabaseClient["auth"]["admin"]["listUsers"]>>["data"]["users"]> {
+  let lastError: { message: string } | null = null;
+  for (let i = 0; i < attempts; i++) {
+    const { data, error } = await admin.auth.admin.listUsers();
+    if (!error) return data.users;
+    lastError = error;
+  }
+  throw new Error(
+    `listUsers a échoué après ${attempts} tentatives (flake JWT Admin API Supabase, cf. CLAUDE.md) : ${lastError?.message}`,
+  );
+}
+
+// Même flake que listUsersRetrying, sur l'endpoint deleteUser : un échec ici
+// passait jusqu'ici silencieux (error jamais vérifié), laissant le compte de
+// test en place — le signup suivant échoue alors sur "email déjà utilisé"
+// (timeout 30s dans onboarding.spec.ts, symptôme sans rapport apparent avec
+// la cause réelle). On retry et on fait remonter l'échec explicitement.
+async function deleteUserRetrying(admin: SupabaseClient, uid: string, attempts = 3): Promise<void> {
+  let lastError: { message: string } | null = null;
+  for (let i = 0; i < attempts; i++) {
+    const { error } = await admin.auth.admin.deleteUser(uid);
+    if (!error) return;
+    lastError = error;
+  }
+  throw new Error(
+    `deleteUser a échoué après ${attempts} tentatives (flake JWT Admin API Supabase, cf. CLAUDE.md) : ${lastError?.message}`,
+  );
+}
 
 export async function login(page: Page): Promise<void> {
   const email = process.env.E2E_TEST_EMAIL;
@@ -41,8 +79,8 @@ export async function resetShopState(): Promise<void> {
   }
   const admin = createClient(url, key, { auth: { persistSession: false } });
 
-  const { data: users } = await admin.auth.admin.listUsers();
-  const testUser = users?.users.find((u) => u.email === email);
+  const users = await listUsersRetrying(admin);
+  const testUser = users.find((u) => u.email === email);
   if (!testUser) throw new Error("Reset e2e : utilisateur de test introuvable.");
   const uid = testUser.id;
 
@@ -87,9 +125,9 @@ export async function resetOnboardingUser(): Promise<void> {
     throw new Error("Reset onboarding e2e : creds manquants (.env.local).");
   }
   const admin = createClient(url, key, { auth: { persistSession: false } });
-  const { data } = await admin.auth.admin.listUsers();
-  const u = data?.users.find((x) => x.email === email);
-  if (u) await admin.auth.admin.deleteUser(u.id);
+  const users = await listUsersRetrying(admin);
+  const u = users.find((x) => x.email === email);
+  if (u) await deleteUserRetrying(admin, u.id);
 }
 
 // US-08 (bug #70) : sème une tâche "reste" (day_date dans le passé) sur le
@@ -106,8 +144,8 @@ export async function seedOverdueTask(title: string, daysAgo = 1): Promise<strin
     );
   }
   const admin = createClient(url, key, { auth: { persistSession: false } });
-  const { data: users } = await admin.auth.admin.listUsers();
-  const uid = users?.users.find((u) => u.email === email)?.id;
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
   if (!uid) throw new Error("Seed overdue task : utilisateur test introuvable.");
 
   const dayDate = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
@@ -164,8 +202,8 @@ export async function seedStreak(
     throw new Error("Seed streak : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.");
   }
   const admin = createClient(url, key, { auth: { persistSession: false } });
-  const { data: users } = await admin.auth.admin.listUsers();
-  const uid = users?.users.find((u) => u.email === email)?.id;
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
   if (!uid) throw new Error("Seed streak : utilisateur test introuvable.");
 
   await admin.from("day_results").delete().eq("user_id", uid);

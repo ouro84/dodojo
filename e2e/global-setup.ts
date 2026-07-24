@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { listUsersRetrying } from "./fixtures";
 
 // Purge l'état de combat du compte e2e fixe AVANT toute la suite. Les nettoyages
 // par test (afterEach) ne suffisent pas : dès qu'un overlay bloquant apparaît
@@ -15,8 +16,8 @@ export default async function globalSetup() {
     return;
   }
   const admin = createClient(url, key, { auth: { persistSession: false } });
-  const { data } = await admin.auth.admin.listUsers();
-  const uid = data?.users.find((u) => u.email === email)?.id;
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
   if (!uid) return;
   // Purge des tâches du compte fixe (données de test pures) → Arène vide, pas de
   // Rituel du Réveil parasite.
