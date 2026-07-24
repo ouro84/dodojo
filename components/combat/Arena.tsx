@@ -735,7 +735,7 @@ export default function Arena({
       <h1 className="sr-only">{"L'Arène — Dodojo"}</h1>
       <Link
         href="/guide"
-        aria-label="Manuel du Dojo"
+        aria-label="Le Guide"
         className="absolute right-3 top-3 z-40 text-xs text-faint hover:text-ink"
       >
         ?

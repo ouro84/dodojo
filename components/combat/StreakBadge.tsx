@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { StreakState } from "@/lib/game-engine";
 
 // US-12 : compteur de série + alerte « en danger » (jokers de la semaine épuisés).
-// Renvoie vers l'article « Séries & jokers » du Manuel du Dojo (issue #68).
+// Renvoie vers l'article « Séries & jokers » du Guide (issue #68).
 export default function StreakBadge({ state }: { state: StreakState }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
