@@ -4,7 +4,7 @@ import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 
 // CTA d'installation maison, ton pixel-art, affiché uniquement quand
 // Chrome/Android a effectivement proposé l'installation (capture de
-// `beforeinstallprompt`). Pas d'équivalent sur iOS (voir Manuel du Dojo,
+// `beforeinstallprompt`). Pas d'équivalent sur iOS (voir Le Guide,
 // section #installation, pour les instructions manuelles).
 export default function InstallCta() {
   const { canInstall, promptInstall } = useInstallPrompt();
