@@ -32,7 +32,6 @@ test.describe("Bouton Micro In-App (US-02)", () => {
         stop() {}
         abort() {}
       }
-      // @ts-expect-error injection de test uniquement, pas de vrai support navigateur
       window.SpeechRecognition = FakeSpeechRecognition;
     }, dictatedTitle);
 
@@ -49,9 +48,7 @@ test.describe("Bouton Micro In-App (US-02)", () => {
 
   test("navigateur non supporté : le bouton micro est absent", async ({ page }) => {
     await page.addInitScript(() => {
-      // @ts-expect-error nettoyage volontaire pour simuler l'absence de support
       delete window.SpeechRecognition;
-      // @ts-expect-error idem
       delete window.webkitSpeechRecognition;
     });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { AggressivityLevel, Task } from "@/types";
 import {
   calculateHeroHp,
@@ -17,6 +17,7 @@ import {
   completeOverdueTask,
   deferAllOverdue,
   deferOverdueTask,
+  type TaskActionResult,
 } from "@/app/actions/tasks";
 import { backfillMissedDays } from "@/app/actions/day";
 
@@ -24,7 +25,10 @@ interface WakeUpRitualProps {
   overdueTasks: Task[];
   timezone: string;
   aggressivityLevel: AggressivityLevel;
-  onResolved: () => void;
+  // Bug #70 : "Reporter" doit faire réapparaître la tâche dans l'Arène — le
+  // parent reçoit donc les tâches effectivement reportées (day_date/deadline_at
+  // à jour, renvoyées par le serveur) pour les fusionner dans son propre state.
+  onResolved: (deferredTasks: Task[]) => void;
 }
 
 function daysAgo(dayDate: string, todayKey: string): number {
@@ -53,13 +57,17 @@ export default function WakeUpRitual({
   const [error, setError] = useState<string | null>(null);
   // Seed figé au montage : voir PerfectOverlay pour la raison.
   const [seed] = useState(randomSeed);
+  // Bug #70 : accumule les tâches reportées au fil des actions (une ref, pas
+  // un state — lu synchronement dans la même fonction juste avant de résoudre,
+  // pas besoin de re-render dessus).
+  const deferredAccumulatorRef = useRef<Task[]>([]);
 
   const groups = useMemo(() => planWakeUp(tasks), [tasks]);
   const heroHp = calculateHeroHp(overdueHpPenalties(tasks));
   const todayKey = dayKey(new Date(), timezone);
 
   async function run(
-    action: () => Promise<{ error: string | null }>,
+    action: () => Promise<TaskActionResult>,
     affectedIds: string[],
   ) {
     setPending(true);
@@ -70,6 +78,12 @@ export default function WakeUpRitual({
       setError(result.error);
       return;
     }
+    if (result.deferredTasks && result.deferredTasks.length > 0) {
+      deferredAccumulatorRef.current = [
+        ...deferredAccumulatorRef.current,
+        ...result.deferredTasks,
+      ];
+    }
     const removed = new Set(affectedIds);
     const remaining = tasks.filter(
       (t) => !removed.has(t.id) && !removed.has(t.parent_id ?? ""),
@@ -77,7 +91,7 @@ export default function WakeUpRitual({
     setTasks(remaining);
     if (remaining.length === 0) {
       await backfillMissedDays();
-      onResolved();
+      onResolved(deferredAccumulatorRef.current);
     }
   }
 
