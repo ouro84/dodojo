@@ -52,6 +52,7 @@ import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
 import { deadlineAlertLine } from "@/lib/copy/deadline";
 import { randomSeed } from "@/lib/copy/variant";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
@@ -149,6 +150,11 @@ export default function Arena({
   const [rageQuitConfirmId, setRageQuitConfirmId] = useState<string | null>(null);
   // Seed figé à l'ouverture de la confirmation (voir PerfectOverlay pour la raison).
   const [rageQuitConfirmSeed, setRageQuitConfirmSeed] = useState(0);
+  const rageQuitDialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(rageQuitDialogRef, {
+    active: rageQuitConfirmId !== null,
+    onEscape: () => setRageQuitConfirmId(null),
+  });
   const [undoState, setUndoState] = useState<{
     id: string;
     tasksSnapshot: Task[];
@@ -722,7 +728,7 @@ export default function Arena({
   }
 
   return (
-    <div className="relative mx-auto flex h-dvh w-full max-w-md flex-1 flex-col gap-3 overflow-hidden px-4 py-4">
+    <main className="relative mx-auto flex h-dvh w-full max-w-md flex-1 flex-col gap-3 overflow-hidden px-4 py-4">
       {/* Audit UX 2026-07-24 (P1) : seul écran de l'app sans heading de page -
           sr-only pour ne pas perturber le HUD, juste un point d'entrée pour
           lecteur d'écran (WCAG 2.4.6 / 1.3.1). */}
@@ -891,12 +897,14 @@ export default function Arena({
 
       {rageQuitConfirmId && (
         <div
-          role="alertdialog"
-          aria-label="Confirmer l'abandon"
           className="fixed inset-0 z-40 flex items-center justify-center bg-[oklch(0.08_0_0_/_72%)] px-6"
           onClick={() => setRageQuitConfirmId(null)}
         >
           <div
+            ref={rageQuitDialogRef}
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Confirmer l'abandon"
             className="flex w-full max-w-xs flex-col gap-3 rounded-lg border border-alert bg-surface p-4 text-center"
             onClick={(event) => event.stopPropagation()}
           >
@@ -1032,6 +1040,6 @@ export default function Arena({
       )}
 
       <BottomNav active="arene" />
-    </div>
+    </main>
   );
 }

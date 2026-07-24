@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { HEROES, getHero, isHeroOwned, DEFAULT_HERO_ID } from "@/lib/heroes";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { getSkinsForHero, isSkinOwned, defaultSkinIdFor } from "@/lib/hero-skins";
 import {
   equipHero,
@@ -36,6 +37,10 @@ export function CharacterSelect({
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const confirmHeroRef = useRef<HTMLDivElement>(null);
+  const confirmSkinRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(confirmHeroRef, { active: confirmId !== null, onEscape: () => setConfirmId(null) });
+  useFocusTrap(confirmSkinRef, { active: confirmSkin !== null, onEscape: () => setConfirmSkin(null) });
 
   const selected = getHero(selectedId) ?? getHero(DEFAULT_HERO_ID)!;
   const owned = isHeroOwned(selected.id, ownedIds);
@@ -225,7 +230,9 @@ export function CharacterSelect({
       {/* Modale de confirmation héros */}
       {confirmId && (
         <div
+          ref={confirmHeroRef}
           role="dialog"
+          aria-modal="true"
           aria-label="Confirmer l'achat"
           className="flex flex-col items-center gap-2 rounded-lg border border-border bg-black/60 p-4 text-center"
         >
@@ -254,7 +261,9 @@ export function CharacterSelect({
       {/* Modale de confirmation tenue */}
       {confirmSkin && (
         <div
+          ref={confirmSkinRef}
           role="dialog"
+          aria-modal="true"
           aria-label="Confirmer l'achat de la tenue"
           className="flex flex-col items-center gap-2 rounded-lg border border-border bg-black/60 p-4 text-center"
         >

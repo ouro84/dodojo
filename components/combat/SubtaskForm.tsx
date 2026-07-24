@@ -56,7 +56,7 @@ export default function SubtaskForm({
         onChange={(event) => setTitle(event.target.value)}
         placeholder="Sous-tâche…"
         maxLength={140}
-        className="flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-faint"
+        className="flex-1 rounded bg-transparent text-xs text-ink outline-none placeholder:text-faint focus-visible:outline focus-visible:outline-2 focus-visible:outline-xp focus-visible:outline-offset-2"
       />
       <button
         type="submit"

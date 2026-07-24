@@ -35,7 +35,7 @@ export default function AddTaskForm({ onAdd, pending = false }: AddTaskFormProps
         onChange={(event) => setTitle(event.target.value)}
         placeholder="Balance ta tâche…"
         maxLength={140}
-        className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
+        className="flex-1 rounded bg-transparent text-sm text-ink outline-none placeholder:text-faint focus-visible:outline focus-visible:outline-2 focus-visible:outline-xp focus-visible:outline-offset-2"
       />
       <MicButton disabled={pending} onTranscript={onAdd} />
       <button

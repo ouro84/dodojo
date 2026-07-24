@@ -18,7 +18,7 @@ export default function BossBar({ bossName, currentHp, maxHp }: BossBarProps) {
         className="h-3.5 overflow-hidden rounded-sm bg-hp-dim"
       >
         <div
-          className="h-full bg-hp transition-[width] duration-300 ease-out"
+          className="h-full bg-hp transition-[width] duration-300 ease-out motion-reduce:transition-none"
           style={{ width: `${pct}%` }}
         />
       </div>

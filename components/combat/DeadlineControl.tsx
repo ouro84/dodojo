@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { deadlineIso, localTimeFromIso } from "@/lib/game-engine";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface DeadlineControlProps {
   taskId: string;
@@ -48,6 +49,8 @@ export default function DeadlineControl({
   }
 
   const label = deadlineAt ? localTimeFromIso(deadlineAt, timezone) : null;
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(popoverRef, { active: open, onEscape: () => setOpen(false) });
 
   return (
     <div className="relative shrink-0">
@@ -68,7 +71,9 @@ export default function DeadlineControl({
       </button>
       {open && (
         <div
+          ref={popoverRef}
           role="dialog"
+          aria-modal="true"
           aria-label={`Deadline de "${taskTitle}"`}
           className="absolute right-0 top-full z-20 mt-1 flex flex-col gap-2 rounded-md border border-border bg-surface p-2 shadow-lg"
         >

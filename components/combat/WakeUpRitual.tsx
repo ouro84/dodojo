@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { AggressivityLevel, Task } from "@/types";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   calculateHeroHp,
   dayKey,
@@ -99,9 +100,16 @@ export default function WakeUpRitual({
     return tasks.filter((t) => t.parent_id === rootId).map((t) => t.id);
   }
 
+  const overlayRef = useRef<HTMLDivElement>(null);
+  // Overlay volontairement non-dismissable (US-08) : pas de onEscape — Echap
+  // ne doit rien faire tant que les restes ne sont pas résolus.
+  useFocusTrap(overlayRef, { active: true });
+
   return (
     <div
+      ref={overlayRef}
       role="alertdialog"
+      aria-modal="true"
       aria-label="Rituel du Réveil"
       className="fixed inset-0 z-50 flex flex-col gap-4 overflow-y-auto bg-[oklch(0.08_0_0_/_92%)] px-4 py-6"
     >
@@ -114,9 +122,16 @@ export default function WakeUpRitual({
 
       {/* A5 : jauge Héro, animée en motion-safe uniquement (A7). */}
       <div className="rounded-md border border-border bg-surface px-3 py-2">
-        <div className="h-3 w-full overflow-hidden rounded bg-[oklch(0.2_0_0)]">
+        <div
+          role="progressbar"
+          aria-valuenow={heroHp}
+          aria-valuemin={0}
+          aria-valuemax={HERO_MAX_HP}
+          aria-label="Points de vie du Héros"
+          className="h-3 w-full overflow-hidden rounded bg-hp-dim"
+        >
           <div
-            className="h-full bg-hp transition-[width] motion-reduce:transition-none"
+            className="h-full bg-hp transition-[width] duration-300 ease-out motion-reduce:transition-none"
             style={{ width: `${(heroHp / HERO_MAX_HP) * 100}%` }}
           />
         </div>
