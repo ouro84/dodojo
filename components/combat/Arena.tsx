@@ -51,6 +51,7 @@ import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
 import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
 import { deadlineAlertLine } from "@/lib/copy/deadline";
 import { randomSeed } from "@/lib/copy/variant";
+import { resolveAggressivityLevel } from "@/lib/aggressivity";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
@@ -128,10 +129,7 @@ export default function Arena({
     getBackground(backgroundId) ?? getBackground(DEFAULT_BACKGROUND_ID)!;
   const bossName = boss.name;
   const [profile, setProfile] = useState<Profile>(initialProfile);
-  // Repli sur "sparring" : un profil créé avant l'ajout de la colonne
-  // (US-49/US-54) peut avoir aggressivity_level NULL — sans ce repli,
-  // pickVariant(pools[level], seed) plante (pools[undefined]).
-  const level = profile.aggressivity_level ?? "sparring";
+  const level = resolveAggressivityLevel(profile.aggressivity_level);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
