@@ -3,16 +3,16 @@ import { resolveAggressivityLevel } from "./aggressivity";
 
 describe("resolveAggressivityLevel", () => {
   test("renvoie la valeur telle quelle si elle est définie", () => {
-    expect(resolveAggressivityLevel("sensei")).toBe("sensei");
-    expect(resolveAggressivityLevel("sparring")).toBe("sparring");
-    expect(resolveAggressivityLevel("street")).toBe("street");
+    expect(resolveAggressivityLevel("doux")).toBe("doux");
+    expect(resolveAggressivityLevel("direct")).toBe("direct");
+    expect(resolveAggressivityLevel("brut")).toBe("brut");
   });
 
-  test("replie sur sparring si null (profil pré-migration US-49/US-54)", () => {
-    expect(resolveAggressivityLevel(null)).toBe("sparring");
+  test("replie sur direct si null (profil pré-migration US-49/US-54)", () => {
+    expect(resolveAggressivityLevel(null)).toBe("direct");
   });
 
-  test("replie sur sparring si undefined", () => {
-    expect(resolveAggressivityLevel(undefined)).toBe("sparring");
+  test("replie sur direct si undefined", () => {
+    expect(resolveAggressivityLevel(undefined)).toBe("direct");
   });
 });
