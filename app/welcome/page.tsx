@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import WelcomeSignup from "./WelcomeSignup";
+
+export const metadata: Metadata = { title: "Bienvenue — Dodojo" };
 
 export default async function WelcomePage() {
   const supabase = await createClient();

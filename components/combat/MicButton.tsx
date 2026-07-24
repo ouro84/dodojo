@@ -34,7 +34,7 @@ export default function MicButton({ disabled = false, onTranscript }: MicButtonP
         aria-label={isListening ? "Arrêter l'écoute" : "Dicter une tâche"}
         aria-pressed={isListening}
         onClick={isListening ? stop : start}
-        className={`shrink-0 rounded-md border border-border bg-surface px-2 py-1.5 text-ink disabled:opacity-40 ${
+        className={`shrink-0 rounded-md border border-border bg-surface p-3.5 text-ink disabled:opacity-40 ${
           isListening ? "mic-listening border-hp" : ""
         }`}
       >

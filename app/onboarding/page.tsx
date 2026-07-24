@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import OnboardingFlow from "./OnboardingFlow";
+
+export const metadata: Metadata = { title: "Créer ton combattant — Dodojo" };
 
 export default async function OnboardingPage() {
   const supabase = await createClient();

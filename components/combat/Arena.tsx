@@ -719,6 +719,10 @@ export default function Arena({
 
   return (
     <div className="relative flex flex-1 flex-col gap-3 px-4 py-4">
+      {/* Audit UX 2026-07-24 (P1) : seul écran de l'app sans heading de page -
+          sr-only pour ne pas perturber le HUD, juste un point d'entrée pour
+          lecteur d'écran (WCAG 2.4.6 / 1.3.1). */}
+      <h1 className="sr-only">{"L'Arène — Dodojo"}</h1>
       <Link
         href="/guide"
         aria-label="Manuel du Dojo"

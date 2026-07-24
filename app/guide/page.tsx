@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { chargerIndexGuide, grouperParSection } from "@/lib/guide";
+import BottomNav from "@/components/ui/BottomNav";
 
 export const metadata = { title: "Manuel du Dojo" };
 
@@ -36,9 +37,7 @@ export default async function GuidePage() {
           </section>
         ))
       )}
-      <Link href="/qg" className="self-center text-xs text-muted underline underline-offset-4">
-        Retour au QG
-      </Link>
+      <BottomNav active="qg" />
     </main>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -10,6 +11,9 @@ import {
 import DamageSparkline from "@/components/pantheon/DamageSparkline";
 import WinRateRing from "@/components/pantheon/WinRateRing";
 import CombatJournal from "@/components/pantheon/CombatJournal";
+import BottomNav from "@/components/ui/BottomNav";
+
+export const metadata: Metadata = { title: "Panthéon — Dodojo" };
 
 // US-10 : le Panthéon — écran lecture seule, dérivé de day_results + profiles.
 // Aucune écriture (B1). Accessible via le QG (D3).
@@ -56,9 +60,7 @@ export default async function PantheonPage() {
         <Link href="/pantheon" className="text-xs text-xp underline underline-offset-4">
           Réessayer
         </Link>
-        <Link href="/qg" className="text-xs text-muted underline underline-offset-4">
-          Retour au QG
-        </Link>
+        <BottomNav active="qg" />
       </main>
     );
   }
@@ -91,9 +93,7 @@ export default async function PantheonPage() {
         <Link href="/" className="text-sm text-hp underline underline-offset-4">
           Rejoindre l&apos;Arène
         </Link>
-        <Link href="/qg" className="text-xs text-muted underline underline-offset-4">
-          Retour au QG
-        </Link>
+        <BottomNav active="qg" />
       </main>
     );
   }
@@ -184,12 +184,7 @@ export default async function PantheonPage() {
         <CombatJournal entries={results} />
       </section>
 
-      <Link
-        href="/qg"
-        className="self-center text-xs text-muted underline underline-offset-4"
-      >
-        Retour au QG
-      </Link>
+      <BottomNav active="qg" />
     </main>
   );
 }
