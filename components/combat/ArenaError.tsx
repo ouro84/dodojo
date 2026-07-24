@@ -6,7 +6,7 @@ interface ArenaErrorProps {
   aggressivityLevel?: AggressivityLevel;
 }
 
-// Niveau `sparring` par défaut : utilisé quand le profil lui-même n'a pas pu
+// Niveau `direct` par défaut : utilisé quand le profil lui-même n'a pas pu
 // être chargé (aucun aggressivity_level disponible à ce stade).
 export default function ArenaError({ aggressivityLevel = "direct" }: ArenaErrorProps) {
   return (

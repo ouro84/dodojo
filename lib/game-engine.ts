@@ -215,7 +215,7 @@ export function calculateHeroHp(penaltyTasks: HeroHpPenaltyTask[]): number {
 }
 
 // Construit les entrées pondérées du pool HP Héros pour des tâches en retard
-// (reportées d'un jour précédent, poids -20). Utilisé par le Rituel du Réveil
+// (reportées d'un jour précédent, poids -20). Utilisé par le Réveil
 // et l'Arène.
 export function overdueHpPenalties(tasks: OverdueTask[]): HeroHpPenaltyTask[] {
   return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));

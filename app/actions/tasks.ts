@@ -482,7 +482,7 @@ export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
   if (error) return { error: "Impossible de reporter ce reste. Réessaie." };
   revalidatePath("/");
   // Bug #70 : les lignes mises à jour sont renvoyées explicitement — le
-  // Rituel du Réveil est un overlay client qui ne re-fetch jamais l'Arène en
+  // Le Réveil est un overlay client qui ne re-fetch jamais l'Arène en
   // se fermant, donc sans ça la tâche reportée reste invisible côté client
   // (day_date correct en base, mais jamais montrée) jusqu'au prochain rechargement.
   return { error: null, deferredTasks: (updated ?? []) as Task[] };
@@ -534,7 +534,7 @@ export async function deferAllOverdue(): Promise<TaskActionResult> {
   if (error) return { error: "Impossible de tout reporter. Réessaie." };
   revalidatePath("/");
   // Bug #70 : voir deferOverdueTask ci-dessus — même besoin de renvoyer les
-  // lignes reportées pour que le Rituel du Réveil les remonte à l'Arène.
+  // lignes reportées pour que le Réveil les remonte à l'Arène.
   return { error: null, deferredTasks: (updated ?? []) as Task[] };
 }
 

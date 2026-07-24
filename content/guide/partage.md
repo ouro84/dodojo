@@ -1,6 +1,6 @@
-Après un K.O. en direct ou au Rituel du Crépuscule, un bouton « Partager » génère une carte façon écran de score d'arcade : ton pseudo, ton combattant, le Boss du jour, les dégâts infligés, l'XP gagnée et ta série en cours.
+Après un K.O. en direct ou au Dernier Round, un bouton « Partager » génère une carte façon écran de score d'arcade : ton pseudo, ton combattant, le Boss du jour, les dégâts infligés, l'XP gagnée et ta série en cours.
 
-- Victoire, retraite ou défaite : les trois issues sont partageables, dans l'esprit dojo qui assume la défaite plutôt que de la cacher
+- Victoire, retraite ou défaite : les trois issues sont partageables, dans un esprit qui assume la défaite plutôt que de la cacher
 
 - Un jour qui franchit un palier de série (7/30/100) affiche une carte spéciale avec les flammes du palier
 

@@ -8,4 +8,4 @@ L'icône ⏰ sur une tâche permet de lui fixer une heure limite dans la journé
 
 - Un badge près du Boss annonce les deadlines à venir dans la journée
 
-- Reporter une tâche au Rituel du Réveil efface sa deadline (pas de cumul de malus)
+- Reporter une tâche au Réveil efface sa deadline (pas de cumul de malus)

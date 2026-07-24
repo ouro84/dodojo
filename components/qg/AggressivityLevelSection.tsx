@@ -14,7 +14,7 @@ const LEVELS: Array<{ value: AggressivityLevel; name: string; description: strin
   { value: "brut", name: "Brut", description: "Arcade, sans filtre." },
 ];
 
-// US-54 : jauge d'agressivité (Dojo Gauge), réglable à tout moment depuis le
+// US-54 : jauge d'agressivité (Volume Intérieur), réglable à tout moment depuis le
 // QG — même sélecteur à 3 cartes que l'onboarding.
 export default function AggressivityLevelSection({ initialLevel }: AggressivityLevelSectionProps) {
   const [level, setLevel] = useState<AggressivityLevel>(initialLevel);
