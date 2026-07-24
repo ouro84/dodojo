@@ -137,8 +137,17 @@ const RACINE = join(process.cwd(), "content", "guide");
 
 /** Sommaire : tous les articles publiés, déjà triés par le script de pull. */
 export async function chargerIndexGuide(): Promise<ArticleGuide[]> {
-  const brut = await readFile(join(RACINE, "index.json"), "utf8");
-  return JSON.parse(brut) as ArticleGuide[];
+  // Audit #67, PR6 : readFile/JSON.parse pouvaient lever sans état d'erreur
+  // cohérent avec le reste de l'app (contrairement à chargerCorpsArticle,
+  // dont le catch->null est intentionnel : un slug inconnu n'est pas une
+  // panne, cf. dynamicParams=false). Ici une erreur remonte désormais
+  // jusqu'à app/guide/error.tsx au lieu de planter le rendu sans écran.
+  try {
+    const brut = await readFile(join(RACINE, "index.json"), "utf8");
+    return JSON.parse(brut) as ArticleGuide[];
+  } catch (cause) {
+    throw new Error("Impossible de charger l'index du Guide", { cause });
+  }
 }
 
 /** Corps Markdown d'un article, ou `null` si le slug n'existe pas. */
