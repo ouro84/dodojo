@@ -99,7 +99,7 @@ export default function PerfectOverlay({
           onClick={onCrepuscule}
           className="rounded-md border border-gold bg-surface px-5 py-2 font-display text-xs uppercase tracking-wide text-gold"
         >
-          🌙 Rituel du Crépuscule
+          🌙 Dernier Round
         </button>
         <ShareButton params={shareCardParams} source="perfect_overlay" />
         <button

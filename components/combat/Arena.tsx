@@ -1027,7 +1027,7 @@ export default function Arena({
           disabled={closing}
           className="rounded-md border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
         >
-          {closing ? "…" : "Rituel du Crépuscule"}
+          {closing ? "…" : "Dernier Round"}
         </button>
       )}
 

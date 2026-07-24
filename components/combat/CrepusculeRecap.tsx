@@ -24,7 +24,7 @@ interface CrepusculeRecapProps {
   onDismiss: () => void;
 }
 
-// US-07 : récap figé du Rituel du Crépuscule, dessiné comme une carte de score
+// US-07 : récap figé du Dernier Round, dessiné comme une carte de score
 // arcade self-contained (prête pour l'export PNG d'US-20, sans refonte).
 // Victoire = ton exalté ; retraite = ton apaisé, jamais culpabilisant.
 export default function CrepusculeRecap({
@@ -52,7 +52,7 @@ export default function CrepusculeRecap({
       ref={overlayRef}
       role="dialog"
       aria-modal="true"
-      aria-label="Rituel du Crépuscule"
+      aria-label="Dernier Round"
       data-outcome={outcome}
       className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[oklch(0.08_0_0_/_88%)] px-4 text-center"
     >
