@@ -1,4 +1,4 @@
-export type AggressivityLevel = "sensei" | "sparring" | "street";
+export type AggressivityLevel = "doux" | "direct" | "brut";
 
 export interface Profile {
   id: string;

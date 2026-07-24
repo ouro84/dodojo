@@ -83,7 +83,7 @@ export default function WelcomeSignup() {
         disabled={pending}
         className="rounded-md bg-hp px-3 py-1.5 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
       >
-        {pending ? "…" : "Rejoindre le dojo"}
+        {pending ? "…" : "Entrer dans l'Arène"}
       </button>
       <Link href="/login" className="text-center text-xs text-faint underline underline-offset-4">
         Déjà un compte ? Se connecter

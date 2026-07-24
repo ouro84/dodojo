@@ -9,9 +9,9 @@ import { createProfile, type CreateProfileState } from "./actions";
 const initialState: CreateProfileState = { error: null };
 
 const AGGRESSIVITY_OPTIONS: Array<{ value: AggressivityLevel; name: string; description: string }> = [
-  { value: "sensei", name: "Sensei", description: "Philosophe, zen." },
-  { value: "sparring", name: "Sparring", description: "Franc-parler, équilibré." },
-  { value: "street", name: "Street", description: "Arcade, sans filtre." },
+  { value: "doux", name: "Doux", description: "Philosophe, zen." },
+  { value: "direct", name: "Direct", description: "Franc-parler, équilibré." },
+  { value: "brut", name: "Brut", description: "Arcade, sans filtre." },
 ];
 
 export default function OnboardingFlow() {
@@ -19,7 +19,7 @@ export default function OnboardingFlow() {
   const [step, setStep] = useState<"pseudo" | "avatar" | "agressivite">("pseudo");
   const [username, setUsername] = useState("");
   const [starterId, setStarterId] = useState(DEFAULT_HERO_ID);
-  const [aggressivityLevel, setAggressivityLevel] = useState<AggressivityLevel>("sparring");
+  const [aggressivityLevel, setAggressivityLevel] = useState<AggressivityLevel>("direct");
   const tzRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export default function OnboardingFlow() {
       <input type="hidden" name="aggressivityLevel" value={aggressivityLevel} readOnly />
       <input ref={tzRef} type="hidden" name="timezone" defaultValue="UTC" />
       <p className="text-center text-xs uppercase tracking-wide text-faint">
-        Le ton du Dojo, {trimmed}
+        Ton Volume Intérieur, {trimmed}
       </p>
       <div className="grid grid-cols-1 gap-2">
         {AGGRESSIVITY_OPTIONS.map((option) => (

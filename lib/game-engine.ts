@@ -215,7 +215,7 @@ export function calculateHeroHp(penaltyTasks: HeroHpPenaltyTask[]): number {
 }
 
 // Construit les entrées pondérées du pool HP Héros pour des tâches en retard
-// (reportées d'un jour précédent, poids -20). Utilisé par le Rituel du Réveil
+// (reportées d'un jour précédent, poids -20). Utilisé par le Réveil
 // et l'Arène.
 export function overdueHpPenalties(tasks: OverdueTask[]): HeroHpPenaltyTask[] {
   return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
@@ -671,12 +671,12 @@ export function pantheonStats(
   };
 }
 
-// US-12 : titre débloqué selon le record de série (provisoire — vocabulaire dojo,
-// pourra fusionner avec d'éventuels titres de niveau plus tard).
+// US-12 : titre débloqué selon le record de série — progression de clarté
+// mentale croissante (issue #51, "Démon Intérieur").
 export function titleForStreak(bestStreak: number): string | null {
-  if (bestStreak >= 100) return "Sensei";
-  if (bestStreak >= 30) return "Ceinture Noire";
-  if (bestStreak >= 7) return "Ceinture Jaune";
+  if (bestStreak >= 100) return "Esprit Vide";
+  if (bestStreak >= 30) return "Silence";
+  if (bestStreak >= 7) return "Calme";
   return null;
 }
 

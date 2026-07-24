@@ -1,1 +1,1 @@
-Chaque jour, un Boss se dresse sur ta route. Tes tâches sont ses points de vie : plus tu en ajoutes, plus il est coriace. Chaque tâche accomplie lui rentre dedans. Vide sa jauge avant le soir et la rue est à toi.
+Chaque jour, quelque chose traîne encore dans ta tête — non tranché, non fait. C'est ton Boss du jour. Tes tâches sont ses points de vie : plus tu en ajoutes, plus il est coriace. Chaque tâche accomplie lui rentre dedans. Vide sa jauge avant le soir et ta tête est libre.

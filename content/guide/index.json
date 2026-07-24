@@ -6,7 +6,7 @@
     "ordre": 10,
     "resume": "Le concept central : le Boss du jour et sa jauge de HP.",
     "motsCles": [],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Installer Dodojo",
@@ -17,7 +17,7 @@
     "motsCles": [
       "installation"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:36:00.000Z"
   },
   {
     "titre": "Le barème de combat",
@@ -39,7 +39,7 @@
     "motsCles": [
       "combat"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Les Deadlines & Attaques Surprises",
@@ -50,7 +50,7 @@
     "motsCles": [
       "combat"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Le Rage Quit",
@@ -75,20 +75,20 @@
     "majLe": "2026-07-24T07:26:00.000Z"
   },
   {
-    "titre": "Le Rituel du Réveil",
+    "titre": "Le Réveil",
     "slug": "reveil",
-    "section": "Rituels",
+    "section": "Journée",
     "ordre": 10,
-    "resume": "Le rituel bloquant qui solde les restes de la veille à l'ouverture.",
+    "resume": "Ce qui solde les restes de la veille à l'ouverture, avant de reprendre le combat.",
     "motsCles": [
       "rituel"
     ],
     "majLe": "2026-07-24T07:26:00.000Z"
   },
   {
-    "titre": "Le Rituel du Crépuscule",
+    "titre": "Dernier Round",
     "slug": "crepuscule",
-    "section": "Rituels",
+    "section": "Journée",
     "ordre": 20,
     "resume": "Clôturer sa journée : victoire, retraite ou défaite.",
     "motsCles": [
@@ -105,10 +105,10 @@
     "motsCles": [
       "progression"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
-    "titre": "Or & Échoppe",
+    "titre": "Or & Marché Noir",
     "slug": "or",
     "section": "Progression",
     "ordre": 20,
@@ -116,7 +116,7 @@
     "motsCles": [
       "progression"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Tenues",
@@ -127,10 +127,10 @@
     "motsCles": [
       "progression"
     ],
-    "majLe": "2026-07-24T07:36:00.000Z"
+    "majLe": "2026-07-24T21:37:00.000Z"
   },
   {
-    "titre": "Le Panthéon",
+    "titre": "Tableau de Chasse",
     "slug": "pantheon",
     "section": "Progression",
     "ordre": 40,
@@ -138,7 +138,7 @@
     "motsCles": [
       "progression"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Le Boss du jour",
@@ -161,18 +161,18 @@
       "progression",
       "partage"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
-    "titre": "Régler le ton du Dojo",
+    "titre": "Régler ton Volume Intérieur",
     "slug": "agressivite",
     "section": "Réglages",
     "ordre": 10,
-    "resume": "Régler le ton du Sensei et du Boss (Dojo Gauge).",
+    "resume": "Régler le ton de la Voix et du Boss (Volume Intérieur).",
     "motsCles": [
       "reglage"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Le rappel du soir",
@@ -183,7 +183,7 @@
     "motsCles": [
       "integration"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:37:00.000Z"
   },
   {
     "titre": "Ajouter une tâche à la voix (Siri)",
@@ -194,7 +194,7 @@
     "motsCles": [
       "integration"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:37:00.000Z"
   },
   {
     "titre": "Ajouter une tâche à la voix (Gemini / Android)",
@@ -205,6 +205,6 @@
     "motsCles": [
       "integration"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:37:00.000Z"
   }
 ]

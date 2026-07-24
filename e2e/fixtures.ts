@@ -52,7 +52,7 @@ export async function login(page: Page): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Mot de passe").fill(password);
-  await page.getByRole("button", { name: "Entrer dans le dojo" }).click();
+  await page.getByRole("button", { name: "Entrer dans l'Arène" }).click();
   await page.waitForURL("/");
 }
 
@@ -131,7 +131,7 @@ export async function resetOnboardingUser(): Promise<void> {
 }
 
 // US-08 (bug #70) : sème une tâche "reste" (day_date dans le passé) sur le
-// compte e2e fixe, pour pouvoir tester réellement le Rituel du Réveil
+// compte e2e fixe, pour pouvoir tester réellement le Réveil
 // bloquant (jusqu'ici couvert par un test.fixme faute de route de seed —
 // cf. e2e/wake-up-ritual.spec.ts). Retourne l'id créé pour le nettoyage.
 export async function seedOverdueTask(title: string, daysAgo = 1): Promise<string> {

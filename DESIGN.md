@@ -106,9 +106,9 @@ components:
 
 ## 1. Overview
 
-**Creative North Star: "Le Dojo de Rue"**
+**Creative North Star: "Le Démon Intérieur"**
 
-Un élève de dojo d'arts martiaux qui porte son entraînement dans la rue — la discipline du dojo (HUD lisible, hiérarchie claire, feedback net) rencontre l'énergie brute d'un combat de rue façon Street Fighter II. Le système est bâti sur une palette pleine et fonctionnelle (rouge combat, indigo néon, or), une police pixel-art pour l'impact et une police monospace pour la lisibilité opérationnelle, et un fond sombre de cabinet d'arcade en toute occasion. Le motion est chorégraphié par coup porté (flash, secousse, texte flottant), jamais une simple transition d'état.
+Ce qui traîne dans ta tête, rendu visible et combattable — la discipline d'un HUD lisible et d'un feedback net rencontre l'énergie brute d'un combat d'arcade façon Street Fighter II. Le système est bâti sur une palette pleine et fonctionnelle (rouge combat, indigo néon, or), une police pixel-art pour l'impact et une police monospace pour la lisibilité opérationnelle, et un fond sombre de cabinet d'arcade en toute occasion. Le motion est chorégraphié par coup porté (flash, secousse, texte flottant), jamais une simple transition d'état.
 
 Ce système rejette explicitement l'esthétique SaaS/outil de productivité épuré (Notion, Linear) : Dodojo n'est pas un tableur déguisé, c'est un écran de combat.
 
@@ -130,7 +130,7 @@ Ce système rejette explicitement l'esthétique SaaS/outil de productivité épu
 - **Indigo Néon** (`oklch(0.54 0.17 275)`, token `xp`) : jauge d'XP, bordure du héros/tenue actuellement équipé (Échoppe). Variante sourde `xp-dim` (`oklch(0.28 0.08 275)`) en piste de jauge. **`xp-text`** (`oklch(0.625 0.17 275)`) : même rôle que `hp-text`, pour l'indigo utilisé comme couleur de texte.
 
 ### Tertiary
-- **Or** (`oklch(0.85 0.13 85)`, token `gold`) : solde de monnaie, CTA du Rituel du Crépuscule, bordure de sélection dans l'Échoppe, flammes de série, en-tête "PERFECT". `gold-ink` (`oklch(0.22 0.03 85)`) est le texte prévu sur fond or plein.
+- **Or** (`oklch(0.85 0.13 85)`, token `gold`) : solde de monnaie, CTA du Dernier Round, bordure de sélection dans l'Échoppe, flammes de série, en-tête "PERFECT". `gold-ink` (`oklch(0.22 0.03 85)`) est le texte prévu sur fond or plein.
 
 ### Neutral
 - **Fond Arcade** (`oklch(0.14 0.015 25)`, token `bg`) : fond par défaut de l'app.
@@ -159,7 +159,7 @@ Ce système rejette explicitement l'esthétique SaaS/outil de productivité épu
 ### Hierarchy
 - **Display** (BoldPixels, `text-2xl` à `text-4xl`, tracking large) : titres de célébration plein écran — "PERFECT"/K.O. (`ko-burst`), passage de niveau, flammes de série.
 - **Headline** (BoldPixels, `text-sm`, uppercase, tracking-wide) : noms de héros/Boss au-dessus des jauges HP, titres de section HUD (Arène, QG, Échoppe).
-- **Body** (monospace, `text-sm`) : titres et description de tâche, texte de dialogue Sensei/Boss (max ~28ch dans les overlays).
+- **Body** (monospace, `text-sm`) : titres et description de tâche, texte de dialogue La Voix/Boss (max ~28ch dans les overlays).
 - **Label** (BoldPixels, `text-xs`, uppercase, tracking-wide) : libellés de bouton ("Ajouter", "Équiper", "Confirmer"), nav du bas.
 - **Data** (monospace, `text-xs`, `tabular-nums`) : compteurs HP/XP/or, timestamps, métadonnées de tâche.
 
@@ -168,7 +168,7 @@ Ce système rejette explicitement l'esthétique SaaS/outil de productivité épu
 
 ## 4. Elevation
 
-Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative dans le système. La profondeur vient de deux mécanismes seulement : (1) une rampe de surfaces de plus en plus claires (`stage` → `bg` → `surface-2` → `surface`) qui hiérarchise fond de combat / HUD / cartes ; (2) des overlays de transition posés en `position: absolute`/`fixed` sur un fond noir semi-transparent (`oklch(0.08 0 0 / 72-92%)` ou `bg-black/40`–`bg-black/60`), jamais un flou (`backdrop-filter`) — les overlays non-bloquants (PERFECT/K.O., passage de niveau) restent dans le bas de la plage (72-78%), les overlays bloquants qui exigent une résolution avant de continuer (Rituel du Réveil, Rituel du Crépuscule) montent plus haut (88-92%) pour marquer davantage la coupure.
+Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative dans le système. La profondeur vient de deux mécanismes seulement : (1) une rampe de surfaces de plus en plus claires (`stage` → `bg` → `surface-2` → `surface`) qui hiérarchise fond de combat / HUD / cartes ; (2) des overlays de transition posés en `position: absolute`/`fixed` sur un fond noir semi-transparent (`oklch(0.08 0 0 / 72-92%)` ou `bg-black/40`–`bg-black/60`), jamais un flou (`backdrop-filter`) — les overlays non-bloquants (PERFECT/K.O., passage de niveau) restent dans le bas de la plage (72-78%), les overlays bloquants qui exigent une résolution avant de continuer (Le Réveil, Dernier Round) montent plus haut (88-92%) pour marquer davantage la coupure.
 
 ### Named Rules (optional)
 **La règle du noir-plat.** Un overlay bloquant s'obtient en assombrissant (noir à 40–78% d'opacité), jamais en floutant. Aucun `blur()`/`backdrop-filter` dans le système à ce jour.
@@ -179,7 +179,7 @@ Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative
 - **Shape:** coins arrondis 6px (`rounded-md`) pour tous les boutons.
 - **Primary** (`bg-hp`, texte `ink`, BoldPixels `text-xs` uppercase, `px-3 py-1.5`) : action principale d'un écran ("Ajouter" une tâche). Désactivé à `opacity-40`.
 - **Ghost / bordé** (fond transparent ou `surface`, bordure `border`, texte `ink` ou `muted`, `px-4 py-2`) : actions secondaires ("Continuer", "Équiper", "Annuler").
-- **Or (bordé)** (fond `surface`, bordure `gold`, texte `gold`) : CTA à forte valeur émotionnelle — Rituel du Crépuscule, confirmation d'achat.
+- **Or (bordé)** (fond `surface`, bordure `gold`, texte `gold`) : CTA à forte valeur émotionnelle — Dernier Round, confirmation d'achat.
 - **Icône seule** (bordure `border`, fond `surface`, `p-1.5` à `p-2`, icône SVG 16px `currentColor`) : micro (dictée), poignée de drag (`⠿`), abandon (`×`, devient `alert` au survol).
 
 ### Cards / Containers
@@ -191,7 +191,7 @@ Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative
 
 ### Inputs / Fields
 - **Style:** fond transparent sur conteneur `surface` bordé, pas de bordure propre à l'input, `text-sm` monospace, placeholder en `faint`.
-- **Focus:** anneau `focus-visible:outline` (2px, `xp`, offset 2px) sur les champs de saisie (ajout de tâche/sous-tâche) ; les boutons/liens utilisent `focus-visible:text-*` (changement de couleur de texte, pas d'anneau). Tout overlay bloquant (Rituel du Réveil, confirmations, popovers) piège le focus clavier (Tab/Shift+Tab confinés) via le hook `useFocusTrap` et restaure le focus au déclencheur à la fermeture.
+- **Focus:** anneau `focus-visible:outline` (2px, `xp`, offset 2px) sur les champs de saisie (ajout de tâche/sous-tâche) ; les boutons/liens utilisent `focus-visible:text-*` (changement de couleur de texte, pas d'anneau). Tout overlay bloquant (Le Réveil, confirmations, popovers) piège le focus clavier (Tab/Shift+Tab confinés) via le hook `useFocusTrap` et restaure le focus au déclencheur à la fermeture.
 - **Error / Disabled:** erreur en texte `alert` avec `role="alert"` ; disabled à `opacity-40`/`opacity-50` avec `cursor-wait`/curseur par défaut.
 
 ### Progress Bars (Signature Component)

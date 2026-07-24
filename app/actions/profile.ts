@@ -15,7 +15,7 @@ export async function markTutorialSeen(): Promise<{ error: string | null }> {
   return { error: null };
 }
 
-const VALID_AGGRESSIVITY_LEVELS: AggressivityLevel[] = ["sensei", "sparring", "street"];
+const VALID_AGGRESSIVITY_LEVELS: AggressivityLevel[] = ["doux", "direct", "brut"];
 
 // US-54 : réglage modifiable à tout moment (onboarding ou QG), pas de contrainte
 // one-shot contrairement au pseudo.
@@ -41,6 +41,6 @@ export async function updateAggressivityLevel(
     .update({ aggressivity_level: level })
     .eq("id", user.id);
 
-  if (error) return { error: "Le dojo n'a pas pu enregistrer ton réglage. Réessaie." };
+  if (error) return { error: "Dodojo n'a pas pu enregistrer ton réglage. Réessaie." };
   return { error: null };
 }

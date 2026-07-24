@@ -6,6 +6,6 @@ Sur Android (ou partout où Gemini est disponible), connecte Dodojo depuis les r
 
 - Une fois autorisé, dis « Ajoute [tâche] dans Dodojo » à Gemini : la tâche apparaît directement dans l'Arène du jour
 
-- La section « Intégrations » du QG affiche l'état de la connexion (Gemini connecté / non connecté) et un bouton « Déconnecter »
+- La section « Intégrations » du Vestiaire affiche l'état de la connexion (Gemini connecté / non connecté) et un bouton « Déconnecter »
 
-Déconnecter depuis le QG révoque immédiatement l'accès ; déconnecter depuis les réglages Gemini a le même effet côté Dodojo, dans les deux sens.
+Déconnecter depuis le Vestiaire révoque immédiatement l'accès ; déconnecter depuis les réglages Gemini a le même effet côté Dodojo, dans les deux sens.

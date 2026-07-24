@@ -1,7 +1,13 @@
 # Cartographie des Assets — `assets/`
 
-> Dernière mise à jour : 2026-07-16
+> Dernière mise à jour : 2026-07-24
 > Ce fichier documente le contenu du dossier `assets/` (non versionné dans `public/` pour l'instant — c'est la matière première brute, triée ici avant intégration).
+
+---
+
+## 0. `public/icons/logo-source.svg` — Logo Dodojo (issue #51)
+
+Logo source du "Démon Intérieur" : case à cocher pixel-art rouge, coche or qui sort du cadre façon lame/coup porté — le coup n'est pas porté à un ennemi extérieur, il transperce ta propre résistance. Généré par `scripts/generate-pwa-icons.mjs` vers `app/favicon.ico`, `app/apple-icon.png`, `public/icons/*`. Relancer `npm run generate:icons` après toute modification de ce fichier.
 
 ---
 

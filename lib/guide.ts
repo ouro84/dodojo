@@ -34,7 +34,7 @@ export interface ArticleGuide {
 export const ORDRE_SECTIONS = [
   "Démarrage",
   "Combat",
-  "Rituels",
+  "Journée",
   "Progression",
   "Réglages",
   "Intégrations",

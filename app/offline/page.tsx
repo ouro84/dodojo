@@ -8,7 +8,7 @@ export default function OfflinePage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
       <h1 className="font-display text-lg uppercase tracking-wide text-ink">
-        Le Dojo est hors ligne
+        Dodojo est hors ligne
       </h1>
       <p className="max-w-xs text-sm text-muted">
         Pas de réseau, pas de combat. Reconnecte-toi pour retrouver ton Boss du jour.

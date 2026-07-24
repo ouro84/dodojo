@@ -29,8 +29,8 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const meta = await trouverMeta(slug);
-  if (!meta) return { title: "Manuel du Dojo" };
-  return { title: `${meta.titre} — Manuel du Dojo` };
+  if (!meta) return { title: "Le Guide" };
+  return { title: `${meta.titre} — Le Guide` };
 }
 
 export default async function GuideArticlePage({
@@ -44,7 +44,7 @@ export default async function GuideArticlePage({
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
-      <BackLink href="/guide" label="Tout le Manuel" />
+      <BackLink href="/guide" label="Tout le Guide" />
       <header className="flex flex-col gap-1">
         <p className="text-xs uppercase tracking-wide text-gold">{meta.section}</p>
         <h1 className="font-hud text-lg font-semibold uppercase tracking-wide text-ink">{meta.titre}</h1>

@@ -10,11 +10,11 @@ Thomas, développeur/créateur indépendant surchargé. Croule sous les micro-t�
 
 ## Product Purpose
 
-Transformer la liste de tâches quotidienne en combat de boss d'arcade : chaque tâche ajoutée soigne le Boss du jour, chaque tâche complétée lui inflige des dégâts. Succès = terminer sa journée de travail l'esprit léger, avec une gratification immédiate et viscérale à chaque tâche cochée, plutôt qu'une liste qui s'accumule silencieusement.
+Transformer la liste de tâches quotidienne en combat contre ce qui traîne dans ta tête : chaque tâche ajoutée nourrit le Boss du jour (tout ce qui reste non tranché), chaque tâche complétée lui inflige des dégâts. Succès = terminer sa journée de travail l'esprit léger, la tête vidée, plutôt qu'une liste qui s'accumule silencieusement.
 
 ## Brand Personality
 
-Élève de dojo d'arts martiaux qui se bat dans la rue — vibe Ryu/Ken (Street Fighter). Discipline et humilité du dojo, mais grinta et franc-parler du combat de rue : jamais coincé, jamais corporate. Deux voix distinctes : un Sensei qui commente tes combats quotidiens (mentor, direct, tutoiement systématique) et le Boss qui te nargue en 1ère personne. Jurons légers dosés aux pics émotionnels réels (level up, victoire, échec), jamais en tic de langage mécanique. Détail complet : `docs/superpowers/specs/2026-07-08-tone-of-voice-design.md`.
+"Le Démon Intérieur" — le Boss n'est pas un rival extérieur, c'est tout ce qui traîne encore, non tranché, dans ta tête, rendu visible et combattable. Il change de masque chaque jour (le roster de monstres existant), mais reste toujours la même chose en dessous. La Voix qui commente ton combat n'est pas un mentor externe : c'est ta propre discipline, qui te parle depuis l'intérieur. Le Boss garde son franc-parler et ses piques, mais elles visent le doute qui vient de toi, jamais un rival de rue. Jurons légers dosés aux pics émotionnels réels (level up, victoire, échec), jamais en tic de langage mécanique. Détail complet : `docs/superpowers/specs/2026-07-24-demon-interieur-identite-design.md`.
 
 ## Anti-references
 
