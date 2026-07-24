@@ -6,7 +6,7 @@
     "ordre": 10,
     "resume": "Le concept central : le Boss du jour et sa jauge de HP.",
     "motsCles": [],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Installer Dodojo",
@@ -17,7 +17,7 @@
     "motsCles": [
       "installation"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:36:00.000Z"
   },
   {
     "titre": "Le barème de combat",
@@ -39,7 +39,7 @@
     "motsCles": [
       "combat"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Les Deadlines & Attaques Surprises",
@@ -50,7 +50,7 @@
     "motsCles": [
       "combat"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Le Rage Quit",
@@ -81,7 +81,7 @@
     "ordre": 10,
     "resume": "Ce qui solde les restes de la veille à l'ouverture, avant de reprendre le combat.",
     "motsCles": [
-      "journee"
+      "rituel"
     ],
     "majLe": "2026-07-24T07:26:00.000Z"
   },
@@ -92,7 +92,7 @@
     "ordre": 20,
     "resume": "Clôturer sa journée : victoire, retraite ou défaite.",
     "motsCles": [
-      "journee"
+      "rituel"
     ],
     "majLe": "2026-07-24T07:26:00.000Z"
   },
@@ -105,7 +105,7 @@
     "motsCles": [
       "progression"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Or & Marché Noir",
@@ -116,7 +116,7 @@
     "motsCles": [
       "progression"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Tenues",
@@ -127,7 +127,7 @@
     "motsCles": [
       "progression"
     ],
-    "majLe": "2026-07-24T07:36:00.000Z"
+    "majLe": "2026-07-24T21:37:00.000Z"
   },
   {
     "titre": "Tableau de Chasse",
@@ -138,7 +138,7 @@
     "motsCles": [
       "progression"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Le Boss du jour",
@@ -161,7 +161,7 @@
       "progression",
       "partage"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Régler ton Volume Intérieur",
@@ -172,7 +172,7 @@
     "motsCles": [
       "reglage"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
     "titre": "Le rappel du soir",
@@ -183,7 +183,7 @@
     "motsCles": [
       "integration"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:37:00.000Z"
   },
   {
     "titre": "Ajouter une tâche à la voix (Siri)",
@@ -194,7 +194,7 @@
     "motsCles": [
       "integration"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:37:00.000Z"
   },
   {
     "titre": "Ajouter une tâche à la voix (Gemini / Android)",
@@ -205,6 +205,6 @@
     "motsCles": [
       "integration"
     ],
-    "majLe": "2026-07-24T07:26:00.000Z"
+    "majLe": "2026-07-24T21:37:00.000Z"
   }
 ]
