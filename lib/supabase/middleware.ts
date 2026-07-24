@@ -17,8 +17,10 @@ export async function updateSession(request: NextRequest) {
             request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({ request });
+          // Audit #67, PR5 : SameSite explicite (défense en profondeur) plutôt
+          // que de dépendre du défaut de @supabase/ssr.
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
+            supabaseResponse.cookies.set(name, value, { ...options, sameSite: "lax" }),
           );
         },
       },

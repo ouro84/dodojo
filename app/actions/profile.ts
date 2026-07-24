@@ -15,11 +15,21 @@ export async function markTutorialSeen(): Promise<{ error: string | null }> {
   return { error: null };
 }
 
+const VALID_AGGRESSIVITY_LEVELS: AggressivityLevel[] = ["sensei", "sparring", "street"];
+
 // US-54 : réglage modifiable à tout moment (onboarding ou QG), pas de contrainte
 // one-shot contrairement au pseudo.
 export async function updateAggressivityLevel(
   level: AggressivityLevel,
 ): Promise<{ error: string | null }> {
+  // Audit #67, PR5 : le typage ne protège pas un appel direct à la server
+  // action (bypass du composant). Une valeur hors énumération persistée
+  // ferait planter ~12 sites `pools[level]` dans lib/copy/* (cf. le crash
+  // déjà documenté dans lib/aggressivity.ts pour la même classe de bug).
+  if (!VALID_AGGRESSIVITY_LEVELS.includes(level)) {
+    return { error: "Niveau d'agressivité invalide." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

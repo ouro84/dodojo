@@ -18,6 +18,11 @@ describe("renderConsentPage (US-22)", () => {
     expect(html).toContain("tasks:write");
   });
 
+  test("avertit que l'identite du client n'est pas verifiee (audit #67, PR5)", () => {
+    const html = renderConsentPage(baseParams);
+    expect(html).toContain("n'est pas verifiee par Dodojo");
+  });
+
   test("porte les champs caches necessaires a la reconstruction de la requete", () => {
     const html = renderConsentPage(baseParams);
     expect(html).toContain('name="client_id" value="11111111-1111-1111-1111-111111111111"');

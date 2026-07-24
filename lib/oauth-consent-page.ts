@@ -46,6 +46,7 @@ export function renderConsentPage(params: ConsentPageParams): string {
     "    <main>",
     "      <h1>" + escapeHtml(params.clientName) + " veut ajouter des taches a ta place</h1>",
     "      <p>Portee demandee : " + escapeHtml(params.scope) + "</p>",
+    "      <p>Cette identite est declaree par l'application elle-meme et n'est pas verifiee par Dodojo. N'autorise que si tu reconnais l'app que tu viens de connecter.</p>",
     '      <form method="POST" action="/oauth/authorize">',
     "        " + hidden,
     '        <button type="submit" name="decision" value="approve">Autoriser</button>',

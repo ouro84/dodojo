@@ -120,6 +120,9 @@ export async function createRecurringTemplate(
   if (weekdays.length === 0) {
     return { error: "Choisis au moins un jour d'entraînement." };
   }
+  if (weekdays.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) {
+    return { error: "Jours de la semaine invalides." };
+  }
 
   const supabase = await createClient();
   const {
@@ -172,6 +175,9 @@ export async function updateRecurringTemplate(
   if (updates.weekdays !== undefined) {
     if (updates.weekdays.length === 0) {
       return { error: "Choisis au moins un jour d'entraînement." };
+    }
+    if (updates.weekdays.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) {
+      return { error: "Jours de la semaine invalides." };
     }
     patch.weekdays = [...new Set(updates.weekdays)].sort((a, b) => a - b);
   }

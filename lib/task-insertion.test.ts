@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertTaskForUser, type InsertTaskOutcome } from "./task-insertion";
 
 type Row = Record<string, unknown>;
@@ -64,9 +65,11 @@ class FakeSupabaseClient {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function fakeSupabase(tables: Record<string, Row[]>): any {
-  return new FakeSupabaseClient(tables);
+// Audit #67, PR5 : cast unique et localisé au retour (pas de paramètre/
+// variable typé `any`) — la règle projet "Interdiction d'utiliser `any`"
+// ne prévoit pas d'exception test.
+function fakeSupabase(tables: Record<string, Row[]>): SupabaseClient {
+  return new FakeSupabaseClient(tables) as unknown as SupabaseClient;
 }
 
 const NOW = "2026-07-22T12:00:00.000Z"; // midi UTC : même jour calendaire à Paris (UTC+2) et en UTC
