@@ -9,9 +9,9 @@ interface AggressivityLevelSectionProps {
 }
 
 const LEVELS: Array<{ value: AggressivityLevel; name: string; description: string }> = [
-  { value: "sensei", name: "Sensei", description: "Philosophe, zen." },
-  { value: "sparring", name: "Sparring", description: "Franc-parler, équilibré." },
-  { value: "street", name: "Street", description: "Arcade, sans filtre." },
+  { value: "doux", name: "Doux", description: "Philosophe, zen." },
+  { value: "direct", name: "Direct", description: "Franc-parler, équilibré." },
+  { value: "brut", name: "Brut", description: "Arcade, sans filtre." },
 ];
 
 // US-54 : jauge d'agressivité (Dojo Gauge), réglable à tout moment depuis le
@@ -36,7 +36,7 @@ export default function AggressivityLevelSection({ initialLevel }: AggressivityL
 
   return (
     <section className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-      <p className="font-display text-xs uppercase tracking-wide text-muted">Dojo Gauge</p>
+      <p className="font-display text-xs uppercase tracking-wide text-muted">Volume Intérieur</p>
       <div className="grid grid-cols-3 gap-2">
         {LEVELS.map((option) => (
           <button
