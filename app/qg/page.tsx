@@ -37,10 +37,10 @@ export default async function QgPage() {
   // Les 4 requêtes sont indépendantes entre elles (audit #67, PR4) — même
   // pattern que app/echoppe/page.tsx, seul écran à déjà paralléliser correctement.
   const [
-    { data: profile },
+    { data: profile, error: profileError },
     geminiConnected,
-    { data: dayResults },
-    { count: subscriptionCount },
+    { data: dayResults, error: dayError },
+    { count: subscriptionCount, error: subscriptionError },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -55,6 +55,13 @@ export default async function QgPage() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id),
   ]);
+
+  // Audit #67, PR6 (règle projet n°3) : un échec ici dégradait silencieusement
+  // (profile undefined traité comme "pas encore rempli") au lieu de montrer
+  // un état d'erreur cohérent avec le reste de l'app.
+  if (profileError || dayError || subscriptionError) {
+    throw profileError ?? dayError ?? subscriptionError;
+  }
 
   const today = dayKey(new Date(), profile?.timezone ?? "UTC");
   const streak = currentStreak(dayResults ?? [], today);

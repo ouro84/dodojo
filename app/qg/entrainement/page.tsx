@@ -17,25 +17,36 @@ export default async function EntrainementPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("timezone")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileError) throw profileError;
+
   const today = dayKey(new Date(), profile?.timezone ?? "UTC");
 
-  const { data: templates } = await supabase
-    .from("recurring_templates")
-    .select("id, title, weekdays, position")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .order("position", { ascending: true });
+  const [
+    { data: templates, error: templatesError },
+    { data: restDays, error: restDaysError },
+  ] = await Promise.all([
+    supabase
+      .from("recurring_templates")
+      .select("id, title, weekdays, position")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("position", { ascending: true }),
+    supabase
+      .from("recurring_rest_days")
+      .select("template_id")
+      .eq("user_id", user.id)
+      .eq("day_date", today),
+  ]);
 
-  const { data: restDays } = await supabase
-    .from("recurring_rest_days")
-    .select("template_id")
-    .eq("user_id", user.id)
-    .eq("day_date", today);
+  // Audit #67, PR6 (règle projet n°3) : dégradation silencieuse auparavant.
+  if (templatesError || restDaysError) {
+    throw templatesError ?? restDaysError;
+  }
 
   const restIds = new Set((restDays ?? []).map((r) => r.template_id as string));
   const managed: ManagedTemplate[] = (templates ?? []).map((t) => ({
