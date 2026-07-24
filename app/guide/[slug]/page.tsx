@@ -8,6 +8,14 @@ export async function generateStaticParams() {
   return articles.map((article) => ({ slug: article.slug }));
 }
 
+// Set fermé de slugs résolu au build (pas de dépendance Notion au runtime,
+// cf. CLAUDE.md). Un slug hors de generateStaticParams doit 404 au niveau
+// routage (vrai statut HTTP 404), pas être rendu à la demande — avec
+// dynamicParams par défaut (true), Next traite l'appel notFound() dans un
+// slug non listé comme un fallback statique caché en 200 (header
+// x-nextjs-prerender: 1), ce qui casse toute vérification de statut HTTP.
+export const dynamicParams = false;
+
 async function trouverMeta(slug: string) {
   const articles = await chargerIndexGuide();
   return articles.find((article) => article.slug === slug) ?? null;
