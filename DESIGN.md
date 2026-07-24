@@ -106,9 +106,9 @@ components:
 
 ## 1. Overview
 
-**Creative North Star: "Le Dojo de Rue"**
+**Creative North Star: "Le Démon Intérieur"**
 
-Un élève de dojo d'arts martiaux qui porte son entraînement dans la rue — la discipline du dojo (HUD lisible, hiérarchie claire, feedback net) rencontre l'énergie brute d'un combat de rue façon Street Fighter II. Le système est bâti sur une palette pleine et fonctionnelle (rouge combat, indigo néon, or), une police pixel-art pour l'impact et une police monospace pour la lisibilité opérationnelle, et un fond sombre de cabinet d'arcade en toute occasion. Le motion est chorégraphié par coup porté (flash, secousse, texte flottant), jamais une simple transition d'état.
+Ce qui traîne dans ta tête, rendu visible et combattable — la discipline d'un HUD lisible et d'un feedback net rencontre l'énergie brute d'un combat d'arcade façon Street Fighter II. Le système est bâti sur une palette pleine et fonctionnelle (rouge combat, indigo néon, or), une police pixel-art pour l'impact et une police monospace pour la lisibilité opérationnelle, et un fond sombre de cabinet d'arcade en toute occasion. Le motion est chorégraphié par coup porté (flash, secousse, texte flottant), jamais une simple transition d'état.
 
 Ce système rejette explicitement l'esthétique SaaS/outil de productivité épuré (Notion, Linear) : Dodojo n'est pas un tableur déguisé, c'est un écran de combat.
 
