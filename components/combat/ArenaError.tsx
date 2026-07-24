@@ -8,7 +8,7 @@ interface ArenaErrorProps {
 
 // Niveau `sparring` par défaut : utilisé quand le profil lui-même n'a pas pu
 // être chargé (aucun aggressivity_level disponible à ce stade).
-export default function ArenaError({ aggressivityLevel = "sparring" }: ArenaErrorProps) {
+export default function ArenaError({ aggressivityLevel = "direct" }: ArenaErrorProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
       <div
