@@ -74,7 +74,7 @@ export default function WebhookTokenSection({ hasToken, lastUsedAt }: WebhookTok
           type="button"
           disabled={pending}
           onClick={generate}
-          className="rounded-md border border-border bg-bg px-3 py-1.5 font-display text-[10px] uppercase tracking-wide text-gold disabled:opacity-50"
+          className="rounded-md border border-border bg-bg px-3 py-2.5 font-display text-[10px] uppercase tracking-wide text-gold disabled:opacity-50"
         >
           {tokenExists ? "Régénérer" : "Générer mon token"}
         </button>
@@ -88,7 +88,7 @@ export default function WebhookTokenSection({ hasToken, lastUsedAt }: WebhookTok
             <button
               type="button"
               onClick={copyToken}
-              className="rounded-md border border-border bg-surface px-2 py-1 text-[10px] uppercase tracking-wide text-ink"
+              className="rounded-md border border-border bg-surface px-2.5 py-2.5 text-[10px] uppercase tracking-wide text-ink"
             >
               Copier
             </button>
@@ -96,7 +96,7 @@ export default function WebhookTokenSection({ hasToken, lastUsedAt }: WebhookTok
               type="button"
               disabled={pending}
               onClick={testShortcut}
-              className="rounded-md border border-border bg-surface px-2 py-1 text-[10px] uppercase tracking-wide text-xp disabled:opacity-50"
+              className="rounded-md border border-border bg-surface px-2.5 py-2.5 text-[10px] uppercase tracking-wide text-xp disabled:opacity-50"
             >
               Tester mon raccourci
             </button>

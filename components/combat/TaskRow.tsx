@@ -74,23 +74,25 @@ export default function TaskRow({
         type="button"
         disabled={isPending}
         aria-label={`Déplacer "${task.title}"`}
-        className="shrink-0 cursor-grab touch-none px-1 text-faint hover:text-ink focus-visible:text-ink active:cursor-grabbing disabled:cursor-wait disabled:opacity-40"
+        className="shrink-0 cursor-grab touch-none px-2.5 py-2.5 text-faint hover:text-ink focus-visible:text-ink active:cursor-grabbing disabled:cursor-wait disabled:opacity-40"
         {...draggable.listeners}
         {...draggable.attributes}
       >
         ⠿
       </button>
-      <input
-        type="checkbox"
-        checked={task.is_completed}
-        onChange={(event) => onToggle(task.id, event.target.checked)}
-        aria-label={`Marquer "${task.title}" comme ${
-          task.is_completed ? "non accomplie" : "accomplie"
-        }`}
-        className="h-4 w-4 shrink-0 accent-hp"
-      />
+      <label className="flex shrink-0 items-center justify-center p-2.5">
+        <input
+          type="checkbox"
+          checked={task.is_completed}
+          onChange={(event) => onToggle(task.id, event.target.checked)}
+          aria-label={`Marquer "${task.title}" comme ${
+            task.is_completed ? "non accomplie" : "accomplie"
+          }`}
+          className="h-4 w-4 accent-hp"
+        />
+      </label>
       <span
-        className={`flex-1 ${
+        className={`min-w-0 flex-1 break-words ${
           task.is_completed ? "text-faint line-through" : "text-ink"
         }`}
       >
@@ -121,7 +123,7 @@ export default function TaskRow({
         type="button"
         onClick={() => onAbandon(task.id)}
         aria-label={`Abandonner "${task.title}"`}
-        className="shrink-0 rounded px-1.5 py-0.5 text-xs text-faint hover:text-alert focus-visible:text-alert"
+        className="shrink-0 rounded px-2.5 py-2.5 text-xs text-faint hover:text-alert focus-visible:text-alert"
       >
         ×
       </button>

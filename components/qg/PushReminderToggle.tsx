@@ -115,7 +115,7 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
           type="button"
           disabled={pending || status === "denied"}
           onClick={status === "on" ? deactivate : activate}
-          className="rounded-md border border-border bg-bg px-3 py-1.5 font-display text-[10px] uppercase tracking-wide text-gold disabled:opacity-50"
+          className="rounded-md border border-border bg-bg px-3 py-2.5 font-display text-[10px] uppercase tracking-wide text-gold disabled:opacity-50"
         >
           {status === "on" ? "Désactiver" : status === "denied" ? "Bloqué par le navigateur" : "Activer"}
         </button>

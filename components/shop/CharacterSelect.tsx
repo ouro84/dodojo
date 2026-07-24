@@ -171,7 +171,7 @@ export function CharacterSelect({
                 setSelectedSkinId(skin.id);
                 onSkinAction(skin.id);
               }}
-              className={`h-6 w-6 rounded-full border-2 disabled:opacity-40 ${
+              className={`h-9 w-9 rounded-full border-2 disabled:opacity-40 ${
                 isEquippedSkin ? "border-xp" : isSelectedSkin ? "border-gold" : "border-border"
               }`}
               style={{

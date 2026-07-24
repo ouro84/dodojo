@@ -60,7 +60,7 @@ export default function DeadlineControl({
             ? `Modifier la deadline de "${taskTitle}" (${label})`
             : `Fixer une deadline pour "${taskTitle}"`
         }
-        className={`rounded px-1 text-xs ${
+        className={`rounded px-2 py-2.5 text-xs ${
           label ? "text-alert" : "text-faint hover:text-ink focus-visible:text-ink"
         } disabled:cursor-wait disabled:opacity-40`}
       >

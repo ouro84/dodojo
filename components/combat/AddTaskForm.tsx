@@ -41,7 +41,7 @@ export default function AddTaskForm({ onAdd, pending = false }: AddTaskFormProps
       <button
         type="submit"
         disabled={pending || !title.trim()}
-        className="rounded-md bg-hp px-3 py-1.5 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-40"
+        className="rounded-md bg-hp px-3 py-2.5 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-40"
       >
         Ajouter
       </button>
