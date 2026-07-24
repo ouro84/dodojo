@@ -51,3 +51,6 @@ next-env.d.ts
 /assets/
 
 .worktrees/
+
+# impeccable — design.json (sidecar DESIGN.md) est versionné, son cache local ne l'est pas
+.impeccable/hook.cache.json
