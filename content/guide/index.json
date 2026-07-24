@@ -75,24 +75,24 @@
     "majLe": "2026-07-24T07:26:00.000Z"
   },
   {
-    "titre": "Le Rituel du Réveil",
+    "titre": "Le Réveil",
     "slug": "reveil",
-    "section": "Rituels",
+    "section": "Journée",
     "ordre": 10,
-    "resume": "Le rituel bloquant qui solde les restes de la veille à l'ouverture.",
+    "resume": "Ce qui solde les restes de la veille à l'ouverture, avant de reprendre le combat.",
     "motsCles": [
-      "rituel"
+      "journee"
     ],
     "majLe": "2026-07-24T07:26:00.000Z"
   },
   {
-    "titre": "Le Rituel du Crépuscule",
+    "titre": "Dernier Round",
     "slug": "crepuscule",
-    "section": "Rituels",
+    "section": "Journée",
     "ordre": 20,
     "resume": "Clôturer sa journée : victoire, retraite ou défaite.",
     "motsCles": [
-      "rituel"
+      "journee"
     ],
     "majLe": "2026-07-24T07:26:00.000Z"
   },
@@ -108,7 +108,7 @@
     "majLe": "2026-07-24T07:26:00.000Z"
   },
   {
-    "titre": "Or & Échoppe",
+    "titre": "Or & Marché Noir",
     "slug": "or",
     "section": "Progression",
     "ordre": 20,
@@ -130,7 +130,7 @@
     "majLe": "2026-07-24T07:36:00.000Z"
   },
   {
-    "titre": "Le Panthéon",
+    "titre": "Tableau de Chasse",
     "slug": "pantheon",
     "section": "Progression",
     "ordre": 40,
@@ -164,11 +164,11 @@
     "majLe": "2026-07-24T07:26:00.000Z"
   },
   {
-    "titre": "Régler le ton du Dojo",
+    "titre": "Régler ton Volume Intérieur",
     "slug": "agressivite",
     "section": "Réglages",
     "ordre": 10,
-    "resume": "Régler le ton du Sensei et du Boss (Dojo Gauge).",
+    "resume": "Régler le ton de la Voix et du Boss (Volume Intérieur).",
     "motsCles": [
       "reglage"
     ],
