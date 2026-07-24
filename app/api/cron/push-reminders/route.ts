@@ -19,7 +19,7 @@ interface ProfileRow {
   id: string;
   timezone: string;
   last_reminder_sent_on: string | null;
-  aggressivity_level: "sensei" | "sparring" | "street";
+  aggressivity_level: "doux" | "direct" | "brut";
 }
 interface TaskRow extends HpTask {
   user_id: string;
