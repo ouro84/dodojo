@@ -40,35 +40,40 @@ export default async function ArenePage() {
   // Roster : boss + décor du jour (tiré une fois puis figé, exclut les 2 derniers jours).
   const daily = await resolveDailyBoss();
 
-  const { data: tasks, error: tasksError } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("day_date", today)
-    .order("position", { ascending: true });
+  // Indépendantes entre elles une fois generateRecurringInstances() terminé
+  // (audit #67, PR4) — paralléliser avant casserait l'anti-doublon de routine.
+  const [
+    { data: tasks, error: tasksError },
+    { data: overdueTasks, error: overdueError },
+    { data: dayResults },
+  ] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("day_date", today)
+      .order("position", { ascending: true }),
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", user.id)
+      .lt("day_date", today)
+      .eq("is_completed", false)
+      .eq("is_abandoned", false),
+    supabase
+      .from("day_results")
+      .select("day_date, outcome")
+      .eq("user_id", user.id)
+      .order("day_date", { ascending: false })
+      // Aligné sur le palier de série le plus élevé (100 jours) + marge —
+      // à 60, le palier 100 (titre Sensei) ne pouvait structurellement
+      // jamais se déclencher depuis l'Arène (audit #67, PR4).
+      .limit(120),
+  ]);
 
-  if (tasksError) {
+  if (tasksError || overdueError) {
     return <ArenaError aggressivityLevel={profile.aggressivity_level} />;
   }
-
-  const { data: overdueTasks, error: overdueError } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("user_id", user.id)
-    .lt("day_date", today)
-    .eq("is_completed", false)
-    .eq("is_abandoned", false);
-
-  if (overdueError) {
-    return <ArenaError aggressivityLevel={profile.aggressivity_level} />;
-  }
-
-  const { data: dayResults } = await supabase
-    .from("day_results")
-    .select("day_date, outcome")
-    .eq("user_id", user.id)
-    .order("day_date", { ascending: false })
-    .limit(60);
 
   return (
     <Arena

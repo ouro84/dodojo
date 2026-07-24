@@ -34,22 +34,27 @@ export default async function QgPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("best_streak, timezone, webhook_token_hash, webhook_token_last_used_at, aggressivity_level")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const geminiConnected = await isGeminiConnected(supabase, user.id);
-  const { data: dayResults } = await supabase
-    .from("day_results")
-    .select("day_date, outcome")
-    .eq("user_id", user.id);
-  // US-11 : état initial du toggle (affiné côté client par Notification.permission).
-  const { count: subscriptionCount } = await supabase
-    .from("push_subscriptions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
+  // Les 4 requêtes sont indépendantes entre elles (audit #67, PR4) — même
+  // pattern que app/echoppe/page.tsx, seul écran à déjà paralléliser correctement.
+  const [
+    { data: profile },
+    geminiConnected,
+    { data: dayResults },
+    { count: subscriptionCount },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("best_streak, timezone, webhook_token_hash, webhook_token_last_used_at, aggressivity_level")
+      .eq("id", user.id)
+      .maybeSingle(),
+    isGeminiConnected(supabase, user.id),
+    supabase.from("day_results").select("day_date, outcome").eq("user_id", user.id),
+    // US-11 : état initial du toggle (affiné côté client par Notification.permission).
+    supabase
+      .from("push_subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+  ]);
 
   const today = dayKey(new Date(), profile?.timezone ?? "UTC");
   const streak = currentStreak(dayResults ?? [], today);

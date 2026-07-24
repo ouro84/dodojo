@@ -1,8 +1,12 @@
+"use client";
+
+import { useEffect } from "react";
 import Image from "next/image";
 import IdleSprite from "./IdleSprite";
 import HeroBar from "./HeroBar";
 import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
+import { IMPACT_VARIANTS } from "./ImpactVfx";
 
 interface VersusSceneProps {
   heroName: string;
@@ -42,6 +46,20 @@ export default function VersusScene({
   upcomingDeadlineCount = 0,
   dimmed = false,
 }: VersusSceneProps) {
+  // Audit #67, PR4 : les 4 variantes d'impact sont tirées au hasard à chaque
+  // coup (ImpactVfx monte/démonte à chaque hit, cadence 45ms/frame) — sans
+  // préchargement, la toute première apparition d'une variante peut manquer
+  // une frame sur un réseau lent. Préchargé une fois ici plutôt qu'à chaque
+  // coup, puisque VersusScene reste monté toute la session de combat.
+  useEffect(() => {
+    for (const variant of IMPACT_VARIANTS) {
+      for (let i = 0; i < variant.frameCount; i++) {
+        const img = new window.Image();
+        img.src = `/vfx/impact/${variant.id}/frame${String(i).padStart(4, "0")}.png`;
+      }
+    }
+  }, []);
+
   return (
     <div
       className="relative h-48 w-full overflow-hidden rounded-lg border border-border"
