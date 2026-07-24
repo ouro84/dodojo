@@ -49,6 +49,32 @@ describe("validateClientRegistration (US-22 - RFC 7591)", () => {
     expect("error" in result).toBe(true);
   });
 
+  test("erreur : redirect_uri en http:// non-loopback rejeté (audit #67, PR5)", () => {
+    const result = validateClientRegistration({
+      redirect_uris: ["http://evil.example.com/callback"],
+    });
+    expect("error" in result).toBe(true);
+  });
+
+  test("erreur : schéma javascript: rejeté (audit #67, PR5)", () => {
+    const result = validateClientRegistration({ redirect_uris: ["javascript:alert(1)"] });
+    expect("error" in result).toBe(true);
+  });
+
+  test("valide : http://127.0.0.1 (loopback, client natif RFC 8252)", () => {
+    const result = validateClientRegistration({
+      redirect_uris: ["http://127.0.0.1:8080/callback"],
+    });
+    expect("registration" in result).toBe(true);
+  });
+
+  test("valide : http://localhost (loopback, client natif RFC 8252)", () => {
+    const result = validateClientRegistration({
+      redirect_uris: ["http://localhost:8080/callback"],
+    });
+    expect("registration" in result).toBe(true);
+  });
+
   test("erreur : client_name vide", () => {
     const result = validateClientRegistration({
       redirect_uris: ["https://client.example/callback"],

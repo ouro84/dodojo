@@ -8,14 +8,19 @@ export type ClientRegistrationValidation = { registration: ClientRegistration } 
 const DEFAULT_CLIENT_NAME = "Client MCP";
 const CLIENT_NAME_MAX_LENGTH = 200;
 
+// Audit #67, PR5 : n'importe quel schéma parsable était accepté (http, voire
+// javascript:/data:). OAuth 2.1 / RFC 8252 exige HTTPS pour les redirections,
+// avec une exception loopback en clair pour les clients natifs.
 function isValidRedirectUri(value: unknown): value is string {
   if (typeof value !== "string") return false;
+  let url: URL;
   try {
-    new URL(value);
-    return true;
+    url = new URL(value);
   } catch {
     return false;
   }
+  if (url.protocol === "https:") return true;
+  return url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
 }
 
 // RFC 7591 (Dynamic Client Registration) - validation minimale : Dodojo

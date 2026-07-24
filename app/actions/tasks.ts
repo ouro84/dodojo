@@ -17,6 +17,14 @@ import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
 import type { Task } from "@/types";
 
+// Audit #67, PR5 : `id` alimente un filtre PostgREST `.or()` construit par
+// interpolation de chaîne (undoRageQuit/completeOverdueTask/deferOverdueTask/
+// annihilateOverdueTask) — un id forgé contenant une virgule/opérateur de
+// filtre pourrait élargir la clause au-delà de la tâche visée (contenu par
+// le .eq("user_id", ...) chaîné en AND, donc pas de fuite cross-tenant, mais
+// un risque d'intégrité de données). Valider le format avant construction.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface TaskActionResult {
   error: string | null;
   id?: string;
@@ -83,11 +91,11 @@ export async function addSubtask(
   parentId: string,
   title: string,
 ): Promise<TaskActionResult> {
-  const trimmed = title.trim();
-
-  if (!trimmed) {
-    return { error: "Nomme ta sous-tâche avant de l'invoquer." };
+  const validation = validateTaskTitle(title);
+  if ("error" in validation) {
+    return { error: validation.error };
   }
+  const trimmed = validation.title;
 
   const supabase = await createClient();
   const {
@@ -289,6 +297,10 @@ export async function rageQuitTask(id: string): Promise<TaskActionResult> {
 // abandon_reason, rembourse +5 XP (clampé). Ne remonte que les tâches réellement
 // rage-quit (garde par abandon_reason) — un « Annihiler » n'est pas annulable ici.
 export async function undoRageQuit(id: string): Promise<TaskActionResult> {
+  if (!UUID_RE.test(id)) {
+    return { error: "Identifiant de tâche invalide." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -407,6 +419,10 @@ export async function reorderSiblings(
 // sur son jour d'origine (elle inflige ses dégâts au Boss de ce jour-là).
 // Cascade sur les sous-tâches restes.
 export async function completeOverdueTask(id: string): Promise<TaskActionResult> {
+  if (!UUID_RE.test(id)) {
+    return { error: "Identifiant de tâche invalide." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -429,6 +445,10 @@ export async function completeOverdueTask(id: string): Promise<TaskActionResult>
 // du jour et re-soigne le Boss (RG-02). La tâche et ses sous-tâches restes
 // changent de day_date ; position recalculée en tête de la fratrie du jour.
 export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
+  if (!UUID_RE.test(id)) {
+    return { error: "Identifiant de tâche invalide." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -471,6 +491,10 @@ export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
 // US-08 (D6) : annihiler = is_abandoned (RG-04, jamais DELETE). Ton non-punitif
 // côté UI ("on tourne la page").
 export async function annihilateOverdueTask(id: string): Promise<TaskActionResult> {
+  if (!UUID_RE.test(id)) {
+    return { error: "Identifiant de tâche invalide." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

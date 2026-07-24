@@ -14,8 +14,9 @@ export async function createClient() {
         },
         setAll(cookiesToSet) {
           try {
+            // Audit #67, PR5 : SameSite explicite (défense en profondeur).
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(name, value, { ...options, sameSite: "lax" }),
             );
           } catch {
             // setAll appelé depuis un Server Component : ignoré si un middleware
