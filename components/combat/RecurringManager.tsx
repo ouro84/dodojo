@@ -93,7 +93,7 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
                 onClick={() => toggleDay(d.i)}
                 aria-pressed={on}
                 aria-label={d.label}
-                className={`h-8 flex-1 rounded font-display text-xs uppercase ${
+                className={`h-11 flex-1 rounded font-display text-xs uppercase ${
                   on ? "bg-hp text-bg" : "border border-border text-muted"
                 }`}
               >

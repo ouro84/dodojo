@@ -12,7 +12,7 @@ export default function ArenaCoach({ step, onSuggest, onSkip }: ArenaCoachProps)
   return (
     <div
       role="status"
-      className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4"
+      className="pointer-events-none sticky bottom-3 z-40 mx-auto flex w-full max-w-md justify-center px-4"
     >
       <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-2 rounded-lg border border-gold bg-surface p-4 text-center shadow-lg">
         {step === "add" ? (

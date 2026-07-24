@@ -184,7 +184,7 @@ export default function WakeUpRitual({
                   onClick={() =>
                     run(() => completeOverdueTask(task.id), [task.id, ...childIds(task.id)])
                   }
-                  className="rounded border border-xp px-2 py-1 text-xs text-xp disabled:opacity-50"
+                  className="rounded border border-xp px-3 py-2.5 text-xs text-xp disabled:opacity-50"
                 >
                   Terminé
                 </button>
@@ -195,7 +195,7 @@ export default function WakeUpRitual({
                   onClick={() =>
                     run(() => deferOverdueTask(task.id), [task.id, ...childIds(task.id)])
                   }
-                  className="rounded border border-border px-2 py-1 text-xs text-ink disabled:opacity-50"
+                  className="rounded border border-border px-3 py-2.5 text-xs text-ink disabled:opacity-50"
                 >
                   Reporter
                 </button>
@@ -206,7 +206,7 @@ export default function WakeUpRitual({
                   onClick={() =>
                     run(() => annihilateOverdueTask(task.id), [task.id, ...childIds(task.id)])
                   }
-                  className="rounded border border-border px-2 py-1 text-xs text-muted disabled:opacity-50"
+                  className="rounded border border-border px-3 py-2.5 text-xs text-muted disabled:opacity-50"
                 >
                   Annihiler
                 </button>

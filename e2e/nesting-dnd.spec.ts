@@ -84,6 +84,8 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
     const handleB = page.getByLabel(`Déplacer "${titleB}"`);
     await expect(handleA).toBeEnabled();
     await expect(handleB).toBeEnabled();
+    await rowA.scrollIntoViewIfNeeded();
+    await rowB.scrollIntoViewIfNeeded();
 
     const rowABox = await rowA.boundingBox();
     const rowBBox = await rowB.boundingBox();
@@ -123,6 +125,8 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
     const handleC = page.getByLabel(`Déplacer "${titleC}"`);
     await expect(handleA).toBeEnabled();
     await expect(handleC).toBeEnabled();
+    await rowA.scrollIntoViewIfNeeded();
+    await rowC.scrollIntoViewIfNeeded();
 
     const rowABox = await rowA.boundingBox();
     const rowCBox = await rowC.boundingBox();

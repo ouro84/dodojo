@@ -16,7 +16,7 @@ export default function BottomNav({ active }: BottomNavProps) {
   return (
     <nav
       aria-label="Navigation principale"
-      className="mt-auto flex justify-around border-t border-border pt-2.5"
+      className="sticky bottom-0 z-30 mt-auto flex justify-around border-t border-border bg-bg pt-2.5"
     >
       {ITEMS.map((item) => {
         const isActive = item.key === active;
@@ -25,7 +25,7 @@ export default function BottomNav({ active }: BottomNavProps) {
             key={item.key}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 px-4 py-2.5 text-[0.65rem] uppercase tracking-wide ${
+            className={`flex min-h-11 flex-col items-center justify-center gap-1 px-4 py-2.5 text-[0.65rem] uppercase tracking-wide ${
               isActive ? "font-semibold text-ink" : "text-faint"
             }`}
           >

@@ -198,6 +198,7 @@ export default function Arena({
   // Seed figé au moment où l'Arène devient vide (voir PerfectOverlay pour la
   // raison) — un nouveau passage à vide tire une nouvelle punchline.
   const [emptyStateSeed, setEmptyStateSeed] = useState(randomSeed);
+  const [wasEmpty, setWasEmpty] = useState(false);
   const heroPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heroPulseCounterRef = useRef(0);
   const tasksRef = useRef(tasks);
@@ -225,6 +226,15 @@ export default function Arena({
     profile.equipped_skin_id,
   );
   const isEmpty = activeTasks.length === 0;
+
+  // Nouveau tirage de punchline empty state à chaque passage à vide (pas à
+  // chaque re-rendu pendant que l'Arène reste vide — cf. poll ~45s). Ajustement
+  // pendant le rendu (pattern React recommandé) plutôt qu'un effet : évite le
+  // re-rendu en cascade signalé par react-hooks/set-state-in-effect.
+  if (isEmpty !== wasEmpty) {
+    setWasEmpty(isEmpty);
+    if (isEmpty) setEmptyStateSeed(randomSeed());
+  }
 
   // US-29 : étape du coach. "add" tant qu'aucune tâche active ; "strike" tant
   // qu'aucune n'est complétée ; se termine à la 1re complétion (ou « Passer »).
@@ -265,12 +275,6 @@ export default function Arena({
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
-
-  // Nouveau tirage de punchline empty state à chaque passage à vide (pas à
-  // chaque re-rendu pendant que l'Arène reste vide — cf. poll ~45s).
-  useEffect(() => {
-    if (isEmpty) setEmptyStateSeed(randomSeed());
-  }, [isEmpty]);
 
   // US-05 : polling léger (~45s) pendant que l'Arène est montée. Ne se
   // déclenche jamais rétroactivement pour une deadline déjà ratée avant le
@@ -718,7 +722,7 @@ export default function Arena({
   }
 
   return (
-    <div className="relative flex flex-1 flex-col gap-3 px-4 py-4">
+    <div className="relative mx-auto flex h-dvh w-full max-w-md flex-1 flex-col gap-3 overflow-hidden px-4 py-4">
       {/* Audit UX 2026-07-24 (P1) : seul écran de l'app sans heading de page -
           sr-only pour ne pas perturber le HUD, juste un point d'entrée pour
           lecteur d'écran (WCAG 2.4.6 / 1.3.1). */}
@@ -998,7 +1002,7 @@ export default function Arena({
           />
           <DragOverlay>
             {activeDragTaskId && (
-              <div className="rounded-md border border-hp bg-surface px-3 py-2 text-sm text-ink shadow-lg">
+              <div className="min-w-0 max-w-xs break-words rounded-md border border-hp bg-surface px-3 py-2 text-sm text-ink shadow-lg">
                 {tasks.find((task) => task.id === activeDragTaskId)?.title}
               </div>
             )}

@@ -32,7 +32,7 @@ export default function SubtaskForm({
         onClick={() => setOpen(true)}
         disabled={disabled}
         aria-label="Diviser en sous-tâche"
-        className="shrink-0 rounded px-1.5 py-0.5 text-xs text-faint hover:text-ink focus-visible:text-ink disabled:cursor-wait disabled:opacity-40"
+        className="shrink-0 rounded px-2.5 py-2.5 text-xs text-faint hover:text-ink focus-visible:text-ink disabled:cursor-wait disabled:opacity-40"
       >
         +
       </button>

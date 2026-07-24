@@ -26,7 +26,7 @@ export default function TaskList({
   const orderedTasks = sortTasksHierarchically(tasks);
 
   return (
-    <ul className="flex flex-1 flex-col gap-1.5 overflow-y-auto">
+    <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
       {orderedTasks.map((task) => (
         <li key={task.id}>
           <TaskRow
