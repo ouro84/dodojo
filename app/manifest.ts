@@ -3,8 +3,7 @@ import type { MetadataRoute } from "next";
 // Convention native Next.js 16 (route générée, cachée par défaut). Couleurs
 // alignées sur le token --color-bg d'app/globals.css (oklch(0.14 0.015 25)
 // converti en sRGB) — l'app n'a qu'un seul thème (sombre), pas de valeur
-// "inventée". DESIGN.md est encore en seed (palette non résolue) ; ce token
-// est le seul déjà figé dans le code.
+// "inventée". Cf. DESIGN.md § 2 (Colors) pour la palette complète.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Dodojo",

@@ -30,4 +30,4 @@ Pas corporate/minimaliste — éviter le look Notion/Linear/SaaS épuré qui tue
 
 ## Accessibility & Inclusion
 
-Best-effort pour le MVP (Sprint 0) — pas de niveau WCAG cible formalisé à ce stade. À revisiter explicitement avant un usage large, notamment pour les mécaniques de flash/secousse d'écran (US-21) qui bénéficieront d'une alternative `prefers-reduced-motion` le moment venu.
+Best-effort — pas de niveau WCAG cible formalisé à ce stade. `prefers-reduced-motion` est déjà implémenté (US-21) : toutes les animations de combat (flash, secousse, texte flottant, skeleton, KO/PERFECT, combo, alarme deadline, flammes de série) ont une alternative sans mouvement. Reste à revisiter explicitement avant un usage large : niveau WCAG cible, contraste des jauges HP/XP sur le décor `.combat-scene`.
