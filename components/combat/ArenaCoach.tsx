@@ -18,7 +18,7 @@ export default function ArenaCoach({ step, onSuggest, onSkip }: ArenaCoachProps)
         {step === "add" ? (
           <>
             <p className="text-sm text-ink">
-              Ajoute ta première tâche pour défier le Boss du jour.
+              Ajoute ta première tâche — tout ce qui traîne nourrit le Boss du jour.
             </p>
             <button
               type="button"
@@ -30,7 +30,7 @@ export default function ArenaCoach({ step, onSuggest, onSkip }: ArenaCoachProps)
           </>
         ) : (
           <p className="text-sm text-ink">
-            Coche-la pour frapper : dégâts au Boss + XP pour toi.
+            Regarde, il vient de grandir. Coche la tâche pour le frapper : dégâts au Boss + XP pour toi.
           </p>
         )}
         <button
