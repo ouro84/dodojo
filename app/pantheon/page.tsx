@@ -24,28 +24,32 @@ export default async function PantheonPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("username, level, xp, current_title, best_streak")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const { data: dayResults, error: dayError } = await supabase
-    .from("day_results")
-    .select("day_date, outcome, damage_dealt, gold_earned")
-    .eq("user_id", user.id)
-    .order("day_date", { ascending: false })
-    .limit(90);
-
-  const { data: unlockedHeroes } = await supabase
-    .from("unlocked_heroes")
-    .select("price_paid")
-    .eq("user_id", user.id);
-
-  const { data: unlockedSkins } = await supabase
-    .from("unlocked_skins")
-    .select("price_paid")
-    .eq("user_id", user.id);
+  const [
+    { data: profile, error: profileError },
+    { data: dayResults, error: dayError },
+    { data: goldHistory },
+    { data: unlockedHeroes },
+    { data: unlockedSkins },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("username, level, xp, current_title, best_streak")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("day_results")
+      .select("day_date, outcome, damage_dealt, gold_earned")
+      .eq("user_id", user.id)
+      .order("day_date", { ascending: false })
+      .limit(90),
+    // Non borné (même pattern que app/echoppe/page.tsx) : goldBalance() a besoin
+    // de TOUT l'historique, jamais du lot borné à 90 jours ci-dessus utilisé pour
+    // le Journal/sparkline (audit #67, PR4 — le solde divergeait de l'Échoppe
+    // au-delà de 90 jours de compte).
+    supabase.from("day_results").select("gold_earned").eq("user_id", user.id),
+    supabase.from("unlocked_heroes").select("price_paid").eq("user_id", user.id),
+    supabase.from("unlocked_skins").select("price_paid").eq("user_id", user.id),
+  ]);
 
   // État Error (règle projet n°3).
   if (profileError || dayError || !profile) {
@@ -67,7 +71,7 @@ export default async function PantheonPage() {
 
   const results = dayResults ?? [];
   const stats = pantheonStats(results);
-  const balance = goldBalance(results, unlockedHeroes ?? [], unlockedSkins ?? []);
+  const balance = goldBalance(goldHistory ?? [], unlockedHeroes ?? [], unlockedSkins ?? []);
   const xpThreshold = xpThresholdForLevel(profile.level);
   const xpPct = Math.min(100, Math.round((profile.xp / xpThreshold) * 100));
 

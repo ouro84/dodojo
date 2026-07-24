@@ -99,6 +99,18 @@ describe("goldBalance", () => {
       goldBalance([{ gold_earned: 50 }], [{ price_paid: 0 }], [{ price_paid: 0 }]),
     ).toBe(50);
   });
+
+  it("goldBalance a besoin de TOUT l'historique — un appelant qui tronque fausse le résultat (audit #67, PR4)", () => {
+    // Documente le contrat : goldBalance() elle-même est correcte sur ses
+    // entrées, mais elle n'a aucun moyen de savoir si le tableau qu'on lui
+    // passe est le vrai historique complet ou une page tronquée. Le bug
+    // réel (app/pantheon/page.tsx réutilisant un fetch borné à 90 jours)
+    // est donc un bug d'appelant, verrouillé ici par contraste explicite.
+    const fullHistory = Array.from({ length: 120 }, () => ({ gold_earned: 10 }));
+    const truncatedTo90 = fullHistory.slice(0, 90);
+    expect(goldBalance(fullHistory, [], [])).toBe(1200);
+    expect(goldBalance(truncatedTo90, [], [])).toBe(900);
+  });
 });
 
 describe("taskHpValue (RG-01)", () => {
@@ -956,6 +968,23 @@ describe("currentStreak", () => {
       jokersUsedThisWeek: 0,
       atRisk: false,
     });
+  });
+
+  it("détecte une série de 100 jours quand l'historique fourni couvre au moins 100 jours (audit #67, PR4)", () => {
+    // Verrouille le bug : un appelant qui borne sa requête à 60 jours (comme
+    // app/page.tsx avant fix) ne peut structurellement jamais faire détecter
+    // le palier 100 (titre Sensei) par cette fonction, même avec 100+ jours
+    // de victoires réelles en base — la fonction s'arrête à `earliest`, la
+    // date la plus ancienne du tableau REÇU, pas de l'historique réel.
+    const today = "2026-07-24";
+    const rows = Array.from({ length: 120 }, (_, i) => {
+      const d = new Date(`${today}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - i);
+      return { day_date: d.toISOString().slice(0, 10), outcome: "victory" as const };
+    });
+    expect(currentStreak(rows, today).length).toBeGreaterThanOrEqual(100);
+    // Avec seulement 60 jours fournis (le bug), le palier 100 est hors de portée.
+    expect(currentStreak(rows.slice(0, 60), today).length).toBeLessThan(100);
   });
 });
 

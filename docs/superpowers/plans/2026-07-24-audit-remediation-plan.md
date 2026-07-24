@@ -776,7 +776,9 @@ Même traitement pour `app/pantheon/page.tsx:27-48` (profile / dayResults / unlo
 
 `app/page.tsx` : `tasks`/`overdueTasks`/`dayResults` (lignes ~43-71) sont indépendants entre eux une fois `generateRecurringInstances` terminé (qui, lui, doit rester avant car il peut créer des lignes que `tasks` doit ensuite lire) — les paralléliser via `Promise.all` après cet appel, pas avant.
 
-- [ ] **Step 8 : memo sur `TaskList`/`TaskRow`, `useCallback` sur les handlers de `Arena.tsx`**
+- [x] **Step 8 : memo sur `TaskList`/`TaskRow`, `useCallback` sur les handlers de `Arena.tsx` — TENTÉ, ABANDONNÉ**
+
+Implémenté puis reverté en exécution : `eslint .` a fait remonter 5 erreurs `react-hooks/preserve-manual-memoization` (règle bundlée par `eslint-config-next` même sans `experimental.reactCompiler` actif — vérifié absent de `next.config.ts`). La règle exige que le tableau de deps corresponde exactement à son inférence statique (y compris des setState pourtant stables), ce qui aurait nécessité un remaniement plus profond (stabiliser aussi `bumpCombo`/`resetCombo`/`triggerPulse`/`triggerXpPulse`) sur le fichier le plus critique de l'app, pour un gain de perf marginal (P1, pas P0). Reverté proprement (`git checkout` des 3 fichiers, aucune autre modif de cette tâche n'y touchait). Documenté dans `CHANGELOG.md` comme dette assumée — à reconsidérer si le projet active un jour le React Compiler.
 
 ```tsx
 // components/combat/TaskRow.tsx — en fin de fichier

@@ -28,6 +28,17 @@ export default function IdleSprite({
   );
   const [frame, setFrame] = useState(0);
 
+  // Audit #67, PR4 : sans préchargement, chaque frame n'est demandée au
+  // réseau qu'au moment exact où `src` change — sur une connexion lente,
+  // ça peut se voir (flash/frame manquante). Précharge les frameCount
+  // images une fois au montage ; le swap suivant tape le cache navigateur.
+  useEffect(() => {
+    for (let i = 0; i < frameCount; i++) {
+      const img = new window.Image();
+      img.src = `${framePrefix}${String(i).padStart(4, "0")}.png`;
+    }
+  }, [framePrefix, frameCount]);
+
   useEffect(() => {
     if (reducedMotion) return;
 
