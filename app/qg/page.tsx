@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { currentStreak, dayKey } from "@/lib/game-engine";
@@ -11,6 +12,19 @@ import GeminiConnectionSection from "@/components/qg/GeminiConnectionSection";
 import AggressivityLevelSection from "@/components/qg/AggressivityLevelSection";
 import { isGeminiConnected } from "@/lib/oauth-gemini";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
+import BottomNav from "@/components/ui/BottomNav";
+
+export const metadata: Metadata = { title: "QG — Dodojo" };
+
+// Audit UX 2026-07-24 (P1) : le QG est le hub obligé vers Panthéon/Échoppe/
+// Guide/Entraînement (aucun autre onglet n'y mène) - remplace la pile de
+// liens soulignés multicolores par un vrai menu, affordance uniforme.
+const SECTIONS: Array<{ href: string; icon: string; label: string }> = [
+  { href: "/pantheon", icon: "🏆", label: "Le Panthéon" },
+  { href: "/qg/entrainement", icon: "🔁", label: "Mode Entraînement" },
+  { href: "/echoppe", icon: "🛒", label: "L'Échoppe" },
+  { href: "/guide", icon: "📖", label: "Manuel du Dojo" },
+];
 
 // US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
 export default async function QgPage() {
@@ -41,10 +55,14 @@ export default async function QgPage() {
   const streak = currentStreak(dayResults ?? [], today);
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-      <h1 className="font-display text-lg uppercase tracking-wide text-ink">Le QG</h1>
-      <StreakBadge state={streak} />
-      <InstallCta />
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8">
+      <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
+        Le QG
+      </h1>
+      <div className="flex flex-col items-center gap-4">
+        <StreakBadge state={streak} />
+        <InstallCta />
+      </div>
       <AggressivityLevelSection initialLevel={resolveAggressivityLevel(profile?.aggressivity_level)} />
       <IntegrationsSection>
         <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
@@ -54,25 +72,36 @@ export default async function QgPage() {
         />
         <GeminiConnectionSection isConnected={geminiConnected} />
       </IntegrationsSection>
-      <p className="text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
-      <Link href="/pantheon" className="text-sm text-hp underline underline-offset-4">
-        🏆 Le Panthéon
-      </Link>
-      <Link href="/qg/entrainement" className="text-sm text-xp underline underline-offset-4">
-        🔁 Mode Entraînement
-      </Link>
-      <Link href="/echoppe" className="text-sm text-gold underline underline-offset-4">
-        🛒 L&apos;Échoppe
-      </Link>
-      <Link href="/guide/or" className="text-xs text-faint underline underline-offset-4">
-        Comment gagner de l&apos;or ?
-      </Link>
-      <Link href="/guide" className="text-sm text-ink underline underline-offset-4">
-        📖 Manuel du Dojo
-      </Link>
-      <Link href="/" className="text-sm text-xp underline underline-offset-4">
-        Retour à l&apos;Arène
-      </Link>
+
+      <nav aria-label="Sections du QG" className="flex flex-col gap-2">
+        <p className="text-center text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
+        {SECTIONS.map((section) => (
+          <div key={section.href} className="flex flex-col gap-1">
+            <Link
+              href={section.href}
+              className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-3 text-sm text-ink hover:border-ink"
+            >
+              <span className="flex items-center gap-2">
+                <span aria-hidden="true">{section.icon}</span>
+                {section.label}
+              </span>
+              <span aria-hidden="true" className="text-faint">
+                ›
+              </span>
+            </Link>
+            {section.href === "/echoppe" && (
+              <Link
+                href="/guide/or"
+                className="self-end pr-1 text-xs text-faint underline underline-offset-4 hover:text-muted"
+              >
+                Comment gagner de l&apos;or ?
+              </Link>
+            )}
+          </div>
+        ))}
+      </nav>
+
+      <BottomNav active="qg" />
     </main>
   );
 }

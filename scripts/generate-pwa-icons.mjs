@@ -49,6 +49,35 @@ async function renderMaskableIcon(svgBuffer, size) {
     .toBuffer();
 }
 
+// Audit UX 2026-07-24 (P2) : app/favicon.ico était un triangle générique sans
+// rapport avec la marque (orphelin d'un prototype antérieur). Encodeur ICO
+// minimal (frames PNG embarquées, supporté par tous les navigateurs modernes
+// depuis Windows Vista) — évite d'ajouter une dépendance juste pour ça.
+function buildIco(pngBuffersBySize) {
+  const count = pngBuffersBySize.length;
+  const headerSize = 6 + count * 16;
+  let offset = headerSize;
+  const dirEntries = [];
+  for (const { size, buffer } of pngBuffersBySize) {
+    const entry = Buffer.alloc(16);
+    entry.writeUInt8(size >= 256 ? 0 : size, 0); // width (0 = 256)
+    entry.writeUInt8(size >= 256 ? 0 : size, 1); // height
+    entry.writeUInt8(0, 2); // color count (0 = no palette)
+    entry.writeUInt8(0, 3); // reserved
+    entry.writeUInt16LE(1, 4); // color planes
+    entry.writeUInt16LE(32, 6); // bits per pixel
+    entry.writeUInt32LE(buffer.length, 8); // size of image data
+    entry.writeUInt32LE(offset, 12); // offset of image data
+    dirEntries.push(entry);
+    offset += buffer.length;
+  }
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // type: 1 = icon
+  header.writeUInt16LE(count, 4); // image count
+  return Buffer.concat([header, ...dirEntries, ...pngBuffersBySize.map((p) => p.buffer)]);
+}
+
 async function main() {
   const svgBuffer = await fs.readFile(SOURCE_SVG);
 
@@ -64,7 +93,17 @@ async function main() {
   await fs.writeFile(path.join(ICONS_DIR, "icon-maskable-512.png"), maskable512);
   await fs.writeFile(path.join(ROOT, "app", "apple-icon.png"), appleIcon);
 
-  console.log("Icônes PWA générées dans public/icons/ + app/apple-icon.png");
+  const favicon16 = await renderMaskableIcon(svgBuffer, 16);
+  const favicon32 = await renderMaskableIcon(svgBuffer, 32);
+  const favicon48 = await renderMaskableIcon(svgBuffer, 48);
+  const ico = buildIco([
+    { size: 16, buffer: favicon16 },
+    { size: 32, buffer: favicon32 },
+    { size: 48, buffer: favicon48 },
+  ]);
+  await fs.writeFile(path.join(ROOT, "app", "favicon.ico"), ico);
+
+  console.log("Icônes PWA générées dans public/icons/ + app/apple-icon.png + app/favicon.ico");
 }
 
 main().catch((error) => {

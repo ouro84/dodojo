@@ -10,6 +10,13 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Corrections
+- Audit UX/UI (2026-07-24) : `BottomNav` était monté uniquement sur l'Arène — QG, Échoppe, Panthéon, Guide et Entraînement n'avaient aucune nav persistante et 4 implémentations différentes de lien "retour" (position, style, flèche variables). `BottomNav` est désormais présent sur tous les écrans authentifiés (actif sur l'onglet parent pour Panthéon/Guide/Entraînement) ; les liens "Retour au QG"/"Retour à l'Arène" devenus redondants sont supprimés, ne subsiste qu'un `BackLink` unique pour remonter du Guide article au sommaire.
+- Audit UX/UI (2026-07-24) : la page QG était une pile de 6 liens soulignés multicolores (indiscernables d'un lien "retour") ; remplacée par un menu de sections cohérent (icône + libellé + chevron).
+- Audit UX/UI (2026-07-24) : contrastes sous le seuil WCAG AA mesurés (`faint` 2.4-2.7:1, `ink` sur `hp`/`xp` 4.18:1/3.97:1 sur les boutons primaires) — tokens `--color-faint`/`--color-hp`/`--color-xp` ajustés (delta minime, in-gamut sRGB vérifié) pour repasser au-dessus de 4.5:1.
+- Audit UX/UI (2026-07-24) : l'écran Arène (le plus utilisé) n'avait aucun `<h1>` — ajout d'un heading `sr-only` pour la navigation au lecteur d'écran.
+- Audit UX/UI (2026-07-24) : `app/favicon.ico` était une icône générique orpheline (triangle) sans rapport avec la marque — `scripts/generate-pwa-icons.mjs` génère désormais aussi un `.ico` branded (16/32/48) depuis la même source SVG que les autres icônes PWA.
+- Audit UX/UI (2026-07-24) : titre d'onglet statique "Dodojo" sur QG/Échoppe/Panthéon/Entraînement/Login/Welcome/Onboarding — chaque route a désormais son propre `<title>`.
+- Audit UX/UI (2026-07-24) : cibles tactiles sous 44×44px mesurées (nav du bas ~34×36px, bouton micro ~34×30px) — agrandies (nav ~46×44px+, micro 46×46px).
 - Issue #70 : 2 migrations SQL (`add_profile_aggressivity_level`, `create_oauth_mcp`) jamais poussées en production — corrigeait à la fois l'échec d'enregistrement du pseudo/ton du Dojo à l'onboarding, l'échec de mise à jour de la Dojo Gauge au QG, et probablement l'absence de Dodojo dans les Apps connectées de Gemini (l'auto-enregistrement de client `POST /oauth/register` échouait faute de table `oauth_clients`).
 - Issue #70 : "Reporter" un reste au Rituel du Réveil n'affichait plus la tâche dans l'Arène (même effet visible qu'"Annihiler") — la base était correctement mise à jour mais l'Arène ne remontait jamais les tâches reportées dans son state local à la fermeture de l'overlay ; `deferOverdueTask`/`deferAllOverdue` renvoient désormais les lignes reportées, fusionnées côté client.
 

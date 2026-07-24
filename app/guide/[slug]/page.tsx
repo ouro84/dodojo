@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import ArticleMarkdown from "@/components/guide/ArticleMarkdown";
 import { chargerCorpsArticle, chargerIndexGuide } from "@/lib/guide";
+import BackLink from "@/components/ui/BackLink";
+import BottomNav from "@/components/ui/BottomNav";
 
 export async function generateStaticParams() {
   const articles = await chargerIndexGuide();
@@ -43,9 +44,7 @@ export default async function GuideArticlePage({
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
-      <Link href="/guide" className="text-xs text-muted underline underline-offset-4">
-        ← Tout le Manuel
-      </Link>
+      <BackLink href="/guide" label="Tout le Manuel" />
       <header className="flex flex-col gap-1">
         <p className="text-xs uppercase tracking-wide text-gold">{meta.section}</p>
         <h1 className="font-display text-lg uppercase tracking-wide text-ink">{meta.titre}</h1>
@@ -53,9 +52,7 @@ export default async function GuideArticlePage({
       <article>
         <ArticleMarkdown contenu={contenu} />
       </article>
-      <Link href="/qg" className="self-center text-xs text-muted underline underline-offset-4">
-        Retour au QG
-      </Link>
+      <BottomNav active="qg" />
     </main>
   );
 }

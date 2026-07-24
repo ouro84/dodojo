@@ -1,8 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { goldBalance } from "@/lib/game-engine";
 import { CharacterSelect } from "@/components/shop/CharacterSelect";
+import BottomNav from "@/components/ui/BottomNav";
+
+export const metadata: Metadata = { title: "Échoppe — Dodojo" };
 
 // US-18/US-53 : l'Échoppe (Character Select + tenues). Solde d'or dérivé,
 // possession lue depuis unlocked_heroes/unlocked_skins, équipé depuis profiles.
@@ -35,9 +39,10 @@ export default async function EchoppePage() {
         <p role="alert" className="max-w-[32ch] text-sm text-hp">
           L&apos;Échoppe est fermée un instant. Réessaie.
         </p>
-        <Link href="/qg" className="text-sm text-xp underline underline-offset-4">
-          Retour au QG
+        <Link href="/echoppe" className="text-sm text-xp underline underline-offset-4">
+          Réessayer
         </Link>
+        <BottomNav active="echoppe" />
       </main>
     );
   }
@@ -48,12 +53,6 @@ export default async function EchoppePage() {
 
   return (
     <main className="flex flex-1 flex-col items-center gap-4 px-6 py-8">
-      <Link
-        href="/qg"
-        className="self-start text-sm text-xp underline underline-offset-4"
-      >
-        ← Retour au QG
-      </Link>
       <CharacterSelect
         ownedIds={ownedIds}
         equippedId={profile.equipped_hero_id}
@@ -61,6 +60,7 @@ export default async function EchoppePage() {
         equippedSkinId={profile.equipped_skin_id}
         balance={balance}
       />
+      <BottomNav active="echoppe" />
     </main>
   );
 }

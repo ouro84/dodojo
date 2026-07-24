@@ -1,10 +1,13 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dayKey } from "@/lib/game-engine";
 import RecurringManager, {
   type ManagedTemplate,
 } from "@/components/combat/RecurringManager";
+import BottomNav from "@/components/ui/BottomNav";
+
+export const metadata: Metadata = { title: "Entraînement — Dodojo" };
 
 // US-17 : Mode Entraînement — gestion des routines (créer, désactiver, jour de repos).
 export default async function EntrainementPage() {
@@ -52,12 +55,7 @@ export default async function EntrainementPage() {
         jours choisis.
       </p>
       <RecurringManager templates={managed} />
-      <Link
-        href="/qg"
-        className="self-center text-xs text-muted underline underline-offset-4"
-      >
-        Retour au QG
-      </Link>
+      <BottomNav active="qg" />
     </main>
   );
 }
