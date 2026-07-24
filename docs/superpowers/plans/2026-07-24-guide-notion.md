@@ -1187,7 +1187,31 @@ Sous `## [Unreleased]` → `### Produit`, juste après la ligne `### Produit`, a
 - Issue #68 : Manuel du Dojo refondu en articles multi-pages (sommaire par catégorie + page par article), source Notion restructurée en base (19 articles publiés) avec sync automatique au build (`prebuild`), remplace l'ancien mono-bloc `content/guide.json`.
 ```
 
-- [ ] **Step 2: Mettre à jour `CLAUDE.md`**
+- [ ] **Step 2: Mettre à jour la règle réflexe « Documentation utilisateur » de `CLAUDE.md`**
+
+Dans la section « Conventions », remplace le bloc `### Documentation utilisateur (Manuel du Dojo — US-28)` :
+
+```markdown
+### Documentation utilisateur (Manuel du Dojo — US-28)
+Avant de pousser une PR, **vérifier systématiquement si elle nécessite une doc utilisateur** et, le cas échéant, la produire **dans la même PR** :
+- **Nouvelle feature visible par l'utilisateur** (écran, mécanique, règle de jeu) → **créer** la ou les sections correspondantes du guide.
+- **Changement d'un comportement déjà documenté** (barème, rituels, streaks, or, combos, roster…) → **mettre à jour** les sections existantes.
+- **Source = Notion** : éditer la page Notion du guide, puis `npm run sync:guide` pour régénérer `content/guide.json` (committé dans la PR). Si Notion n'est pas branché (`NOTION_TOKEN`/`NOTION_GUIDE_PAGE_ID` absents), éditer directement `content/guide.json` en respectant le schéma (`lib/guide.ts`) et en **gardant les `section.id` stables** (ce sont des ancres de deep-link, ex. `#streak`, `#or`).
+- **Uniquement si pertinent** : une PR purement technique/refactor/infra (sans impact sur ce que voit ou comprend l'utilisateur) n'exige **pas** de doc utilisateur — ne pas en inventer.
+```
+
+par :
+
+```markdown
+### Documentation utilisateur (Manuel du Dojo — issue #68)
+Avant de pousser une PR, **vérifier systématiquement si elle nécessite une doc utilisateur** et, le cas échéant, la produire **dans la même PR** :
+- **Nouvelle feature visible par l'utilisateur** (écran, mécanique, règle de jeu) → **créer un nouvel article** dans la base Notion « Guide Dodojo » (catégorie appropriée parmi `ORDRE_SECTIONS`, `Statut = Publié`, `Slug` en minuscules/tirets, stable une fois publié — c'est l'URL `/guide/<slug>`).
+- **Changement d'un comportement déjà documenté** (barème, rituels, streaks, or, combos, roster…) → **mettre à jour l'article Notion existant** (même `Slug`, ne jamais le renommer une fois publié — casserait les deep-links `StreakBadge`/QG/liens externes).
+- **Source = Notion**, base « Guide Dodojo » : éditer/ajouter la page, `Statut = Publié`, puis `npm run pull:guide` pour régénérer `content/guide/<slug>.md` + `content/guide/index.json` (committés dans la PR). Si Notion n'est pas accessible (`NOTION_TOKEN` absent), éditer directement les fichiers `content/guide/<slug>.md`/`index.json` en respectant le schéma (`lib/guide.ts`), en **gardant les `Slug` stables**.
+- **Uniquement si pertinent** : une PR purement technique/refactor/infra (sans impact sur ce que voit ou comprend l'utilisateur) n'exige **pas** de doc utilisateur — ne pas en inventer.
+```
+
+- [ ] **Step 3: Mettre à jour le paragraphe technique `CLAUDE.md`**
 
 Remplace le paragraphe (section « Pièges et décisions non-évidentes ») commençant par `**Manuel du Dojo — statique, sync Notion au build (US-28)**` :
 
@@ -1201,7 +1225,7 @@ par :
 **Manuel du Dojo — articles Notion multi-pages, sync auto au build (issue #68)** — Le guide est **statique** : `content/guide/<slug>.md` + `content/guide/index.json` (committés) rendus par `app/guide/page.tsx` (sommaire par catégorie) et `app/guide/[slug]/page.tsx` (article, SSG via `generateStaticParams`). Source de vérité = base Notion **« Guide Dodojo »** (pas une simple page), filtrée sur `Statut = Publié`. **Aucune dépendance SDK Notion** — `scripts/pull-guide.mjs` interroge l'API REST Notion en `fetch` brut (`NOTION_TOKEN` seul requis ; `NOTION_DATABASE_ID` a un défaut hardcodé dans le script, override optionnel). Sync **automatique** via le hook `prebuild` de `package.json`, **tolérant** : token absent ou panne réseau ⇒ contenu committé conservé, le build ne casse jamais (`npm run pull:guide` pour un pull manuel strict). Rendu Markdown via `react-markdown` + `remark-gfm` (`components/guide/ArticleMarkdown.tsx`), pas de `rehype-raw` (le script ne produit que du Markdown pur). Slugs = anciens `section.id` conservés pour la continuité des deep-links : `StreakBadge` → `/guide/streak`, lien Échoppe (QG) → `/guide/or`. Accès : QG + « ? » dans l'Arène (inchangé, pointe vers `/guide`).
 ```
 
-- [ ] **Step 3: Mettre à jour `.env.example`**
+- [ ] **Step 4: Mettre à jour `.env.example`**
 
 Remplace :
 
@@ -1219,14 +1243,14 @@ par :
 NOTION_TOKEN=
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add CHANGELOG.md CLAUDE.md .env.example
 git commit -m "docs: CHANGELOG + CLAUDE.md + .env.example pour le Manuel du Dojo multi-articles"
 ```
 
-- [ ] **Step 5: Commenter l'issue GitHub #68**
+- [ ] **Step 6: Commenter l'issue GitHub #68**
 
 Run:
 ```bash
