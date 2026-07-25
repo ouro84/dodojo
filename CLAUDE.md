@@ -31,6 +31,7 @@ Une application de productivité mobile-first de style RPG/Arcade 16-bits où ch
 | `PRODUCT.md` | Contexte produit (impeccable) : users, purpose, brand personality, anti-références, principes de design, a11y. |
 | `DESIGN.md` | Système de design (impeccable, actuellement en seed) : palette, typographie, motion, do's/don'ts visuels. |
 | `ASSETS.md` | Cartographie du dossier `assets/` (sprites, boss, décors, VFX, icônes, police) : quel pack pour quel usage, licences, chemins. **À consulter avant toute recherche de sprite** — ne jamais explorer `assets/` au hasard. |
+| `PARCOURS_UTILISATEURS.md` | Cartographie des écrans (liens réels) et des parcours utilisateurs bout-en-bout testés en e2e (issue #50) — à consulter avant d'ajouter un nouvel e2e pour savoir s'il s'agit d'un parcours ou d'une feature isolée. |
 
 **Ne jamais improviser un choix ou une modification de règles que ces documents ont déjà tranché.**
 
