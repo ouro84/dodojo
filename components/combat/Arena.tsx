@@ -793,6 +793,7 @@ export default function Arena({
         <div className="relative">
           <VersusScene
             heroName={equippedHero.name}
+            heroLabel={profile.username}
             heroFramePrefix={equippedHeroFramePrefix}
             heroFrameCount={equippedHero.idleFrameCount}
             heroHp={heroHp}
