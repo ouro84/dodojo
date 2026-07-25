@@ -10,6 +10,7 @@ import { IMPACT_VARIANTS } from "./ImpactVfx";
 
 interface VersusSceneProps {
   heroName: string;
+  heroLabel?: string;
   heroFramePrefix: string;
   heroFrameCount: number;
   heroHp: number;
@@ -31,6 +32,7 @@ interface VersusSceneProps {
 // Héros : assets/MC/Elementals_* (licence non documentée localement, cf. ASSETS.md)
 export default function VersusScene({
   heroName,
+  heroLabel,
   heroFramePrefix,
   heroFrameCount,
   heroHp,
@@ -76,7 +78,7 @@ export default function VersusScene({
       <div className="absolute inset-x-0 top-0 z-[5] h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
       <div className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 p-2">
         <div className="flex-1">
-          <HeroBar heroName={heroName} currentHp={heroHp} maxHp={heroMaxHp} alarm={heroAlarm} />
+          <HeroBar heroName={heroLabel ?? heroName} currentHp={heroHp} maxHp={heroMaxHp} alarm={heroAlarm} />
         </div>
         <div className="flex flex-col items-center pt-1">
           <MidnightTimer />
