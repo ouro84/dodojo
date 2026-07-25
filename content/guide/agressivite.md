@@ -1,7 +1,7 @@
-Le Sensei et le Boss adaptent leur ton à ta préférence : réglable dès l'onboarding, modifiable à tout moment dans la section « Dojo Gauge » du QG.
+La Voix et le Boss adaptent leur ton à ta préférence : réglable dès l'onboarding, modifiable à tout moment dans la section « Volume Intérieur » du Vestiaire.
 
-- Sensei : philosophe et zen, jamais de juron
+- Doux : philosophe et zen, jamais de juron
 
-- Sparring : franc-parler, le ton par défaut de Dodojo
+- Direct : franc-parler, le ton par défaut de Dodojo
 
-- Street : arcade et sans filtre, jurons et piques assumés — toujours dirigés contre le Boss ou la situation, jamais contre toi
+- Brut : arcade et sans filtre, jurons et piques assumés — toujours dirigés contre le Boss ou la situation, jamais contre toi

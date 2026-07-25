@@ -88,7 +88,7 @@ export default function LoginPage() {
           disabled={pending}
           className="rounded-md bg-hp px-3 py-1.5 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
         >
-          {pending ? "Connexion…" : "Entrer dans le dojo"}
+          {pending ? "Connexion…" : "Entrer dans l'Arène"}
         </button>
       </form>
       <Link href="/welcome" className="text-xs text-faint underline underline-offset-4">

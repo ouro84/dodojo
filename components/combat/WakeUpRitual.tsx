@@ -44,7 +44,7 @@ function dayLabel(dayDate: string, todayKey: string): string {
   return `Il y a ${diff} jours`;
 }
 
-// US-08 : overlay bloquant du Rituel du Réveil. Confronte l'utilisateur aux
+// US-08 : overlay bloquant du Réveil. Confronte l'utilisateur aux
 // restes de la veille avant toute action dans l'Arène. Ton non-punitif (B1) :
 // on règle ses comptes, on ne se fait pas culpabiliser.
 export default function WakeUpRitual({
@@ -110,12 +110,12 @@ export default function WakeUpRitual({
       ref={overlayRef}
       role="alertdialog"
       aria-modal="true"
-      aria-label="Rituel du Réveil"
+      aria-label="Le Réveil"
       className="fixed inset-0 z-50 flex flex-col gap-4 overflow-y-auto bg-[oklch(0.08_0_0_/_92%)] px-4 py-6"
     >
       <header className="flex flex-col gap-1">
         <p className="font-display text-xl uppercase tracking-wide text-hp">
-          Rituel du Réveil
+          Le Réveil
         </p>
         <p className="text-sm text-muted">{wakeUpSubtitle(aggressivityLevel, seed)}</p>
       </header>

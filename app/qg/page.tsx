@@ -14,16 +14,16 @@ import { isGeminiConnected } from "@/lib/oauth-gemini";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
 import BottomNav from "@/components/ui/BottomNav";
 
-export const metadata: Metadata = { title: "QG — Dodojo" };
+export const metadata: Metadata = { title: "Le Vestiaire — Dodojo" };
 
 // Audit UX 2026-07-24 (P1) : le QG est le hub obligé vers Panthéon/Échoppe/
 // Guide/Entraînement (aucun autre onglet n'y mène) - remplace la pile de
 // liens soulignés multicolores par un vrai menu, affordance uniforme.
 const SECTIONS: Array<{ href: string; icon: string; label: string }> = [
-  { href: "/pantheon", icon: "🏆", label: "Le Panthéon" },
+  { href: "/pantheon", icon: "🏆", label: "Tableau de Chasse" },
   { href: "/qg/entrainement", icon: "🔁", label: "Mode Entraînement" },
-  { href: "/echoppe", icon: "🛒", label: "L'Échoppe" },
-  { href: "/guide", icon: "📖", label: "Manuel du Dojo" },
+  { href: "/echoppe", icon: "🛒", label: "Le Marché Noir" },
+  { href: "/guide", icon: "📖", label: "Le Guide" },
 ];
 
 // US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
@@ -69,7 +69,7 @@ export default async function QgPage() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8">
       <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
-        Le QG
+        Le Vestiaire
       </h1>
       <div className="flex flex-col items-center gap-4">
         <StreakBadge state={streak} />
@@ -85,7 +85,7 @@ export default async function QgPage() {
         <GeminiConnectionSection isConnected={geminiConnected} />
       </IntegrationsSection>
 
-      <nav aria-label="Sections du QG" className="flex flex-col gap-2">
+      <nav aria-label="Sections du Vestiaire" className="flex flex-col gap-2">
         <p className="text-center text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
         {SECTIONS.map((section) => (
           <div key={section.href} className="flex flex-col gap-1">

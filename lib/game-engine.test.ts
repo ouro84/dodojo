@@ -973,7 +973,7 @@ describe("currentStreak", () => {
   it("détecte une série de 100 jours quand l'historique fourni couvre au moins 100 jours (audit #67, PR4)", () => {
     // Verrouille le bug : un appelant qui borne sa requête à 60 jours (comme
     // app/page.tsx avant fix) ne peut structurellement jamais faire détecter
-    // le palier 100 (titre Sensei) par cette fonction, même avec 100+ jours
+    // le palier 100 (titre "Esprit Vide") par cette fonction, même avec 100+ jours
     // de victoires réelles en base — la fonction s'arrête à `earliest`, la
     // date la plus ancienne du tableau REÇU, pas de l'historique réel.
     const today = "2026-07-24";
@@ -994,8 +994,8 @@ describe("titleForStreak", () => {
     expect(titleForStreak(6)).toBeNull();
   });
   it("paliers 7 / 30 / 100", () => {
-    expect(titleForStreak(7)).toBe("Ceinture Jaune");
-    expect(titleForStreak(30)).toBe("Ceinture Noire");
-    expect(titleForStreak(100)).toBe("Sensei");
+    expect(titleForStreak(7)).toBe("Calme");
+    expect(titleForStreak(30)).toBe("Silence");
+    expect(titleForStreak(100)).toBe("Esprit Vide");
   });
 });

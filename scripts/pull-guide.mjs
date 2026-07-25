@@ -49,7 +49,7 @@ const API = "https://api.notion.com/v1";
 
 // Ordre canonique des catégories (figé ici, pas dans Notion). MIROIR de
 // ORDRE_SECTIONS dans lib/guide.ts → faire évoluer les deux ensemble.
-const ORDRE_SECTIONS = ["Démarrage", "Combat", "Rituels", "Progression", "Réglages", "Intégrations"];
+const ORDRE_SECTIONS = ["Démarrage", "Combat", "Journée", "Progression", "Réglages", "Intégrations"];
 
 const RACINE_CONTENU = join(process.cwd(), "content", "guide");
 const RACINE_IMAGES = join(process.cwd(), "public", "guide");

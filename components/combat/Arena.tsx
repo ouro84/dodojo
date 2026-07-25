@@ -735,7 +735,7 @@ export default function Arena({
       <h1 className="sr-only">{"L'Arène — Dodojo"}</h1>
       <Link
         href="/guide"
-        aria-label="Manuel du Dojo"
+        aria-label="Le Guide"
         className="absolute right-3 top-3 z-40 text-xs text-faint hover:text-ink"
       >
         ?
@@ -1027,7 +1027,7 @@ export default function Arena({
           disabled={closing}
           className="rounded-md border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
         >
-          {closing ? "…" : "Rituel du Crépuscule"}
+          {closing ? "…" : "Dernier Round"}
         </button>
       )}
 

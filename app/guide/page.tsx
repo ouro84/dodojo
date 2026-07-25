@@ -2,7 +2,7 @@ import Link from "next/link";
 import { chargerIndexGuide, grouperParSection } from "@/lib/guide";
 import BottomNav from "@/components/ui/BottomNav";
 
-export const metadata = { title: "Manuel du Dojo" };
+export const metadata = { title: "Le Guide" };
 
 export default async function GuidePage() {
   const articles = await chargerIndexGuide();
@@ -11,10 +11,10 @@ export default async function GuidePage() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-6">
       <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
-        Manuel du Dojo
+        Le Guide
       </h1>
       {sections.length === 0 ? (
-        <p className="text-center text-sm text-muted">Manuel en préparation.</p>
+        <p className="text-center text-sm text-muted">Guide en préparation.</p>
       ) : (
         sections.map(({ section, articles: articlesSection }) => (
           <section key={section} className="flex flex-col gap-2">

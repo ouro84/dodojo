@@ -1,4 +1,4 @@
-# Jauge d'agressivité (Dojo Gauge) + Registre de copy centralisé — US-49/US-54
+# Jauge d'agressivité (Volume Intérieur, ex-"Dojo Gauge") + Registre de copy centralisé — US-49/US-54
 
 > Date : 2026-07-23
 > Statut : Validé
@@ -8,7 +8,7 @@
 
 Deux besoins distincts mais couplés :
 - **#49** — auditer tous les textes user-facing de l'app, homogénéiser le ton, produire un dictionnaire interne des notions propres à l'app (Rituel du Réveil, Rituel du Crépuscule, Rage Quit, Perfect, Combo, Dojo Gauge...) avec le texte tel que vu par l'utilisateur + sa définition/utilité. Revue produit marketing du ton = **hors périmètre de ce chantier technique**.
-- **#54** — ajouter une jauge d'agressivité réglable à tout moment (Sensei / Sparring / Street), pilotant le ton du Sensei (narrateur) **et** du Boss, réglable dès l'onboarding.
+- **#54** — ajouter une jauge d'agressivité réglable à tout moment (Doux / Direct / Brut, ex-Sensei/Sparring/Street), pilotant le ton de La Voix (narrateur) **et** du Boss, réglable dès l'onboarding.
 
 Faire #54 seul aurait produit une matrice de ton incomplète (les scénarios non encore audités manqueraient de variantes). Les deux issues sont donc résolues par un seul livrable : un registre de copy centralisé qui sert à la fois d'inventaire exhaustif (#49) et de support natif aux 3 variantes de ton (#54).
 
@@ -18,7 +18,7 @@ Faire #54 seul aurait produit une matrice de ton incomplète (les scénarios non
 
 1. **Seuls les textes "voix"** (narration Sensei + réplique Boss) ont 3 variantes de ton. Le chrome UI neutre (labels de boutons, placeholders de formulaire) reste inline, une seule version, non concerné par le niveau — recensé dans l'audit mais pas migré vers le registre.
 2. **Dictionnaire des notions = doc interne uniquement**, jamais exposé en UI (pas d'ajout au Guide US-28).
-3. Défaut du niveau : `sparring` (== "Sparring", "Défaut / Équilibré" dans la matrice de #54).
+3. Défaut du niveau : `direct` (== "Direct", "Défaut / Équilibré" dans la matrice de #54).
 
 ## Modèle de données
 
@@ -27,11 +27,16 @@ Migration dédiée single-column, même patron que `timezone` / `equipped_hero_i
 ```sql
 -- supabase/migrations/<timestamp>_add_profile_aggressivity_level.sql
 alter table public.profiles
-  add column aggressivity_level text not null default 'sparring'
-  check (aggressivity_level in ('sensei', 'sparring', 'street'));
+  add column aggressivity_level text not null default 'direct'
+  check (aggressivity_level in ('doux', 'direct', 'brut'));
 ```
 
-`types/index.ts` : ajout du type `AggressivityLevel = 'sensei' | 'sparring' | 'street'` et du champ `aggressivity_level: AggressivityLevel` sur `Profile`.
+> Révisé le 2026-07-24 (issue #51, reframe "Démon Intérieur") : les valeurs
+> d'origine (`sensei`/`sparring`/`street`) ont été renommées en
+> `doux`/`direct`/`brut` par la migration
+> `supabase/migrations/20260724160000_rename_aggressivity_levels.sql`.
+
+`types/index.ts` : `AggressivityLevel = 'doux' | 'direct' | 'brut'` et le champ `aggressivity_level: AggressivityLevel` sur `Profile`.
 
 Pas de policy RLS spécifique nécessaire : colonne couverte par les policies existantes de `profiles` (lecture/écriture par le propriétaire), pas de donnée soumise à RG-04 (préférence réversible, comme `equipped_hero_id`).
 
@@ -68,9 +73,9 @@ Chaque fichier a son `*.test.ts` (Vitest), un cas par niveau minimum.
 
 Remplace la section "Dosage des jurons" de `docs/superpowers/specs/2026-07-08-tone-of-voice-design.md` (ce fichier reste la référence historique, mais cette section-ci fait foi désormais) :
 
-- **Niveaux `sensei` et `sparring`** : règle inchangée — jurons du trio `putain` / `bordel` / `enfoiré`, réservés aux pics émotionnels réels (level up, Perfect, victoire, échec net, erreur technique frustrante). Jamais sur actions routinières.
-- **Niveau `street`** : override — jurons/registre cru autorisés même sur actions routinières (empty state, erreurs techniques inclus). Vocabulaire élargi : `merde`, `con`, `connard`, `foutre`, en plus du trio existant.
-- **Garde-fou inchangé à tous les niveaux** : jurons/piques toujours dirigés vers le Boss, la tâche ou la situation — jamais une attaque personnelle réelle contre le joueur. Aucune insulte à caractère sexuel ou raciste, à aucun niveau.
+- **Paliers `doux` et `direct`** : règle inchangée — jurons du trio `putain` / `bordel` / `enfoiré`, réservés aux pics émotionnels réels (level up, Perfect, victoire, échec net, erreur technique frustrante). Jamais sur actions routinières.
+- **Palier `brut`** : override — jurons/registre cru autorisés même sur actions routinières (empty state, erreurs techniques inclus). Vocabulaire élargi : `merde`, `con`, `connard`, `foutre`, en plus du trio existant.
+- **Garde-fou inchangé à tous les paliers** : jurons/piques toujours dirigés vers le Boss, la tâche ou la situation — jamais une attaque personnelle réelle contre le joueur. Aucune insulte à caractère sexuel ou raciste, à aucun palier.
 
 ## Boss
 
@@ -78,13 +83,13 @@ Le Boss varie aussi selon le niveau (pas seulement le Sensei), conformément au 
 
 ## Onboarding
 
-`app/onboarding/OnboardingFlow.tsx` : le type `step` (actuellement `"pseudo" | "avatar"`) devient `"pseudo" | "avatar" | "agressivite"`. Nouvelle étape insérée entre `"avatar"` et la soumission finale (`createProfile`). Sélecteur à 3 cartes (Sensei / Sparring / Street), chaque carte avec son nom + une courte description (reprenant l'esprit de la matrice de #54 : Philosophe/Zen, Franc-parler, Arcade/Sans filtre). Pas de slider continu.
+`app/onboarding/OnboardingFlow.tsx` : le type `step` (actuellement `"pseudo" | "avatar"`) devient `"pseudo" | "avatar" | "agressivite"`. Nouvelle étape insérée entre `"avatar"` et la soumission finale (`createProfile`). Sélecteur à 3 cartes (Doux / Direct / Brut), chaque carte avec son nom + une courte description (Philosophe/Zen, Franc-parler, Arcade/Sans filtre). Pas de slider continu.
 
-`app/onboarding/actions.ts` (`createProfile`) : accepte et persiste `aggressivity_level` choisi (fallback `sparring` si l'étape est sautée/non atteinte).
+`app/onboarding/actions.ts` (`createProfile`) : accepte et persiste `aggressivity_level` choisi (fallback `direct` si l'étape est sautée/non atteinte).
 
-## Réglage à tout moment (QG)
+## Réglage à tout moment (Le Vestiaire)
 
-`app/qg/page.tsx` : nouvelle section (aux côtés d'`IntegrationsSection`), même sélecteur à 3 cartes que l'onboarding, composant client dédié (ex. `components/qg/AggressivityLevelSection.tsx`). Modification immédiate via une nouvelle server action `updateAggressivityLevel(level: AggressivityLevel)` (`app/actions/profile.ts` ou fichier équivalent existant pour les actions de profil).
+`app/qg/page.tsx` : section "Volume Intérieur" (aux côtés d'`IntegrationsSection`), même sélecteur à 3 cartes que l'onboarding, composant client dédié `components/qg/AggressivityLevelSection.tsx`. Modification immédiate via `updateAggressivityLevel(level: AggressivityLevel)` (`app/actions/profile.ts`).
 
 ## Audit #49 — livrable
 

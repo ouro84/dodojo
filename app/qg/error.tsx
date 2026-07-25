@@ -6,7 +6,7 @@ import { randomSeed } from "@/lib/copy/variant";
 import BottomNav from "@/components/ui/BottomNav";
 
 // Audit #67, PR6 (règle projet n°3) — pas de contexte de profil disponible
-// dans un error boundary Next.js (error/reset uniquement), niveau "sparring"
+// dans un error boundary Next.js (error/reset uniquement), niveau "direct"
 // par défaut (même convention que ArenaError quand le profil n'a pas pu être chargé).
 export default function QgError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [seed] = useState(randomSeed);
@@ -14,7 +14,7 @@ export default function QgError({ reset }: { error: Error & { digest?: string };
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-8 text-center">
       <p role="alert" className="max-w-[32ch] text-sm text-hp-text">
-        {technicalErrorLine("sparring", seed)}
+        {technicalErrorLine("direct", seed)}
       </p>
       <button
         type="button"

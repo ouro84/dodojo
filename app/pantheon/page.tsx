@@ -13,9 +13,9 @@ import WinRateRing from "@/components/pantheon/WinRateRing";
 import CombatJournal from "@/components/pantheon/CombatJournal";
 import BottomNav from "@/components/ui/BottomNav";
 
-export const metadata: Metadata = { title: "Panthéon — Dodojo" };
+export const metadata: Metadata = { title: "Tableau de Chasse — Dodojo" };
 
-// US-10 : le Panthéon — écran lecture seule, dérivé de day_results + profiles.
+// US-10 : le Tableau de Chasse — écran lecture seule, dérivé de day_results + profiles.
 // Aucune écriture (B1). Accessible via le QG (D3).
 export default async function PantheonPage() {
   const supabase = await createClient();
@@ -56,7 +56,7 @@ export default async function PantheonPage() {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
         <p className="font-hud text-sm font-semibold uppercase tracking-wide text-alert">
-          Le Panthéon est scellé
+          Le Tableau de Chasse est scellé
         </p>
         <p className="max-w-[28ch] text-xs text-muted">
           Impossible de charger tes faits d&apos;armes. Réessaie dans un instant.
@@ -76,9 +76,9 @@ export default async function PantheonPage() {
   const xpPct = Math.min(100, Math.round((profile.xp / xpThreshold) * 100));
 
   const TITLE_TIERS = [
-    { streak: 7, name: "Ceinture Jaune" },
-    { streak: 30, name: "Ceinture Noire" },
-    { streak: 100, name: "Sensei" },
+    { streak: 7, name: "Calme" },
+    { streak: 30, name: "Silence" },
+    { streak: 100, name: "Esprit Vide" },
   ];
   const nextLocked = TITLE_TIERS.find((t) => profile.best_streak < t.streak);
   const activeTitle = titleForStreak(profile.best_streak) ?? profile.current_title;
@@ -88,7 +88,7 @@ export default async function PantheonPage() {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
         <h1 className="font-hud text-lg font-semibold uppercase tracking-wide text-ink">
-          Le Panthéon
+          Tableau de Chasse
         </h1>
         <p className="max-w-[30ch] text-sm text-muted">
           Aucun combat à ton palmarès, {profile.username}. Va terrasser ton
@@ -105,7 +105,7 @@ export default async function PantheonPage() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 py-6">
       <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
-        Le Panthéon
+        Tableau de Chasse
       </h1>
 
       {/* Bloc Héros */}

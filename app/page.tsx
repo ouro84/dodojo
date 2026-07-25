@@ -33,7 +33,7 @@ export default async function ArenePage() {
   const today = dayKey(new Date(), profile.timezone ?? "UTC");
 
   // US-17 : génère (idempotent) les instances de routines dues aujourd'hui avant
-  // de lire la liste du jour — couvre les jours sans reste (le Rituel du Réveil
+  // de lire la liste du jour — couvre les jours sans reste (le Réveil
   // bloquant ne se monte que s'il y a des restes).
   await generateRecurringInstances();
 
@@ -66,7 +66,7 @@ export default async function ArenePage() {
       .eq("user_id", user.id)
       .order("day_date", { ascending: false })
       // Aligné sur le palier de série le plus élevé (100 jours) + marge —
-      // à 60, le palier 100 (titre Sensei) ne pouvait structurellement
+      // à 60, le palier 100 (titre Esprit Vide) ne pouvait structurellement
       // jamais se déclencher depuis l'Arène (audit #67, PR4).
       .limit(120),
   ]);

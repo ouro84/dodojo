@@ -70,7 +70,7 @@ describe("buildShareCardParams", () => {
     heroId: "fire_knight",
     bossId: "frost-guardian",
     level: 4,
-    title: "Ceinture Jaune",
+    title: "Calme",
     streak: 7,
     dayDate: "2026-07-22",
   };
@@ -93,7 +93,7 @@ describe("buildShareCardParams", () => {
       tasksCompleted: 4,
       streak: 7,
       level: 4,
-      title: "Ceinture Jaune",
+      title: "Calme",
       dayDate: "2026-07-22",
       milestone: 7,
     });
@@ -150,7 +150,7 @@ describe("shareCardSearchParams / parseShareCardParams (aller-retour)", () => {
     tasksCompleted: 4,
     streak: 7,
     level: 4,
-    title: "Ceinture Jaune",
+    title: "Calme",
     dayDate: "2026-07-22",
     milestone: 7,
   };
