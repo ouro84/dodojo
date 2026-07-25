@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 import { DEFAULT_HERO_ID } from "@/lib/heroes";
 import type { AggressivityLevel } from "@/types";
 import OnboardingAvatarPicker from "@/components/combat/OnboardingAvatarPicker";
+import { useBrowserTimezone } from "@/hooks/useBrowserTimezone";
 import { createProfile, type CreateProfileState } from "./actions";
 
 const initialState: CreateProfileState = { error: null };
@@ -20,13 +21,7 @@ export default function OnboardingFlow() {
   const [username, setUsername] = useState("");
   const [starterId, setStarterId] = useState(DEFAULT_HERO_ID);
   const [aggressivityLevel, setAggressivityLevel] = useState<AggressivityLevel>("direct");
-  const tzRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (tzRef.current) {
-      tzRef.current.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    }
-  }, []);
+  const timezone = useBrowserTimezone();
 
   const trimmed = username.trim();
 
@@ -92,7 +87,7 @@ export default function OnboardingFlow() {
       <input type="hidden" name="username" value={trimmed} readOnly />
       <input type="hidden" name="starterId" value={starterId} readOnly />
       <input type="hidden" name="aggressivityLevel" value={aggressivityLevel} readOnly />
-      <input ref={tzRef} type="hidden" name="timezone" defaultValue="UTC" />
+      <input type="hidden" name="timezone" value={timezone} readOnly />
       <p className="text-center text-xs uppercase tracking-wide text-faint">
         Ton Volume Intérieur, {trimmed}
       </p>
