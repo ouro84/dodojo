@@ -6,6 +6,13 @@
 > bout" (en plus des e2e "simplistes" par feature isolée, déjà nombreux dans
 > `e2e/`). À tenir à jour si un écran ou un lien de navigation change
 > (cf. règle de mise à jour de `CLAUDE.md`).
+>
+> Vocabulaire aligné sur le reframe "Le Démon Intérieur" (issue #51) : le nom
+> de l'onglet `BottomNav`/la route reste "QG" (`/qg`), mais l'écran affiche
+> désormais le titre "Le Vestiaire". Panthéon → "Tableau de Chasse", Échoppe →
+> "Le Marché Noir" (onglet `BottomNav` toujours "Échoppe"), Manuel du Dojo →
+> "Le Guide", Rituel du Réveil → "Le Réveil", Rituel du Crépuscule → "Dernier
+> Round", Dojo Gauge → "Volume Intérieur".
 
 ## Carte des écrans (liens réels, hors debug interne)
 
@@ -13,16 +20,16 @@
 /welcome  --signup-->  /onboarding  --pseudo/avatar/ton-->  /  (Arène)
 /login    --login-->   /  (Arène)
 
-/  (Arène) <--BottomNav--> /qg <--BottomNav--> /echoppe
+/  (Arène) <--BottomNav--> /qg (Le Vestiaire) <--BottomNav--> /echoppe (Le Marché Noir)
                             |
-                            +--> /pantheon          (lien "Le Panthéon")
+                            +--> /pantheon          (lien "Tableau de Chasse")
                             +--> /qg/entrainement   (lien "Mode Entraînement")
-                            +--> /guide             (lien "Manuel du Dojo")
+                            +--> /guide             (lien "Le Guide")
                             |      +--> /guide/[slug]  (article, retour via BackLink)
                             +--> /guide/or           (lien direct "Comment gagner de l'or ?")
 
-/  (Arène) --tâches en retard--> Rituel du Réveil (overlay bloquant, au chargement)
-/  (Arène) --clôture manuelle--> Rituel du Crépuscule (dialog non-bloquant)
+/  (Arène) --tâches en retard--> Le Réveil (overlay bloquant, au chargement)
+/  (Arène) --clôture manuelle--> Dernier Round (dialog non-bloquant)
 ```
 
 Écrans **volontairement hors parcours** (jamais atteints par une vraie
@@ -34,8 +41,8 @@ navigation utilisateur) : `/roster-preview-8f3a2c9d`, `/skins-preview-4c7a1e9b`
 
 | # | Parcours | Écrans traversés | e2e correspondant |
 |---|----------|-------------------|--------------------|
-| 1 | Cycle complet d'une journée : résoudre les restes de la veille, se battre, clôturer, consulter son palmarès | Arène (Réveil) → Arène (combat) → Rituel du Crépuscule → Panthéon → QG | `e2e/journey-full-day.spec.ts` |
-| 2 | Premier jour d'un nouvel utilisateur : inscription jusqu'à la découverte du QG et du Guide | Welcome → Onboarding → Arène (coach) → QG → Guide | `e2e/onboarding.spec.ts` |
+| 1 | Cycle complet d'une journée : résoudre les restes de la veille, se battre, clôturer, consulter son palmarès | Arène (Le Réveil) → Arène (combat) → Dernier Round → Tableau de Chasse → QG | `e2e/journey-full-day.spec.ts` |
+| 2 | Premier jour d'un nouvel utilisateur : inscription jusqu'à la découverte du QG et du Guide | Welcome → Onboarding → Arène (coach) → QG → Le Guide | `e2e/onboarding.spec.ts` |
 | 3 | Progression économique : débloquer et équiper un héros, vérifier que ça se voit en combat | Arène → Échoppe (achat + équipement) → Arène (sprite mis à jour) | `e2e/journey-hero-economy.spec.ts` |
 
 Ces parcours **complètent** la suite existante — les e2e "simplistes" listés
@@ -45,7 +52,7 @@ parcours qui casse ne dit pas *où*) :
 
 `combat-loop`, `subtasks`, `nesting-dnd`, `deadlines`, `mic-dictation`,
 `wake-up-ritual`, `crepuscule-recap`, `echoppe`, `echoppe-skins`, `streaks`,
-`dojo-gauge`, `guide`.
+`volume-interieur`, `guide`.
 
 ## Quand ajouter un nouveau parcours vs un nouvel e2e isolé
 
