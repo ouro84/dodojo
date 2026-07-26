@@ -49,7 +49,7 @@ alter table public.oauth_tokens enable row level security;
 
 -- oauth_clients : lecture ouverte (metadonnees non secretes -
 -- client_secret_hash reste toujours NULL dans ce MVP, clients publics
--- uniquement) pour permettre au QG (session utilisateur normale) de
+-- uniquement) pour permettre au Vestiaire (session utilisateur normale) de
 -- retrouver un client par nom (lib/oauth-gemini.ts). Ecriture
 -- (insert/update/delete) reservee au role service_role (route
 -- /oauth/register), qui bypass RLS - donc aucune policy insert/update/delete
@@ -68,7 +68,7 @@ create policy "oauth_authorization_codes_insert_own"
   with check (user_id = auth.uid());
 
 -- oauth_tokens : un utilisateur connecte peut voir/revoquer SES propres
--- autorisations (statut + bouton Deconnecter au QG, session cookie) ; la
+-- autorisations (statut + bouton Deconnecter au Vestiaire, session cookie) ; la
 -- creation/rotation d'un token reste exclusivement service_role
 -- (/oauth/token), aucune policy insert/update ici.
 create policy "oauth_tokens_select_own"

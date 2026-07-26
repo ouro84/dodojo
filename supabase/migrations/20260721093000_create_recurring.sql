@@ -1,6 +1,6 @@
 -- US-17 : Mode Entraînement (tâches récurrentes / quêtes).
 -- Un template n'est PAS une tâche du jour : il décrit une routine et ses jours.
--- Les instances sont des lignes `tasks` normales, générées au Rituel du Réveil.
+-- Les instances sont des lignes `tasks` normales, générées au Réveil.
 
 -- Template de routine.
 create table public.recurring_templates (
