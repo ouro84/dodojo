@@ -9,7 +9,7 @@ export default function StreakBadge({ state }: { state: StreakState }) {
       <Link
         href="/guide/streak"
         className="font-display text-sm text-gold underline-offset-4 hover:underline"
-        aria-label="Série — voir le Manuel"
+        aria-label="Série — voir le Guide"
       >
         🔥 Série : {state.length}
       </Link>

@@ -57,7 +57,7 @@ export default function WebhookTokenSection({ hasToken, lastUsedAt }: WebhookTok
             Authorization: `Bearer ${revealedToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ title: "Test depuis le QG" }),
+          body: JSON.stringify({ title: "Test depuis le Vestiaire" }),
         });
         setTestResult(response.ok ? "success" : "error");
       } catch {
