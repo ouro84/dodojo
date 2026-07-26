@@ -17,11 +17,11 @@ import BottomNav from "@/components/ui/BottomNav";
 export const metadata: Metadata = { title: "Le Vestiaire — Dodojo" };
 
 // Audit UX 2026-07-24 (P1) : le QG est le hub obligé vers Panthéon/Échoppe/
-// Guide/Entraînement (aucun autre onglet n'y mène) - remplace la pile de
+// Guide/Routines (aucun autre onglet n'y mène) - remplace la pile de
 // liens soulignés multicolores par un vrai menu, affordance uniforme.
 const SECTIONS: Array<{ href: string; icon: string; label: string }> = [
   { href: "/pantheon", icon: "🏆", label: "Tableau de Chasse" },
-  { href: "/qg/entrainement", icon: "🔁", label: "Mode Entraînement" },
+  { href: "/qg/entrainement", icon: "🔁", label: "Mes Routines" },
   { href: "/echoppe", icon: "🛒", label: "Le Marché Noir" },
   { href: "/guide", icon: "📖", label: "Le Guide" },
 ];
