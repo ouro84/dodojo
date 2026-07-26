@@ -464,7 +464,7 @@ export interface DaySummary {
 }
 
 // Résume un jour à partir de ses tâches. L'issue dépend du contexte : à la
-// clôture manuelle (Crépuscule) un Boss vivant = "retreat" ; au backfill d'un
+// clôture manuelle (fin de journée) un Boss vivant = "retreat" ; au backfill d'un
 // jour raté = "defeat". Victoire uniquement si le Boss est tombé à 0.
 export function summarizeDay(tasks: SummaryTask[], context: DayContext): DaySummary {
   const bossMaxHp = calculateBossMaxHp(tasks);
@@ -635,7 +635,7 @@ export type PantheonDay = Pick<
   "day_date" | "outcome" | "damage_dealt" | "gold_earned"
 >;
 
-// US-10 : agrégats purs du Panthéon, dérivés de day_results. Aucune écriture.
+// US-10 : agrégats purs du Tableau de Chasse, dérivés de day_results. Aucune écriture.
 // winRate garde la division par zéro (0 jour → 0). bestDay départage les égalités
 // par la date la plus récente (déterministe). damageSeries = N derniers jours
 // (chronologique) pour la sparkline.

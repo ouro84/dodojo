@@ -4,7 +4,7 @@ interface IntegrationsSectionProps {
   children: ReactNode;
 }
 
-// US-11 : première section du QG à accueillir des blocs d'intégration
+// US-11 : première section du Vestiaire à accueillir des blocs d'intégration
 // externe. US-03 (Siri/webhook) et US-22 (Gemini MCP) ajouteront chacun leur
 // propre bloc en enfant ici, dans l'ordre du sprint — jamais une nouvelle
 // section concurrente.

@@ -122,7 +122,7 @@ export interface Skin {
   name: string;
   price: number; // 0 pour la tenue "default"
   isDefault: boolean;
-  swatchColor: string; // hex, puce dans l'Échoppe
+  swatchColor: string; // hex, puce dans Le Marché Noir
 }
 
 export interface UnlockedSkin {

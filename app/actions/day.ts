@@ -111,7 +111,7 @@ export async function closeDay(): Promise<CloseDayResult> {
 // US-08 (D8) : à la fin du traitement du Réveil, enregistre rétroactivement un
 // day_result pour chaque jour passé sans résultat (issue calculée après que
 // "Terminé" a pu transformer un jour en victoire tardive). Historique sans
-// trous pour le Panthéon / streak.
+// trous pour le Tableau de Chasse / streak.
 export async function backfillMissedDays(): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const {

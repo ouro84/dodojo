@@ -16,7 +16,7 @@ function formatLastUsed(lastUsedAt: string | null): string {
   return `Il y a ${diffDays} jours`;
 }
 
-// US-03 : bloc « Raccourci Siri » de la section Intégrations du QG — sibling
+// US-03 : bloc « Raccourci Siri » de la section Intégrations du Vestiaire — sibling
 // de PushReminderToggle (US-11), même conteneur IntegrationsSection, sans
 // réorganiser la section. Le token en clair n'est connu du client qu'à
 // l'instant de la (ré)génération (revealedToken) : jamais relu depuis la

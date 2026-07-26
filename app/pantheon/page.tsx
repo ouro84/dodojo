@@ -16,7 +16,7 @@ import BottomNav from "@/components/ui/BottomNav";
 export const metadata: Metadata = { title: "Tableau de Chasse — Dodojo" };
 
 // US-10 : le Tableau de Chasse — écran lecture seule, dérivé de day_results + profiles.
-// Aucune écriture (B1). Accessible via le QG (D3).
+// Aucune écriture (B1). Accessible via Le Vestiaire (D3).
 export default async function PantheonPage() {
   const supabase = await createClient();
   const {
@@ -44,7 +44,7 @@ export default async function PantheonPage() {
       .limit(90),
     // Non borné (même pattern que app/echoppe/page.tsx) : goldBalance() a besoin
     // de TOUT l'historique, jamais du lot borné à 90 jours ci-dessus utilisé pour
-    // le Journal/sparkline (audit #67, PR4 — le solde divergeait de l'Échoppe
+    // le Journal/sparkline (audit #67, PR4 — le solde divergeait du Marché Noir
     // au-delà de 90 jours de compte).
     supabase.from("day_results").select("gold_earned").eq("user_id", user.id),
     supabase.from("unlocked_heroes").select("price_paid").eq("user_id", user.id),

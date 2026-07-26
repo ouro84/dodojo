@@ -6,7 +6,7 @@ import { urlBase64ToUint8Array } from "@/lib/pwa/push-subscribe";
 import { subscribeToPush, unsubscribeFromPush } from "@/app/actions/push";
 
 interface PushReminderToggleProps {
-  hasSubscription: boolean; // état initial connu côté serveur (au chargement du QG)
+  hasSubscription: boolean; // état initial connu côté serveur (au chargement du Vestiaire)
 }
 
 type ToggleStatus = "unsupported" | "denied" | "off" | "on";
@@ -35,7 +35,7 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
   // Ajustement d'état pendant le rendu (pattern React recommandé) plutôt
   // qu'un useEffect : évite le rendu en cascade signalé par
   // react-hooks/set-state-in-effect tout en recalculant le statut si la
-  // prop serveur change (ex. navigation retour au QG).
+  // prop serveur change (ex. navigation retour au Vestiaire).
   const [prevHasSubscription, setPrevHasSubscription] = useState(hasSubscription);
   if (hasSubscription !== prevHasSubscription) {
     setPrevHasSubscription(hasSubscription);

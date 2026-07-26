@@ -29,7 +29,7 @@ async function userToday(
 // US-17 : génère les instances de routines manquantes pour le jour local courant.
 // Idempotent (B1) : ne crée jamais de doublon (anti-doublon D5 via les instances
 // déjà présentes) et ne génère jamais pour un jour passé (D6 : seul `today`).
-// Appelée au chargement de l'Arène (couvre les jours sans reste, où le Rituel du
+// Appelée au chargement de l'Arène (couvre les jours sans reste, où Le Réveil
 // Réveil bloquant ne se monte pas) — pas de revalidate ici, la page lit ensuite.
 export async function generateRecurringInstances(): Promise<{
   error: string | null;

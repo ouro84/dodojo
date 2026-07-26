@@ -7,7 +7,7 @@ export interface GeminiDisconnectResult {
   error: string | null;
 }
 
-// US-22 : revoque, depuis le QG, les autorisations MCP dont le client_name
+// US-22 : revoque, depuis Le Vestiaire, les autorisations MCP dont le client_name
 // ressemble a "Gemini" (heuristique assumee - la DCR RFC 7591 n'impose
 // aucun identifiant stable pour un client, cf. CLAUDE.md/Risques du
 // design). Symetrique de POST /oauth/revoke (declenche, lui, depuis les

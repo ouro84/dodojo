@@ -7,7 +7,7 @@ interface GeminiConnectionSectionProps {
   isConnected: boolean;
 }
 
-// US-22 : bloc "Gemini" de la section Integrations du QG - sibling de
+// US-22 : bloc "Gemini" de la section Integrations du Vestiaire - sibling de
 // WebhookTokenSection (US-03) et PushReminderToggle (US-11). Contrairement
 // a ces deux blocs, la CONNEXION s'initie cote Gemini ("Connected Apps"),
 // pas ici : ce bloc n'affiche que l'etat + un bouton de deconnexion.

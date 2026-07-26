@@ -29,7 +29,7 @@ function isValidRedirectUri(value: unknown): value is string {
 // `redirect_uris` est la seule metadonnee reellement structurante ici (le
 // serveur d'autorisation doit savoir ou rediriger apres consentement) ;
 // `client_name` reste informatif, jamais utilise pour une decision de
-// securite (l'identification "Gemini" au QG, lib/oauth-gemini.ts, est une
+// securite (l'identification "Gemini" au Vestiaire, lib/oauth-gemini.ts, est une
 // heuristique d'affichage, pas un controle d'acces).
 export function validateClientRegistration(body: unknown): ClientRegistrationValidation {
   if (typeof body !== "object" || body === null) {

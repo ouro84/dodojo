@@ -5,7 +5,7 @@ export const GEMINI_CLIENT_NAME_PATTERN = "%gemini%";
 // US-22 : identifie les client_id enregistres dont le nom ressemble a
 // "Gemini" (heuristique - la DCR RFC 7591 n'impose pas d'identifiant client
 // stable ; documente comme risque/hypothese dans CLAUDE.md). Reutilise par
-// le statut affiche au QG ET par la deconnexion (une seule requete, jamais
+// le statut affiche au Vestiaire ET par la deconnexion (une seule requete, jamais
 // dupliquee).
 export async function findGeminiClientIds(supabase: SupabaseClient): Promise<string[]> {
   const { data } = await supabase
