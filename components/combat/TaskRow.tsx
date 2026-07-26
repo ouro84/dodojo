@@ -20,6 +20,11 @@ interface TaskRowProps {
   onAddSubtask: (parentId: string, title: string) => void;
   onSetDeadline: (id: string, deadlineAt: string | null) => void;
   isAddingSubtask: boolean;
+  // True pendant qu'une mutation de cette tâche est en vol côté serveur
+  // (toggle, abandon, deadline). Distinct de `isOptimisticTask` qui ne couvre
+  // que la phase "création non confirmée". Les deux désactivent les
+  // interactions mais le `isMutating` survient sur une tâche déjà persistée.
+  isMutating?: boolean;
   dropIndicator?: DragOverInfo | null;
 }
 
@@ -31,11 +36,16 @@ export default function TaskRow({
   onAddSubtask,
   onSetDeadline,
   isAddingSubtask,
+  isMutating = false,
   dropIndicator = null,
 }: TaskRowProps) {
   const isPending = isOptimisticTask(task);
-  const draggable = useDraggable({ id: task.id, disabled: isPending });
-  const droppable = useDroppable({ id: task.id, disabled: isPending });
+  // Toute interaction qui déclencherait une mutation serveur est désactivée
+  // tant que la ligne est en phase optimistic (création non confirmée) OU en
+  // vol (toggle/abandon/deadline déjà lancé sur cette tâche).
+  const isLocked = isPending || isMutating;
+  const draggable = useDraggable({ id: task.id, disabled: isLocked });
+  const droppable = useDroppable({ id: task.id, disabled: isLocked });
 
   const style = draggable.transform
     ? {
@@ -72,7 +82,7 @@ export default function TaskRow({
     >
       <button
         type="button"
-        disabled={isPending}
+        disabled={isLocked}
         aria-label={`Déplacer "${task.title}"`}
         className="shrink-0 cursor-grab touch-none px-2.5 py-2.5 text-faint hover:text-ink focus-visible:text-ink active:cursor-grabbing disabled:cursor-wait disabled:opacity-40"
         {...draggable.listeners}
@@ -85,10 +95,11 @@ export default function TaskRow({
           type="checkbox"
           checked={task.is_completed}
           onChange={(event) => onToggle(task.id, event.target.checked)}
+          disabled={isLocked}
           aria-label={`Marquer "${task.title}" comme ${
             task.is_completed ? "non accomplie" : "accomplie"
           }`}
-          className="h-4 w-4 accent-hp"
+          className="h-4 w-4 accent-hp disabled:cursor-wait disabled:opacity-40"
         />
       </label>
       <span
@@ -107,7 +118,7 @@ export default function TaskRow({
         <SubtaskForm
           onAdd={(title) => onAddSubtask(task.id, title)}
           pending={isAddingSubtask}
-          disabled={isPending}
+          disabled={isLocked}
         />
       )}
       <DeadlineControl
@@ -116,14 +127,15 @@ export default function TaskRow({
         deadlineAt={task.deadline_at}
         dayDate={task.day_date}
         timezone={timezone}
-        disabled={isPending}
+        disabled={isLocked}
         onSave={(deadlineAt) => onSetDeadline(task.id, deadlineAt)}
       />
       <button
         type="button"
         onClick={() => onAbandon(task.id)}
+        disabled={isLocked}
         aria-label={`Abandonner "${task.title}"`}
-        className="shrink-0 rounded px-2.5 py-2.5 text-xs text-faint hover:text-alert focus-visible:text-alert"
+        className="shrink-0 rounded px-2.5 py-2.5 text-xs text-faint hover:text-alert focus-visible:text-alert disabled:cursor-wait disabled:opacity-40"
       >
         ×
       </button>

@@ -10,6 +10,11 @@ interface TaskListProps {
   onAddSubtask: (parentId: string, title: string) => void;
   onSetDeadline: (id: string, deadlineAt: string | null) => void;
   addingSubtaskParentId?: string | null;
+  // Fix #95/#96 (issues) : ids en cours de mutation (toggle, abandon,
+  // deadline). Désactive le rendu interactif de la ligne correspondante tant
+  // que le serveur n'a pas répondu — empêche le double-tap qui envoie un id
+  // optimistic ou qui rollback un appel concurrent.
+  pendingMutationIds?: Set<string>;
   dragOverInfo?: DragOverInfo | null;
 }
 
@@ -21,6 +26,7 @@ export default function TaskList({
   onAddSubtask,
   onSetDeadline,
   addingSubtaskParentId = null,
+  pendingMutationIds,
   dragOverInfo = null,
 }: TaskListProps) {
   const orderedTasks = sortTasksHierarchically(tasks);
@@ -37,6 +43,7 @@ export default function TaskList({
             onAddSubtask={onAddSubtask}
             onSetDeadline={onSetDeadline}
             isAddingSubtask={addingSubtaskParentId === task.id}
+            isMutating={pendingMutationIds?.has(task.id) ?? false}
             dropIndicator={dragOverInfo?.overTaskId === task.id ? dragOverInfo : null}
           />
         </li>
