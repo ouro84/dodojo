@@ -65,7 +65,7 @@ export async function abandonViaUi(page: Page, title: string): Promise<void> {
   await page.getByRole("button", { name: "Abandonner", exact: true }).click();
 }
 
-// US-18 : remet l'état Échoppe du compte e2e fixe à zéro (compte unique partagé,
+// US-18 : remet l'état Marché Noir du compte e2e fixe à zéro (compte unique partagé,
 // tests en série). Utilise la clé secrète Supabase (hors RLS) — utilitaire de
 // test uniquement, pas le flux applicatif (l'app ne DELETE jamais, RG-04).
 export async function resetShopState(): Promise<void> {

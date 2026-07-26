@@ -58,7 +58,7 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
       // tâches au fil des runs, les deux peuvent diverger sans que ce soit un
       // bug (cf. crepuscule-recap.spec.ts, qui n'asserte pas non plus de
       // valeur fixe).
-      await page.getByRole("link", { name: "QG" }).click();
+      await page.getByRole("link", { name: "Vestiaire" }).click();
       await page.waitForURL("/qg");
       await expect(page.getByRole("heading", { name: "Le Vestiaire" })).toBeVisible();
 
@@ -73,7 +73,7 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
       await expect(page.locator("li", { hasText: /dégâts/ }).first()).toBeVisible();
 
       // 5. Retour QG (BottomNav) : la navigation reste cohérente en fin de parcours.
-      await page.getByRole("link", { name: "QG" }).click();
+      await page.getByRole("link", { name: "Vestiaire" }).click();
       await page.waitForURL("/qg");
     } finally {
       await deleteTaskById(overdueId);

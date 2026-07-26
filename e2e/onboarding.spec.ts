@@ -46,7 +46,7 @@ test("Onboarding complet (US-29)", async ({ page }) => {
   // combat — il continue vers le QG (où le ton "Brut" choisi plus haut doit
   // déjà être reflété, régression bug #70) puis le Guide, avant de revenir
   // à l'Arène.
-  await page.getByRole("link", { name: "QG" }).click();
+  await page.getByRole("link", { name: "Vestiaire" }).click();
   await page.waitForURL("/qg");
   const aggressivitySection = page.locator("section", { hasText: "Volume Intérieur" });
   await expect(

@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { login, resetShopState } from "./fixtures";
 
-// US-18 : parcours Échoppe. Compte e2e fixe partagé → reset avant chaque test.
-test.describe("US-18 Échoppe", () => {
+// US-18 : parcours Marché Noir. Compte e2e fixe partagé → reset avant chaque test.
+test.describe("US-18 Le Marché Noir", () => {
   test.beforeEach(async ({ page }) => {
     await resetShopState();
     await login(page);

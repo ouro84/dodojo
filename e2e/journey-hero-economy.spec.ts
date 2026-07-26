@@ -20,7 +20,7 @@ test.describe("Parcours : équiper un héros depuis l'Échoppe se reflète dans 
     await login(page);
     await expect(page.getByAltText("Ton héros : Chevalier de Feu")).toBeVisible();
 
-    await page.getByRole("link", { name: "Échoppe" }).click();
+    await page.getByRole("link", { name: "Marché Noir" }).click();
     await page.waitForURL("/echoppe");
 
     await page.locator('[data-hero-cell="water_priestess"]').click();
