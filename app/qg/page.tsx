@@ -88,28 +88,19 @@ export default async function QgPage() {
       <nav aria-label="Sections du Vestiaire" className="flex flex-col gap-2">
         <p className="text-center text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
         {SECTIONS.map((section) => (
-          <div key={section.href} className="flex flex-col gap-1">
-            <Link
-              href={section.href}
-              className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-3 text-sm text-ink hover:border-ink"
-            >
-              <span className="flex items-center gap-2">
-                <span aria-hidden="true">{section.icon}</span>
-                {section.label}
-              </span>
-              <span aria-hidden="true" className="text-faint">
-                ›
-              </span>
-            </Link>
-            {section.href === "/echoppe" && (
-              <Link
-                href="/guide/or"
-                className="self-end pr-1 text-xs text-faint underline underline-offset-4 hover:text-muted"
-              >
-                Comment gagner de l&apos;or ?
-              </Link>
-            )}
-          </div>
+          <Link
+            key={section.href}
+            href={section.href}
+            className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-3 text-sm text-ink hover:border-ink"
+          >
+            <span className="flex items-center gap-2">
+              <span aria-hidden="true">{section.icon}</span>
+              {section.label}
+            </span>
+            <span aria-hidden="true" className="text-faint">
+              ›
+            </span>
+          </Link>
         ))}
       </nav>
 
