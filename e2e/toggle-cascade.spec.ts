@@ -52,17 +52,33 @@ test.describe("Cascade de complétion parent/sous-tâches", () => {
     const checkboxS1 = page.locator("li", { hasText: titleS1 }).locator('input[type="checkbox"]');
     const checkboxS2 = page.locator("li", { hasText: titleS2 }).locator('input[type="checkbox"]');
 
+    // Fix #95/#96 : handleToggle pose un verrou `pendingMutationIds` tant que
+    // la cascade serveur n'est pas résolue (anti double-tap qui rollback-
+    // écrase un appel concurrent). Le test enchaîne des toggles intentionnels
+    // sur des tâches distinctes — on attend donc le déverrouillage entre
+    // chaque action pour ne pas tomber sur une checkbox `disabled` (le verrou
+    // couvre toute la cascade, y compris R commun à plusieurs cascades).
+    async function waitForMutationSettled(): Promise<void> {
+      // Les 3 drag handles reviennent `enabled` dès que le verrou est relâché
+      // (le drag est désactivé pour une tâche en vol, comme le checkbox).
+      await expect(page.getByLabel(`Déplacer "${titleR}"`)).toBeEnabled({ timeout: 15_000 });
+      await expect(page.getByLabel(`Déplacer "${titleS1}"`)).toBeEnabled({ timeout: 15_000 });
+      await expect(page.getByLabel(`Déplacer "${titleS2}"`)).toBeEnabled({ timeout: 15_000 });
+    }
+
     const beforeS1 = await hpNow();
     await checkboxS1.check();
     // S1 seule (10 HP) : le parent ne suit pas tant que S2 n'est pas complète.
     await expect(bossBar).toHaveAttribute("aria-valuenow", String(beforeS1 - 10));
     await expect(checkboxR).not.toBeChecked();
+    await waitForMutationSettled();
 
     const beforeS2 = await hpNow();
     await checkboxS2.check();
     // S2 (10) + R auto-cochée (20) = 30 HP d'un coup.
     await expect(bossBar).toHaveAttribute("aria-valuenow", String(beforeS2 - 30));
     await expect(checkboxR).toBeChecked();
+    await waitForMutationSettled();
 
     const beforeUncheck = await hpNow();
     await checkboxS1.uncheck();

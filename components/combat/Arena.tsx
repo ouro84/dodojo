@@ -25,6 +25,7 @@ import {
   computeToggleCascade,
   currentStreak,
   HERO_MAX_HP,
+  isOptimisticId,
   koOutcome,
   overdueHpPenalties,
   deadlineHpPenalties,
@@ -175,6 +176,27 @@ export default function Arena({
   const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
   const [closing, setClosing] = useState(false);
   const [addingSubtaskParentId, setAddingSubtaskParentId] = useState<string | null>(null);
+  // Fix #95/#96 : ids de tâches en cours de mutation (toggle, abandon,
+  // deadline) — empêche le double-tap qui envoie un id optimistic à la BDD
+  // (cascade enchaînée sur la même tâche avant résolution du précédent appel
+  // serveur) ou qui rollback un résultat en écrasant l'état d'un appel
+  // simultané ("la case se decoche toute seule"). Toujours allouer un nouveau
+  // Set sur la mutation pour déclencher le re-render (les mutations in-place
+  // ne le déclenchent pas).
+  const [pendingMutationIds, setPendingMutationIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  function markPending(id: string) {
+    setPendingMutationIds((prev) => new Set(prev).add(id));
+  }
+  function unmarkPending(id: string) {
+    setPendingMutationIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
   const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
   const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -459,8 +481,36 @@ export default function Arena({
   }
 
   async function handleToggle(id: string, isCompleted: boolean) {
+    // Fix #95 : ne pas entamer une cascade sur une tâche optimistic (sa vraie
+    // version serveur n'existe pas encore — l'appel échouerait). Une fois
+    // addTask résolu, l'id est remplacé et ce verrou devient inopérant ; le
+    // bloquer ici évite l'aller-retour serveur + le toast d'erreur incohérent.
+    if (isOptimisticId(id)) return;
+
     const cascade = computeToggleCascade(id, isCompleted, tasks);
     if (cascade.length === 0) return;
+
+    // Fix #3 (issues #95/#96) : si une de ces tâches est déjà en vol (toggle
+    // rapide, double-cascades concurrentes), on abandonne la 2e requête —
+    // sinon le rollback de l'une écrase l'état visuel de l'autre ("la case se
+    // decoche toute seule"). Toutes les tâches de la cascade sont marquées en
+    // pending (pas seulement la racine) car un toggle concurrent sur une
+    // sous-tâche ferait aussi refluer sur le parent recalculé par `cascade`.
+    const cascadeIds = cascade.map((c) => c.taskId);
+    if (cascadeIds.some((cid) => pendingMutationIds.has(cid))) {
+      // Si la tâche cliquée est déjà en vol, on estime que le tap est ignoré
+      // (l'état visuel optimiste reflète déjà l'intention). Aucun toast —
+      // l'utilisateur ne perçoit qu'une latence naturelle, pas une erreur.
+      return;
+    }
+    const pendingBatch = new Set(cascadeIds);
+    setPendingMutationIds((prev) => {
+      const next = new Set(prev);
+      for (const cid of pendingBatch) next.add(cid);
+      return next;
+    });
+
+    try {
 
     const previousTasksSnapshot = tasks;
     const previousProfileSnapshot = profile;
@@ -560,6 +610,16 @@ export default function Arena({
     if (level !== undefined && xp !== undefined) {
       setProfile((current) => ({ ...current, level, xp }));
     }
+    } finally {
+      // Fix #3 : libère le verrou quel que soit le chemin (succès, erreur
+      // serveur, voire exception runtime non catchée). On enlève toutes les
+      // ids de cette cascade d'un seul passage.
+      setPendingMutationIds((prev) => {
+        const next = new Set(prev);
+        for (const cid of pendingBatch) next.delete(cid);
+        return next;
+      });
+    }
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -631,6 +691,13 @@ export default function Arena({
     setRageQuitConfirmId(null);
     if (!id) return;
 
+    // Fix #95 : ne pas tenter un rage quit sur une tâche optimistic — la
+    // cascade serait vide et/ou la server action refusée (uuid invalide).
+    if (isOptimisticId(id)) {
+      setBanner("Cette tâche n'est pas encore prête, réessaie dans un instant.");
+      return;
+    }
+
     const tasksSnapshot = tasks;
     const profileSnapshot = profile;
 
@@ -654,7 +721,11 @@ export default function Arena({
       punchline: rageQuitPunchline(level),
     });
 
+    // Fix #4 : verrouille la tâche (et sa cascade) le temps de la mutation
+    // serveur — empêche un toggle/drag concurrent de toucher les mêmes ids.
+    for (const cid of cascadeIds) markPending(cid);
     void rageQuitTaskAction(id).then((result) => {
+      for (const cid of cascadeIds) unmarkPending(cid);
       if (result.error) {
         setTasks(tasksSnapshot);
         setProfile(profileSnapshot);
@@ -690,6 +761,11 @@ export default function Arena({
   // US-05 : sauvegarde optimiste d'une deadline (popover ⏰ ou "Repousser +1h").
   // `deadlineAt` = null pour effacer.
   function handleSetDeadline(id: string, deadlineAt: string | null) {
+    // Fix #95 : pas de deadline sur une tâche optimistic (la mutation serveur
+    // ne matche aucune ligne). On n'affiche pas de toast d'erreur — l'état
+    // optimistic est suffisamment bref, et la deadline sera de toute façon
+    // posable dès que addTask résolu amène le vrai id.
+    if (isOptimisticId(id)) return;
     // US-05 fix : une deadline modifiée (popover ou "Repousser +1h") doit pouvoir
     // re-déclencher l'Attaque Surprise si elle est ratée à nouveau — sans ce reset,
     // le Set ne garde en mémoire que le tout premier dépassement.
@@ -698,7 +774,11 @@ export default function Arena({
     setTasks((prev) =>
       prev.map((task) => (task.id === id ? { ...task, deadline_at: deadlineAt } : task)),
     );
+    // Fix #4 : verrou le temps de la mutation (le popover DeadlineControl se
+    // désactive sur cette ligne tant qu'on n'a pas la confirmation serveur).
+    markPending(id);
     void setTaskDeadlineAction(id, deadlineAt).then((result) => {
+      unmarkPending(id);
       if (result.error) {
         setTasks(previousSnapshot);
         setBanner(result.error);
@@ -1007,6 +1087,7 @@ export default function Arena({
             onAddSubtask={handleAddSubtask}
             onSetDeadline={handleSetDeadline}
             addingSubtaskParentId={addingSubtaskParentId}
+            pendingMutationIds={pendingMutationIds}
             dragOverInfo={dragOverInfo}
           />
           <DragOverlay>

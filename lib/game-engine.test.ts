@@ -28,6 +28,7 @@ import {
   weekKey,
   dayKey,
   isNestableParent,
+  isOptimisticId,
   isOptimisticTask,
   nextSiblingPosition,
   planReorder,
@@ -535,6 +536,20 @@ describe("isOptimisticTask (US-04/US-19)", () => {
     expect(isOptimisticTask(makeTask({ id: "9f6d9ad2-28a2-4e94-aa58-b73ca74641b5" }))).toBe(
       false,
     );
+  });
+});
+
+// Fix #95/#96 : variante par id nu — utilisée par handlers Arena et server
+// actions pour filtrer tôt les ids optimistic avant d'appeler Supabase.
+describe("isOptimisticId (issues #95/#96)", () => {
+  test("id client provisoire quelconque détecté", () => {
+    expect(isOptimisticId("optimistic-1")).toBe(true);
+    expect(isOptimisticId("optimistic-42")).toBe(true);
+  });
+
+  test("vrai UUID serveur non détecté comme optimiste", () => {
+    expect(isOptimisticId("9f6d9ad2-28a2-4e94-aa58-b73ca74641b5")).toBe(false);
+    expect(isOptimisticId("")).toBe(false);
   });
 });
 

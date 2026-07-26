@@ -11,7 +11,13 @@ export function taskHpValue(task: Pick<Task, "parent_id">): number {
 // confirmation serveur) ne peut pas encore servir de cible à une autre action
 // (sous-tâche, drag & drop) : le serveur ne connaît pas encore son vrai id.
 export function isOptimisticTask(task: Pick<Task, "id">): boolean {
-  return task.id.startsWith("optimistic-");
+  return isOptimisticId(task.id);
+}
+
+// Variante par id nu, sans avoir à construire un objet Task. Pratique pour
+// filtrer tôt dans les handlers (Arena) et les server actions (tasks.ts).
+export function isOptimisticId(id: string): boolean {
+  return id.startsWith("optimistic-");
 }
 
 // RG-01 : 2 niveaux max — seule une tâche racine peut recevoir une sous-tâche.

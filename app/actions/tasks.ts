@@ -159,6 +159,20 @@ export async function setTaskCompleted(
   id: string,
   isCompleted: boolean,
 ): Promise<TaskActionResult> {
+  // Fix #95 : un id `optimistic-*` arrive ici si l'utilisateur toggle une
+  // tâche dont la création n'est pas encore confirmée par le serveur (tap
+  // rapide avant résolution de `addTask`). Sans cette garde, l'id forgé
+  // remonte jusqu'à PostgREST `.eq("id", "optimistic-N")` → 0 ligne ou erreur
+  // uuid incompréhensible côté client ("Le coup n'est pas passé"). Message
+  // métier dédié plutôt que l'erreur générique UUID.
+  if (!UUID_RE.test(id)) {
+    return {
+      error: isCompleted
+        ? "La tâche n'est pas encore prête, réessaie dans un instant."
+        : "Impossible d'annuler pour l'instant, réessaie dans un instant.",
+    };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -236,6 +250,15 @@ export async function setTaskCompleted(
 // RG-04 : jamais de DELETE, on pose is_abandoned=true + abandon_reason='rage_quit'.
 // Le malus est appliqué UNE fois par action (pas par tâche cascadée).
 export async function rageQuitTask(id: string): Promise<TaskActionResult> {
+  // Fix #95 : id `optimistic-*` envoyable si l'utilisateur déclenche un Rage
+  // Quit (clic sur × puis confirm) sur une tâche fraîchement créée avant la
+  // résolution de `addTask`. La cascade `collectAbandonCascade` trouverait 0
+  // id renvoyant toast "Impossible d'abandonner cette tâche", mais on court-
+  //-circuite plutôt ici pour ne même pas requêter la base.
+  if (!UUID_RE.test(id)) {
+    return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -355,6 +378,20 @@ export async function reorderSiblings(
   parentId: string | null,
   orderedTaskIds: string[],
 ): Promise<TaskActionResult> {
+  // Fix #96 : un drag & drop enchaîné pendant que `addTask` n'est pas encore
+  // résolu peut passer des ids `optimistic-*` (la tâche fraîchement créée, ou
+  // sa voisine lors d'un réordonnancement). Le serveur ne persiste que des
+  // UUID valides ; rejeter tôt plutôt que de "réussir" partiellement (certaines
+  // lignes à jour, d'autres inexistantes) → liste désynchronisée côté base.
+  if (parentId !== null && !UUID_RE.test(parentId)) {
+    return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
+  }
+  for (const id of orderedTaskIds) {
+    if (!UUID_RE.test(id)) {
+      return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
+    }
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -572,6 +609,12 @@ export async function setTaskDeadline(
   id: string,
   deadlineAt: string | null,
 ): Promise<TaskActionResult> {
+  // Fix #95 : id `optimistic-*` envoyable si l'utilisateur pose une deadline
+  // sur une tâche fraîchement créée avant la résolution de `addTask`.
+  if (!UUID_RE.test(id)) {
+    return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
