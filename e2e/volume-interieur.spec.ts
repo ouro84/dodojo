@@ -3,12 +3,12 @@ import { login } from "./fixtures";
 
 // Bug #70 (prod) : la migration `add_profile_aggressivity_level` n'était pas
 // appliquée en production → toute écriture de `profiles.aggressivity_level`
-// (onboarding et QG) échouait. Ce test couvre le chemin Vestiaire (mise à
-// jour du Volume Intérieur à tout moment, US-54) pour empêcher une
+// (onboarding et Vestiaire) échouait. Ce test couvre le chemin Vestiaire (mise
+// à jour du Volume Intérieur à tout moment, US-54) pour empêcher une
 // régression silencieuse de ce type.
-test("Volume Intérieur : changer le ton depuis le Vestiaire persiste sans erreur (US-54)", async ({ page }) => {
+test("Volume Intérieur : changer le ton depuis Le Vestiaire persiste sans erreur (US-54)", async ({ page }) => {
   await login(page);
-  await page.goto("/qg");
+  await page.goto("/vestiaire");
 
   // Scope volontaire à la section "Volume Intérieur" : `page.getByRole("alert")`
   // seul matche aussi l'annonceur de route interne de Next.js (role="alert"

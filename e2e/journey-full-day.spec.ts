@@ -65,8 +65,8 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
       await page.getByRole("link", { name: "Tableau de Chasse" }).click();
       await page.waitForURL("/tableau-de-chasse");
       // Marge de timeout : première requête Supabase de la session (5 requêtes
-      // parallèles côté serveur, cf. app/pantheon/page.tsx) — observé une fois
-      // au-delà du timeout par défaut (5s) sur connexion froide.
+      // parallèles côté serveur, cf. app/tableau-de-chasse/page.tsx) — observé une
+      // fois au-delà du timeout par défaut (5s) sur connexion froide.
       await expect(page.getByRole("heading", { name: "Tableau de Chasse" })).toBeVisible({
         timeout: 15_000,
       });

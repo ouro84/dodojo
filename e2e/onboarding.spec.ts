@@ -43,17 +43,17 @@ test("Onboarding complet (US-29)", async ({ page }) => {
   await expect(page.getByText(/vient de grandir/)).toBeHidden();
 
   // Issue #50 : le parcours d'un nouvel utilisateur ne s'arrête pas au 1er
-  // combat — il continue vers le QG (où le ton "Brut" choisi plus haut doit
-  // déjà être reflété, régression bug #70) puis le Guide, avant de revenir
-  // à l'Arène.
+  // combat — il continue vers Le Vestiaire (où le ton "Brut" choisi plus haut
+  // doit déjà être reflété, régression bug #70) puis Le Guide, avant de
+  // revenir à l'Arène.
   await page.getByRole("link", { name: "Vestiaire" }).click();
-  await page.waitForURL("/qg");
+  await page.waitForURL("/vestiaire");
   const aggressivitySection = page.locator("section", { hasText: "Volume Intérieur" });
   await expect(
     aggressivitySection.getByRole("button", { name: "Brut" }),
   ).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByRole("link", { name: "Le Guide" }).click();
+  await page.getByRole("link", { name: "Le Guide", exact: true }).click();
   await page.waitForURL("/guide");
   await expect(page.getByRole("heading", { name: "Le Guide" })).toBeVisible();
 

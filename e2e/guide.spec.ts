@@ -2,9 +2,9 @@ import { test, expect } from "@playwright/test";
 import { login } from "./fixtures";
 
 test.describe("Le Guide (issue #68)", () => {
-  test("sommaire par catégorie, accessible depuis le QG", async ({ page }) => {
+  test("sommaire par catégorie, accessible depuis Le Vestiaire", async ({ page }) => {
     await login(page);
-    await page.goto("/qg");
+    await page.goto("/vestiaire");
     await page.getByRole("link", { name: /Le Guide/ }).click();
     await page.waitForURL("/guide");
     await expect(page.getByRole("heading", { name: "Le Guide" })).toBeVisible();
