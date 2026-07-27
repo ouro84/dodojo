@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
       { source: "/pantheon", destination: "/tableau-de-chasse", permanent: true },
       { source: "/pantheon/:path*", destination: "/tableau-de-chasse/:path*", permanent: true },
       { source: "/guide/pantheon", destination: "/guide/chasse", permanent: true },
+      { source: "/guide/crepuscule", destination: "/guide/cloture-journee", permanent: true },
     ];
   },
   async headers() {

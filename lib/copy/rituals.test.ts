@@ -17,10 +17,10 @@ describe("Le Réveil", () => {
   });
 });
 
-describe("Dernier Round", () => {
+describe("Terminer la journée", () => {
   test("header reste fixe", () => {
     expect(crepusculeHeader("direct", true)).toBe("Perfect !");
-    expect(crepusculeHeader("direct", false)).toBe("Dernier Round");
+    expect(crepusculeHeader("direct", false)).toBe("Terminer la journée");
   });
 
   test("victoire : pool d'au moins 5 variantes, seed stable", () => {

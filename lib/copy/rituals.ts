@@ -30,9 +30,9 @@ export function wakeUpSubtitle(level: AggressivityLevel, seed: number = randomSe
 
 export function crepusculeHeader(level: AggressivityLevel, victory: boolean): string {
   const headers: Record<AggressivityLevel, [string, string]> = {
-    doux: ["Journée accomplie.", "Dernier Round."],
-    direct: ["Perfect !", "Dernier Round"],
-    brut: ["NETTOYÉ !", "Dernier Round."],
+    doux: ["Journée accomplie.", "Terminer la journée."],
+    direct: ["Perfect !", "Terminer la journée"],
+    brut: ["NETTOYÉ !", "Terminer la journée."],
   };
   const [victoryHeader, retreatHeader] = headers[level];
   return victory ? victoryHeader : retreatHeader;

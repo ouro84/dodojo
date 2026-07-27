@@ -52,7 +52,7 @@ export default function CrepusculeRecap({
       ref={overlayRef}
       role="dialog"
       aria-modal="true"
-      aria-label="Dernier Round"
+      aria-label="Terminer la journée"
       data-outcome={outcome}
       className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[oklch(0.08_0_0_/_88%)] px-4 text-center"
     >
