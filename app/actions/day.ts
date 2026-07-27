@@ -29,7 +29,7 @@ async function timezoneOf(
   return data?.timezone ?? "UTC";
 }
 
-// US-07 : clôture manuelle (Dernier Round). Résume le jour local courant
+// US-07 : clôture manuelle (« Terminer la journée »). Résume le jour local courant
 // et upsert le day_result (closed_manually=true). Idempotent — re-clôturer
 // recalcule depuis les tâches (B3), ne s'accumule jamais.
 export async function closeDay(): Promise<CloseDayResult> {

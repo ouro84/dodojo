@@ -24,7 +24,7 @@ interface CrepusculeRecapProps {
   onDismiss: () => void;
 }
 
-// US-07 : récap figé du Dernier Round, dessiné comme une carte de score
+// US-07 : récap figé de la clôture du jour (« Terminer la journée »), dessiné comme une carte de score
 // arcade self-contained (prête pour l'export PNG d'US-20, sans refonte).
 // Victoire = ton exalté ; retraite = ton apaisé, jamais culpabilisant.
 export default function CrepusculeRecap({
