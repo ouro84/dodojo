@@ -620,7 +620,7 @@ export function currentStreak(
   };
 }
 
-export interface PantheonStats {
+export interface TableauChasseStats {
   totalVictories: number;
   totalDays: number;
   winRate: number; // ratio 0..1 (Boss vaincus / jours joués)
@@ -630,7 +630,7 @@ export interface PantheonStats {
   damageSeries: number[]; // dégâts des N derniers jours, chronologique
 }
 
-export type PantheonDay = Pick<
+export type TableauChasseDay = Pick<
   DayResult,
   "day_date" | "outcome" | "damage_dealt" | "gold_earned"
 >;
@@ -639,10 +639,10 @@ export type PantheonDay = Pick<
 // winRate garde la division par zéro (0 jour → 0). bestDay départage les égalités
 // par la date la plus récente (déterministe). damageSeries = N derniers jours
 // (chronologique) pour la sparkline.
-export function pantheonStats(
-  dayResults: PantheonDay[],
+export function tableauChasseStats(
+  dayResults: TableauChasseDay[],
   seriesLength = 14,
-): PantheonStats {
+): TableauChasseStats {
   const totalDays = dayResults.length;
   const totalVictories = dayResults.filter((r) => r.outcome === "victory").length;
   const totalDamage = dayResults.reduce((sum, r) => sum + r.damage_dealt, 0);

@@ -17,6 +17,7 @@ const nextConfig: NextConfig = {
       { source: "/echoppe/:path*", destination: "/marche-noir/:path*", permanent: true },
       { source: "/pantheon", destination: "/tableau-de-chasse", permanent: true },
       { source: "/pantheon/:path*", destination: "/tableau-de-chasse/:path*", permanent: true },
+      { source: "/guide/pantheon", destination: "/guide/chasse", permanent: true },
     ];
   },
   async headers() {

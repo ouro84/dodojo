@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   goldBalance,
-  pantheonStats,
+  tableauChasseStats,
   titleForStreak,
   xpThresholdForLevel,
 } from "@/lib/game-engine";
@@ -70,7 +70,7 @@ export default async function PantheonPage() {
   }
 
   const results = dayResults ?? [];
-  const stats = pantheonStats(results);
+  const stats = tableauChasseStats(results);
   const balance = goldBalance(goldHistory ?? [], unlockedHeroes ?? [], unlockedSkins ?? []);
   const xpThreshold = xpThresholdForLevel(profile.level);
   const xpPct = Math.min(100, Math.round((profile.xp / xpThreshold) * 100));

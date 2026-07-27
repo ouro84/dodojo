@@ -15,7 +15,7 @@ import {
   currentStreak,
   goldBalance,
   koOutcome,
-  pantheonStats,
+  tableauChasseStats,
   applyRageQuitPenalty,
   collectAbandonCascade,
   RAGE_QUIT_XP_PENALTY,
@@ -425,16 +425,16 @@ describe("planRecurringGeneration (US-17)", () => {
   });
 });
 
-describe("pantheonStats (US-10)", () => {
-  const days = [
-    { day_date: "2026-07-14", outcome: "victory" as const, damage_dealt: 60, gold_earned: 55 },
-    { day_date: "2026-07-15", outcome: "retreat" as const, damage_dealt: 40, gold_earned: 12 },
-    { day_date: "2026-07-16", outcome: "victory" as const, damage_dealt: 100, gold_earned: 70 },
-    { day_date: "2026-07-17", outcome: "defeat" as const, damage_dealt: 0, gold_earned: 0 },
+describe("tableauChasseStats (US-10)", () => {
+  const days: Array<{ day_date: string; outcome: "victory" | "defeat" | "retreat"; damage_dealt: number; gold_earned: number }> = [
+    { day_date: "2026-07-14", outcome: "victory", damage_dealt: 60, gold_earned: 40 },
+    { day_date: "2026-07-15", outcome: "defeat", damage_dealt: 40, gold_earned: 25 },
+    { day_date: "2026-07-16", outcome: "victory", damage_dealt: 100, gold_earned: 72 },
+    { day_date: "2026-07-17", outcome: "retreat", damage_dealt: 0, gold_earned: 0 },
   ];
 
   test("totaux, victoires et win-rate", () => {
-    const s = pantheonStats(days);
+    const s = tableauChasseStats(days);
     expect(s.totalDays).toBe(4);
     expect(s.totalVictories).toBe(2);
     expect(s.winRate).toBeCloseTo(0.5);
@@ -443,11 +443,11 @@ describe("pantheonStats (US-10)", () => {
   });
 
   test("meilleur jour = dégâts max", () => {
-    expect(pantheonStats(days).bestDay).toEqual({ day_date: "2026-07-16", damage: 100 });
+    expect(tableauChasseStats(days).bestDay).toEqual({ day_date: "2026-07-16", damage: 100 });
   });
 
   test("dataset vide : pas de division par zéro, bestDay null", () => {
-    const s = pantheonStats([]);
+    const s = tableauChasseStats([]);
     expect(s.winRate).toBe(0);
     expect(s.totalDays).toBe(0);
     expect(s.bestDay).toBeNull();
@@ -459,19 +459,19 @@ describe("pantheonStats (US-10)", () => {
       { day_date: "2026-07-10", outcome: "victory" as const, damage_dealt: 80, gold_earned: 0 },
       { day_date: "2026-07-12", outcome: "victory" as const, damage_dealt: 80, gold_earned: 0 },
     ];
-    expect(pantheonStats(tie).bestDay?.day_date).toBe("2026-07-12");
+    expect(tableauChasseStats(tie).bestDay?.day_date).toBe("2026-07-12");
   });
 
   test("damageSeries chronologique, borné à seriesLength", () => {
-    expect(pantheonStats(days).damageSeries).toEqual([60, 40, 100, 0]);
-    expect(pantheonStats(days, 2).damageSeries).toEqual([100, 0]);
+    expect(tableauChasseStats(days).damageSeries).toEqual([60, 40, 100, 0]);
+    expect(tableauChasseStats(days, 2).damageSeries).toEqual([100, 0]);
   });
 
   test("bestDay null si tous à 0 dégât", () => {
     const zeros = [
       { day_date: "2026-07-10", outcome: "defeat" as const, damage_dealt: 0, gold_earned: 0 },
     ];
-    expect(pantheonStats(zeros).bestDay).toBeNull();
+    expect(tableauChasseStats(zeros).bestDay).toBeNull();
   });
 });
 
