@@ -2,12 +2,12 @@ import { test, expect } from "@playwright/test";
 import { abandonViaUi, deleteTaskById, login, seedOverdueTask } from "./fixtures";
 
 // Issue #50 : parcours de bout en bout traversant Le Réveil → Arène →
-// Dernier Round → Tableau de Chasse → QG, en plus des e2e "simplistes"
+// Terminer la journée → Tableau de Chasse → Vestiaire, en plus des e2e "simplistes"
 // existants (une feature isolée par fichier — cf. wake-up-ritual.spec.ts /
 // crepuscule-recap.spec.ts, et aucune couverture Tableau de Chasse
 // jusqu'ici). Compte e2e fixe partagé (ADR-04).
 test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
-  test("Le Réveil (reste résolu) → combat → Dernier Round → Tableau de Chasse → QG", async ({
+  test("Le Réveil (reste résolu) → combat → Terminer la journée → Tableau de Chasse → Vestiaire", async ({
     page,
   }) => {
     const overdueTitle = `E2E parcours reste ${Date.now()}`;
@@ -35,22 +35,22 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
       await page.getByLabel(`Marquer "${taskTitle}" comme accomplie`).check();
       await expect(bossBar).toHaveAttribute("aria-valuenow", String(initialCurrentHp));
 
-      // 3. Dernier Round : clôture manuelle non-bloquante → day_result. Si le
+      // 3. Terminer la journée : clôture manuelle non-bloquante → day_result. Si le
       // Boss (compte partagé) tombe à 0 sur ce coup, un K.O. en direct (US-16)
-      // s'affiche avec son propre CTA "🌙 Dernier Round" — sinon on utilise le
+      // s'affiche avec son propre CTA "🌙 Terminer la journée" — sinon on utilise le
       // bouton HUD permanent (name exact, sans emoji).
       const koOverlay = page.getByRole("alertdialog", { name: /Boss vaincu/ });
       if (await koOverlay.count()) {
-        await koOverlay.getByRole("button", { name: /Dernier Round/ }).click();
+        await koOverlay.getByRole("button", { name: /Terminer la journée/ }).click();
       } else {
-        await page.getByRole("button", { name: "Dernier Round", exact: true }).click();
+        await page.getByRole("button", { name: "Terminer la journée", exact: true }).click();
       }
-      const recap = page.getByRole("dialog", { name: "Dernier Round" });
+      const recap = page.getByRole("dialog", { name: "Terminer la journée" });
       await expect(recap).toBeVisible();
       await expect(recap).toHaveAttribute("data-outcome", /victory|retreat|defeat/);
       await recap.getByRole("button", { name: "Continuer" }).click();
 
-      // 4. QG → Tableau de Chasse : le jour clos apparaît au Journal de combat.
+      // 4. Vestiaire → Tableau de Chasse : le jour clos apparaît au Journal de combat.
       // Pas de comparaison valeur-à-valeur avec le récap ci-dessus : celui-ci
       // est calculé côté client depuis le state `tasks` de l'Arène
       // (`summarizeDay`), le Journal lit le `day_result` réellement persisté
@@ -72,7 +72,7 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
       });
       await expect(page.locator("li", { hasText: /dégâts/ }).first()).toBeVisible();
 
-      // 5. Retour QG (BottomNav) : la navigation reste cohérente en fin de parcours.
+      // 5. Retour Vestiaire (BottomNav) : la navigation reste cohérente en fin de parcours.
       await page.getByRole("link", { name: "Vestiaire" }).click();
       await page.waitForURL("/vestiaire");
     } finally {
