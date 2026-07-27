@@ -39,7 +39,7 @@ export default async function EchoppePage() {
         <p role="alert" className="max-w-[32ch] text-sm text-hp-text">
           Le Marché Noir est fermé un instant. Réessaie.
         </p>
-        <Link href="/echoppe" className="text-sm text-xp-text underline underline-offset-4">
+        <Link href="/marche-noir" className="text-sm text-xp-text underline underline-offset-4">
           Réessayer
         </Link>
         <BottomNav active="echoppe" />

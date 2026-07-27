@@ -58,7 +58,7 @@ export async function purchaseHero(heroId: string): Promise<ShopActionResult> {
     .update({ gold: balance - hero.price })
     .eq("id", user.id);
 
-  revalidatePath("/echoppe");
+  revalidatePath("/marche-noir");
   revalidatePath("/");
   return { error: null };
 }
@@ -90,7 +90,7 @@ export async function equipHero(heroId: string): Promise<ShopActionResult> {
     .eq("id", user.id);
   if (error) return { error: "Impossible d'équiper ce combattant. Réessaie." };
 
-  revalidatePath("/echoppe");
+  revalidatePath("/marche-noir");
   revalidatePath("/");
   return { error: null };
 }
@@ -148,7 +148,7 @@ export async function purchaseSkin(
     .update({ gold: balance - skin.price })
     .eq("id", user.id);
 
-  revalidatePath("/echoppe");
+  revalidatePath("/marche-noir");
   revalidatePath("/");
   return { error: null };
 }
@@ -185,7 +185,7 @@ export async function equipSkin(
     .eq("id", user.id);
   if (updateError) return { error: "Impossible d'équiper cette tenue. Réessaie." };
 
-  revalidatePath("/echoppe");
+  revalidatePath("/marche-noir");
   revalidatePath("/");
   return { error: null };
 }

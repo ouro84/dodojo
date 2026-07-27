@@ -8,8 +8,8 @@ interface BottomNavProps {
 
 const ITEMS: Array<{ key: NavKey; label: string; href: string }> = [
   { key: "arene", label: "Arène", href: "/" },
-  { key: "qg", label: "Vestiaire", href: "/qg" },
-  { key: "echoppe", label: "Marché Noir", href: "/echoppe" },
+  { key: "qg", label: "Vestiaire", href: "/vestiaire" },
+  { key: "echoppe", label: "Marché Noir", href: "/marche-noir" },
 ];
 
 export default function BottomNav({ active }: BottomNavProps) {

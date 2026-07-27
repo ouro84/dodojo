@@ -61,7 +61,7 @@ export default async function PantheonPage() {
         <p className="max-w-[28ch] text-xs text-muted">
           Impossible de charger tes faits d&apos;armes. Réessaie dans un instant.
         </p>
-        <Link href="/pantheon" className="text-xs text-xp-text underline underline-offset-4">
+        <Link href="/tableau-de-chasse" className="text-xs text-xp-text underline underline-offset-4">
           Réessayer
         </Link>
         <BottomNav active="qg" />

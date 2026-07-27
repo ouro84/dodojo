@@ -59,11 +59,11 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
       // bug (cf. crepuscule-recap.spec.ts, qui n'asserte pas non plus de
       // valeur fixe).
       await page.getByRole("link", { name: "Vestiaire" }).click();
-      await page.waitForURL("/qg");
+      await page.waitForURL("/vestiaire");
       await expect(page.getByRole("heading", { name: "Le Vestiaire" })).toBeVisible();
 
       await page.getByRole("link", { name: "Tableau de Chasse" }).click();
-      await page.waitForURL("/pantheon");
+      await page.waitForURL("/tableau-de-chasse");
       // Marge de timeout : première requête Supabase de la session (5 requêtes
       // parallèles côté serveur, cf. app/pantheon/page.tsx) — observé une fois
       // au-delà du timeout par défaut (5s) sur connexion froide.
@@ -74,7 +74,7 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
 
       // 5. Retour QG (BottomNav) : la navigation reste cohérente en fin de parcours.
       await page.getByRole("link", { name: "Vestiaire" }).click();
-      await page.waitForURL("/qg");
+      await page.waitForURL("/vestiaire");
     } finally {
       await deleteTaskById(overdueId);
       await page.goto("/");

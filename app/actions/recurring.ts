@@ -189,7 +189,7 @@ export async function updateRecurringTemplate(
     .eq("user_id", user.id);
 
   if (error) return { error: "Impossible de modifier la quête. Réessaie." };
-  revalidatePath("/qg/entrainement");
+  revalidatePath("/vestiaire/entrainement");
   return { error: null };
 }
 
@@ -210,7 +210,7 @@ export async function deactivateRecurringTemplate(
     .eq("user_id", user.id);
 
   if (error) return { error: "Impossible de désactiver la quête. Réessaie." };
-  revalidatePath("/qg/entrainement");
+  revalidatePath("/vestiaire/entrainement");
   return { error: null };
 }
 
@@ -249,6 +249,6 @@ export async function toggleRestDay(
     });
   }
 
-  revalidatePath("/qg/entrainement");
+  revalidatePath("/vestiaire/entrainement");
   return { error: null };
 }

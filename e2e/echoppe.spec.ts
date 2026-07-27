@@ -9,7 +9,7 @@ test.describe("US-18 Le Marché Noir", () => {
   });
 
   test("débloque puis équipe un héros", async ({ page }) => {
-    await page.goto("/echoppe");
+    await page.goto("/marche-noir");
 
     // Fire Knight équipé par défaut.
     await expect(page.getByRole("button", { name: /Équipé/ })).toBeVisible();
