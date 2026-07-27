@@ -31,7 +31,7 @@ export function emptyStateBody(level: AggressivityLevel, seed: number = randomSe
       "Sérieux, l'appli tourne dans le vide. Remplis quelque chose.",
       "Zéro monstre, zéro excuse. Ajoute un truc avant que je m'endorme.",
       "Même cet écran vide s'ennuie plus vite que toi.",
-      "Le néant total. Même le dev qui a codé cet écran attendait mieux de toi.",
+      "Le néant total. Même le jeu s'attendait à mieux, putain.",
     ],
   };
   return pickVariant(pools[level], seed);
@@ -68,7 +68,7 @@ export function levelUpBody(
     ],
     brut: [
       (n) => `Niveau ${n}, putain ! Tu montes en grade, machine.`,
-      (n) => `Niveau ${n} ! Même le générateur de niveaux est impressionné.`,
+      (n) => `Niveau ${n} ! Même le jeu est impressionné.`,
       (n) => `Ding ! Niveau ${n}. Ouais, comme dans un vrai jeu vidéo.`,
       (n) => `Niveau ${n}, bordel ! T'écris un patch note à toi tout seul.`,
       (n) => `Niveau ${n} ! Le compteur XP a fumé un peu, mais il tient.`,

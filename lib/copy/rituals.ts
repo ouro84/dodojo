@@ -70,7 +70,7 @@ export function crepusculeLine(
       brut: [
         (u, b) => `${u}, ${b} est au tapis, putain. Ta tête te doit le respect ce soir.`,
         (u, b) => `NETTOYÉ, ${u} ! ${b} valait rien face à toi ce soir.`,
-        (u, b) => `${b} dégagé, journée pliée, ${u}. Même le Dernier Round applaudit, bordel.`,
+        (u, b) => `${b} dégagé, journée pliée, ${u}. Le jeu applaudit, bordel.`,
         (u, b) => `${u}, tu viens de fermer boutique sur ${b}. Prochaine victime demain.`,
         (u, b) => `${b} en miettes, ${u}. Ta tête s'en souviendra un moment, merde.`,
       ],
