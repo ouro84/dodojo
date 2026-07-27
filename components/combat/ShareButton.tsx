@@ -12,7 +12,7 @@ interface ShareButtonProps {
 
 type ShareStatus = "idle" | "loading" | "error";
 
-// US-20 : bouton réutilisable (PerfectOverlay + carte du Dernier Round).
+// US-20 : bouton réutilisable (PerfectOverlay + carte de clôture du jour).
 // Fetch la route de génération, puis partage natif OS > presse-papier >
 // téléchargement (cf. pickShareStrategy). navigator.share annulé par
 // l'utilisateur (AbortError) n'est pas une erreur — retour silencieux à idle.

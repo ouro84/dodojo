@@ -15,7 +15,7 @@ function serviceClient(): SupabaseClient | null {
 
 // US-22 : POST /oauth/revoke (RFC 7009) - revocation proactive cote client
 // (Gemini), ex. deconnexion initiee depuis les reglages "Connected Apps"
-// plutot que depuis le QG Dodojo. Le token soumis peut etre un access_token
+// plutot que depuis Le Vestiaire Dodojo. Le token soumis peut etre un access_token
 // OU un refresh_token (RFC 7009 paragraphe 2.1) : les deux hashent la meme
 // ligne oauth_tokens (couple emis ensemble), chercher sur les deux colonnes
 // suffit a retrouver et supprimer la ligne entiere. Toujours 200, meme si

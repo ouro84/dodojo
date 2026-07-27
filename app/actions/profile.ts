@@ -17,7 +17,7 @@ export async function markTutorialSeen(): Promise<{ error: string | null }> {
 
 const VALID_AGGRESSIVITY_LEVELS: AggressivityLevel[] = ["doux", "direct", "brut"];
 
-// US-54 : réglage modifiable à tout moment (onboarding ou QG), pas de contrainte
+// US-54 : réglage modifiable à tout moment (onboarding ou Le Vestiaire), pas de contrainte
 // one-shot contrairement au pseudo.
 export async function updateAggressivityLevel(
   level: AggressivityLevel,

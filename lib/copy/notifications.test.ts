@@ -21,7 +21,7 @@ describe("buildReminderPayload — direct (comportement actuel inchangé)", () =
 
   test("pickIndex sélectionne le gabarit correspondant (index 2)", () => {
     const payload = buildReminderPayload(2, "direct", () => 2);
-    expect(payload.body).toContain("Dernier Round approche");
+    expect(payload.body).toContain("La journée s'achève");
   });
 
   test("pickIndex hors bornes retombe sur le premier gabarit", () => {

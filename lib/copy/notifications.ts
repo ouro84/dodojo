@@ -14,11 +14,11 @@ type ReminderTemplate = Record<AggressivityLevel, (n: number) => string>;
 
 const REMINDER_TEMPLATES: ReminderTemplate[] = [
   {
-    doux: (n) => `Il te reste ${n} ${pluralize(n, "tâche", "tâches")} avant le Dernier Round. À ton rythme.`,
+    doux: (n) => `Il te reste ${n} ${pluralize(n, "tâche", "tâches")} avant la fin de la journée. À ton rythme.`,
     direct: (n) =>
-      `Le Boss ricane, il te reste ${n} ${pluralize(n, "monstre", "monstres")} à abattre avant le Dernier Round !`,
+      `Le Boss ricane, il te reste ${n} ${pluralize(n, "monstre", "monstres")} à abattre avant ce soir !`,
     brut: (n) =>
-      `Le Boss se marre, il te reste ${n} ${pluralize(n, "monstre", "monstres")} à défoncer avant le Dernier Round, bouge-toi !`,
+      `Le Boss se marre, il te reste ${n} ${pluralize(n, "monstre", "monstres")} à défoncer avant ce soir, bouge-toi !`,
   },
   {
     doux: (n) =>
@@ -30,11 +30,11 @@ const REMINDER_TEMPLATES: ReminderTemplate[] = [
   },
   {
     doux: (n) =>
-      `Le Dernier Round approche. ${n} ${pluralize(n, "tâche restante", "tâches restantes")}, quand tu es prêt.`,
+      `La journée s'achève. ${n} ${pluralize(n, "tâche restante", "tâches restantes")}, quand tu es prêt.`,
     direct: (n) =>
-      `Le Dernier Round approche et ton Boss respire encore (${n} ${pluralize(n, "tâche restante", "tâches restantes")}).`,
+      `La journée s'achève et ton Boss respire encore (${n} ${pluralize(n, "tâche restante", "tâches restantes")}).`,
     brut: (n) =>
-      `Le Dernier Round approche et ton Boss respire encore, merde (${n} ${pluralize(n, "tâche restante", "tâches restantes")}).`,
+      `La journée s'achève et ton Boss respire encore, merde (${n} ${pluralize(n, "tâche restante", "tâches restantes")}).`,
   },
   {
     doux: (n) =>
@@ -54,11 +54,11 @@ const REMINDER_TEMPLATES: ReminderTemplate[] = [
   },
   {
     doux: (n) =>
-      `Le Dernier Round approche doucement. ${n} ${pluralize(n, "tâche", "tâches")} attend${n <= 1 ? "" : "ent"} ta décision.`,
+      `La fin de journée approche doucement. ${n} ${pluralize(n, "tâche", "tâches")} attend${n <= 1 ? "" : "ent"} ta décision.`,
     direct: (n) =>
-      `Le Dernier Round approche à grands pas : ${n} ${pluralize(n, "tâche", "tâches")} encore en jeu.`,
+      `La fin de journée approche à grands pas : ${n} ${pluralize(n, "tâche", "tâches")} encore en jeu.`,
     brut: (n) =>
-      `Le Dernier Round rapplique, merde : ${n} ${pluralize(n, "tâche", "tâches")} encore en jeu. Grouille.`,
+      `La journée se ferme, merde : ${n} ${pluralize(n, "tâche", "tâches")} encore en jeu. Grouille.`,
   },
 ];
 

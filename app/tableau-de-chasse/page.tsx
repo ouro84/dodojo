@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   goldBalance,
-  pantheonStats,
+  tableauChasseStats,
   titleForStreak,
   xpThresholdForLevel,
 } from "@/lib/game-engine";
@@ -16,7 +16,7 @@ import BottomNav from "@/components/ui/BottomNav";
 export const metadata: Metadata = { title: "Tableau de Chasse — Dodojo" };
 
 // US-10 : le Tableau de Chasse — écran lecture seule, dérivé de day_results + profiles.
-// Aucune écriture (B1). Accessible via le QG (D3).
+// Aucune écriture (B1). Accessible via Le Vestiaire (D3).
 export default async function PantheonPage() {
   const supabase = await createClient();
   const {
@@ -44,7 +44,7 @@ export default async function PantheonPage() {
       .limit(90),
     // Non borné (même pattern que app/echoppe/page.tsx) : goldBalance() a besoin
     // de TOUT l'historique, jamais du lot borné à 90 jours ci-dessus utilisé pour
-    // le Journal/sparkline (audit #67, PR4 — le solde divergeait de l'Échoppe
+    // le Journal/sparkline (audit #67, PR4 — le solde divergeait du Marché Noir
     // au-delà de 90 jours de compte).
     supabase.from("day_results").select("gold_earned").eq("user_id", user.id),
     supabase.from("unlocked_heroes").select("price_paid").eq("user_id", user.id),
@@ -61,7 +61,7 @@ export default async function PantheonPage() {
         <p className="max-w-[28ch] text-xs text-muted">
           Impossible de charger tes faits d&apos;armes. Réessaie dans un instant.
         </p>
-        <Link href="/pantheon" className="text-xs text-xp-text underline underline-offset-4">
+        <Link href="/tableau-de-chasse" className="text-xs text-xp-text underline underline-offset-4">
           Réessayer
         </Link>
         <BottomNav active="qg" />
@@ -70,7 +70,7 @@ export default async function PantheonPage() {
   }
 
   const results = dayResults ?? [];
-  const stats = pantheonStats(results);
+  const stats = tableauChasseStats(results);
   const balance = goldBalance(goldHistory ?? [], unlockedHeroes ?? [], unlockedSkins ?? []);
   const xpThreshold = xpThresholdForLevel(profile.level);
   const xpPct = Math.min(100, Math.round((profile.xp / xpThreshold) * 100));

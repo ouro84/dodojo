@@ -1,6 +1,6 @@
 // US-18 : génère un portrait tight par héros en rognant le vide transparent
 // de la 1re frame idle. Le portrait (tête en haut) est ensuite cadré en CSS
-// (object-fit: cover, object-position top) dans la matrice de l'Échoppe.
+// (object-fit: cover, object-position top) dans la matrice du Marché Noir.
 import sharp from "sharp";
 
 const slugs = [

@@ -16,17 +16,17 @@ import BottomNav from "@/components/ui/BottomNav";
 
 export const metadata: Metadata = { title: "Le Vestiaire — Dodojo" };
 
-// Audit UX 2026-07-24 (P1) : le QG est le hub obligé vers Panthéon/Échoppe/
+// Audit UX 2026-07-24 (P1) : Le Vestiaire est le hub obligé vers Tableau de Chasse/Marché Noir/
 // Guide/Routines (aucun autre onglet n'y mène) - remplace la pile de
 // liens soulignés multicolores par un vrai menu, affordance uniforme.
 const SECTIONS: Array<{ href: string; icon: string; label: string }> = [
-  { href: "/pantheon", icon: "🏆", label: "Tableau de Chasse" },
-  { href: "/qg/entrainement", icon: "🔁", label: "Mes Routines" },
-  { href: "/echoppe", icon: "🛒", label: "Le Marché Noir" },
+  { href: "/tableau-de-chasse", icon: "🏆", label: "Tableau de Chasse" },
+  { href: "/vestiaire/entrainement", icon: "🔁", label: "Mes Routines" },
+  { href: "/marche-noir", icon: "🛒", label: "Le Marché Noir" },
   { href: "/guide", icon: "📖", label: "Le Guide" },
 ];
 
-// US-12 : le QG affiche la série courante (dérivée de day_results) + le record.
+// US-12 : Le Vestiaire affiche la série courante (dérivée de day_results) + le record.
 export default async function QgPage() {
   const supabase = await createClient();
   const {
@@ -35,7 +35,7 @@ export default async function QgPage() {
   if (!user) redirect("/login");
 
   // Les 4 requêtes sont indépendantes entre elles (audit #67, PR4) — même
-  // pattern que app/echoppe/page.tsx, seul écran à déjà paralléliser correctement.
+  // pattern que le Marché Noir (app/echoppe/page.tsx), seul écran à déjà paralléliser correctement.
   const [
     { data: profile, error: profileError },
     geminiConnected,

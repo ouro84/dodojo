@@ -127,10 +127,10 @@ Ce système rejette explicitement l'esthétique SaaS/outil de productivité épu
 - **Rouge Combat** (`oklch(0.55 0.19 25)`, token `hp`) : jauge de HP Héros/Boss, flash de dégâts (`hit-flash`), secousse d'écran (`is-hit`), CTA principal ("Ajouter"), point actif de la nav. Réservé aux fonds pleins/bordures — sur `bg`/`surface`/`surface-2`, `ink` est le texte de contraste. Sa variante sourde `hp-dim` (`oklch(0.3 0.08 25)`) sert de piste (track) sous la jauge. **`hp-text`** (`oklch(0.64 0.19 25)`) est la variante dédiée quand le rouge combat sert lui-même de *couleur de texte* sur un fond neutre (messages d'erreur, liens, badges) — `hp` brut y tombe sous 4.5:1 (WCAG AA).
 
 ### Secondary
-- **Indigo Néon** (`oklch(0.54 0.17 275)`, token `xp`) : jauge d'XP, bordure du héros/tenue actuellement équipé (Échoppe). Variante sourde `xp-dim` (`oklch(0.28 0.08 275)`) en piste de jauge. **`xp-text`** (`oklch(0.625 0.17 275)`) : même rôle que `hp-text`, pour l'indigo utilisé comme couleur de texte.
+- **Indigo Néon** (`oklch(0.54 0.17 275)`, token `xp`) : jauge d'XP, bordure du héros/tenue actuellement équipé (Marché Noir). Variante sourde `xp-dim` (`oklch(0.28 0.08 275)`) en piste de jauge. **`xp-text`** (`oklch(0.625 0.17 275)`) : même rôle que `hp-text`, pour l'indigo utilisé comme couleur de texte.
 
 ### Tertiary
-- **Or** (`oklch(0.85 0.13 85)`, token `gold`) : solde de monnaie, CTA du Dernier Round, bordure de sélection dans l'Échoppe, flammes de série, en-tête "PERFECT". `gold-ink` (`oklch(0.22 0.03 85)`) est le texte prévu sur fond or plein.
+- **Or** (`oklch(0.85 0.13 85)`, token `gold`) : solde de monnaie, CTA « Terminer la journée », bordure de sélection dans Le Marché Noir, flammes de série, en-tête "PERFECT". `gold-ink` (`oklch(0.22 0.03 85)`) est le texte prévu sur fond or plein.
 
 ### Neutral
 - **Fond Arcade** (`oklch(0.14 0.015 25)`, token `bg`) : fond par défaut de l'app.
@@ -145,7 +145,7 @@ Ce système rejette explicitement l'esthétique SaaS/outil de productivité épu
 - **Alert** (`oklch(0.62 0.17 55)`, orange) : uniquement les états d'alarme fonctionnels — clignotement de la jauge Héros sur deadline ratée (`hero-alarm`), messages d'erreur, bouton "abandonner" au survol. Jamais utilisé comme décoration. `alert-dim` (`oklch(0.28 0.06 55)`) en usage de fond/piste. `alert-ink` (`oklch(0.15 0.02 55)`) : texte lisible sur un fond `alert` plein (même rôle que `gold-ink` sur `gold`).
 
 ### Named Rules (optional, powerful)
-**La règle du fond teinté.** Tous les neutres (`bg`/`stage`/`surface`/`surface-2`/`border`) partagent la même teinte de hue 25 (rouge chaud) — jamais un gris neutre pur. C'est ce qui fait que même les écrans HUD "plats" (QG, Échoppe) restent dans l'univers combat, sans dépendre du décor `.combat-scene`.
+**La règle du fond teinté.** Tous les neutres (`bg`/`stage`/`surface`/`surface-2`/`border`) partagent la même teinte de hue 25 (rouge chaud) — jamais un gris neutre pur. C'est ce qui fait que même les écrans HUD "plats" (Le Vestiaire, Le Marché Noir) restent dans l'univers combat, sans dépendre du décor `.combat-scene`.
 
 **La règle texte-vs-fond.** `hp`/`xp` bruts sont réservés aux fonds pleins (`bg-hp`, `bg-xp`) et aux bordures (`border-hp`, `border-xp`) — jamais comme couleur de texte sur un fond neutre (`bg`/`surface`/`surface-2`), où ils tombent sous 4.5:1. Toute utilisation en couleur de texte passe par `hp-text`/`xp-text`, calculés pour rester lisibles sur les trois fonds neutres.
 
@@ -158,7 +158,7 @@ Ce système rejette explicitement l'esthétique SaaS/outil de productivité épu
 
 ### Hierarchy
 - **Display** (BoldPixels, `text-2xl` à `text-4xl`, tracking large) : titres de célébration plein écran — "PERFECT"/K.O. (`ko-burst`), passage de niveau, flammes de série.
-- **Headline** (BoldPixels, `text-sm`, uppercase, tracking-wide) : noms de héros/Boss au-dessus des jauges HP, titres de section HUD (Arène, QG, Échoppe).
+- **Headline** (BoldPixels, `text-sm`, uppercase, tracking-wide) : noms de héros/Boss au-dessus des jauges HP, titres de section HUD (Arène, Le Vestiaire, Le Marché Noir).
 - **Body** (monospace, `text-sm`) : titres et description de tâche, texte de dialogue La Voix/Boss (max ~28ch dans les overlays).
 - **Label** (BoldPixels, `text-xs`, uppercase, tracking-wide) : libellés de bouton ("Ajouter", "Équiper", "Confirmer"), nav du bas.
 - **Data** (monospace, `text-xs`, `tabular-nums`) : compteurs HP/XP/or, timestamps, métadonnées de tâche.
@@ -168,7 +168,7 @@ Ce système rejette explicitement l'esthétique SaaS/outil de productivité épu
 
 ## 4. Elevation
 
-Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative dans le système. La profondeur vient de deux mécanismes seulement : (1) une rampe de surfaces de plus en plus claires (`stage` → `bg` → `surface-2` → `surface`) qui hiérarchise fond de combat / HUD / cartes ; (2) des overlays de transition posés en `position: absolute`/`fixed` sur un fond noir semi-transparent (`oklch(0.08 0 0 / 72-92%)` ou `bg-black/40`–`bg-black/60`), jamais un flou (`backdrop-filter`) — les overlays non-bloquants (PERFECT/K.O., passage de niveau) restent dans le bas de la plage (72-78%), les overlays bloquants qui exigent une résolution avant de continuer (Le Réveil, Dernier Round) montent plus haut (88-92%) pour marquer davantage la coupure.
+Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative dans le système. La profondeur vient de deux mécanismes seulement : (1) une rampe de surfaces de plus en plus claires (`stage` → `bg` → `surface-2` → `surface`) qui hiérarchise fond de combat / HUD / cartes ; (2) des overlays de transition posés en `position: absolute`/`fixed` sur un fond noir semi-transparent (`oklch(0.08 0 0 / 72-92%)` ou `bg-black/40`–`bg-black/60`), jamais un flou (`backdrop-filter`) — les overlays non-bloquants (PERFECT/K.O., passage de niveau) restent dans le bas de la plage (72-78%), les overlays bloquants qui exigent une résolution avant de continuer (Le Réveil, « Terminer la journée ») montent plus haut (88-92%) pour marquer davantage la coupure.
 
 ### Named Rules (optional)
 **La règle du noir-plat.** Un overlay bloquant s'obtient en assombrissant (noir à 40–78% d'opacité), jamais en floutant. Aucun `blur()`/`backdrop-filter` dans le système à ce jour.
@@ -179,14 +179,14 @@ Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative
 - **Shape:** coins arrondis 6px (`rounded-md`) pour tous les boutons.
 - **Primary** (`bg-hp`, texte `ink`, BoldPixels `text-xs` uppercase, `px-3 py-1.5`) : action principale d'un écran ("Ajouter" une tâche). Désactivé à `opacity-40`.
 - **Ghost / bordé** (fond transparent ou `surface`, bordure `border`, texte `ink` ou `muted`, `px-4 py-2`) : actions secondaires ("Continuer", "Équiper", "Annuler").
-- **Or (bordé)** (fond `surface`, bordure `gold`, texte `gold`) : CTA à forte valeur émotionnelle — Dernier Round, confirmation d'achat.
+- **Or (bordé)** (fond `surface`, bordure `gold`, texte `gold`) : CTA à forte valeur émotionnelle — « Terminer la journée », confirmation d'achat.
 - **Icône seule** (bordure `border`, fond `surface`, `p-1.5` à `p-2`, icône SVG 16px `currentColor`) : micro (dictée), poignée de drag (`⠿`), abandon (`×`, devient `alert` au survol).
 
 ### Cards / Containers
 - **Corner Style:** `rounded-md` (6px) pour lignes de tâche, formulaires, panneaux de confirmation ; `rounded-lg` (8px) pour les grands panneaux (stage de sélection de héros, overlays plein écran).
 - **Background:** `surface` sur fond `bg`/`stage`, ou `bg-black/40`–`bg-black/60` pour un panneau posé sur le décor de combat.
 - **Shadow Strategy:** aucune — cf. Elevation.
-- **Border:** 1px `border` par défaut ; `border-hp` en surbrillance de zone de drop, `border-gold`/`border-xp` en sélection/équipement (Échoppe).
+- **Border:** 1px `border` par défaut ; `border-hp` en surbrillance de zone de drop, `border-gold`/`border-xp` en sélection/équipement (Le Marché Noir).
 - **Internal Padding:** `px-3 py-2` (lignes de tâche, formulaire d'ajout) à `p-4` (panneaux, stage héros).
 
 ### Inputs / Fields

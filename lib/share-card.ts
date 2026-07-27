@@ -77,7 +77,7 @@ export interface ShareCardParams {
 }
 
 // US-20 : fonctionne identiquement pour les deux points d'entrée (PerfectOverlay
-// avant clôture, récap Crépuscule après clôture) car les deux calculent leur
+// avant clôture, récap fin de journée après clôture) car les deux calculent leur
 // résumé via summarizeDay (lib/game-engine.ts) — aucun lookup day_result requis.
 export function buildShareCardParams(
   summary: ShareCardSummary,

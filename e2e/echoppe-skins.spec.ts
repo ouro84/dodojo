@@ -9,14 +9,14 @@ test.describe("US-53 Tenues", () => {
   });
 
   test("la bande tenues est grisée sur un héros verrouillé", async ({ page }) => {
-    await page.goto("/echoppe");
+    await page.goto("/marche-noir");
     await page.locator('[data-hero-cell="water_priestess"]').click();
     const swatch = page.locator('[data-skin-swatch="water_priestess_ember"]');
     await expect(swatch).toBeDisabled();
   });
 
   test("achète puis équipe une tenue du héros par défaut", async ({ page }) => {
-    await page.goto("/echoppe");
+    await page.goto("/marche-noir");
     // Fire Knight (possédé par défaut) déjà sélectionné/équipé.
     const swatch = page.locator('[data-skin-swatch="fire_knight_shadow_purple"]');
     await expect(swatch).toHaveAttribute("data-owned", "false");
@@ -32,7 +32,7 @@ test.describe("US-53 Tenues", () => {
   });
 
   test("la tenue par défaut n'est jamais achetable", async ({ page }) => {
-    await page.goto("/echoppe");
+    await page.goto("/marche-noir");
     const defaultSwatch = page.locator('[data-skin-swatch="fire_knight_default"]');
     await expect(defaultSwatch).toHaveAttribute("data-owned", "true");
   });

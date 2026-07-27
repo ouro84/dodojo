@@ -829,7 +829,7 @@ export default function Arena({
             setShowWakeUp(false);
             // Bug #70 : "Reporter" ramenait la tâche en base (day_date du
             // jour) mais l'Arène gardait son state initial (fetché avant
-            // l'ouverture du Rituel) — la tâche restait invisible, comme si
+            // l'ouverture du Réveil) — la tâche restait invisible, comme si
             // elle avait été annihilée. On la fusionne explicitement ici.
             if (deferredTasks.length > 0) {
               setTasks((previous) => [...previous, ...deferredTasks]);
@@ -1109,7 +1109,7 @@ export default function Arena({
           disabled={closing}
           className="rounded-md border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
         >
-          {closing ? "…" : "Dernier Round"}
+          {closing ? "…" : "Terminer la journée"}
         </button>
       )}
 

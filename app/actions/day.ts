@@ -29,7 +29,7 @@ async function timezoneOf(
   return data?.timezone ?? "UTC";
 }
 
-// US-07 : clôture manuelle (Dernier Round). Résume le jour local courant
+// US-07 : clôture manuelle (« Terminer la journée »). Résume le jour local courant
 // et upsert le day_result (closed_manually=true). Idempotent — re-clôturer
 // recalcule depuis les tâches (B3), ne s'accumule jamais.
 export async function closeDay(): Promise<CloseDayResult> {
@@ -111,7 +111,7 @@ export async function closeDay(): Promise<CloseDayResult> {
 // US-08 (D8) : à la fin du traitement du Réveil, enregistre rétroactivement un
 // day_result pour chaque jour passé sans résultat (issue calculée après que
 // "Terminé" a pu transformer un jour en victoire tardive). Historique sans
-// trous pour le Panthéon / streak.
+// trous pour le Tableau de Chasse / streak.
 export async function backfillMissedDays(): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const {

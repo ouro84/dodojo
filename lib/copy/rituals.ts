@@ -30,9 +30,9 @@ export function wakeUpSubtitle(level: AggressivityLevel, seed: number = randomSe
 
 export function crepusculeHeader(level: AggressivityLevel, victory: boolean): string {
   const headers: Record<AggressivityLevel, [string, string]> = {
-    doux: ["Journée accomplie.", "Dernier Round."],
-    direct: ["Perfect !", "Dernier Round"],
-    brut: ["NETTOYÉ !", "Dernier Round."],
+    doux: ["Journée accomplie.", "Terminer la journée."],
+    direct: ["Perfect !", "Terminer la journée"],
+    brut: ["NETTOYÉ !", "Terminer la journée."],
   };
   const [victoryHeader, retreatHeader] = headers[level];
   return victory ? victoryHeader : retreatHeader;
@@ -70,7 +70,7 @@ export function crepusculeLine(
       brut: [
         (u, b) => `${u}, ${b} est au tapis, putain. Ta tête te doit le respect ce soir.`,
         (u, b) => `NETTOYÉ, ${u} ! ${b} valait rien face à toi ce soir.`,
-        (u, b) => `${b} dégagé, journée pliée, ${u}. Même le Dernier Round applaudit, bordel.`,
+        (u, b) => `${b} dégagé, journée pliée, ${u}. Le jeu applaudit, bordel.`,
         (u, b) => `${u}, tu viens de fermer boutique sur ${b}. Prochaine victime demain.`,
         (u, b) => `${b} en miettes, ${u}. Ta tête s'en souviendra un moment, merde.`,
       ],

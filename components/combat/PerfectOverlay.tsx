@@ -28,7 +28,7 @@ interface PerfectOverlayProps {
 }
 
 // US-16 : célébration en direct quand le Boss tombe à 0. PERFECT (Héro intact)
-// vs K.O. (Héro entamé). CTA proéminent vers le Dernier Round (clôture
+// vs K.O. (Héro entamé). CTA proéminent vers « Terminer la journée » (clôture
 // manuelle, non-bloquante) + option "continuer". Super-variante si ce KO franchit
 // un palier de série (US-12). Variante douce sous prefers-reduced-motion.
 export default function PerfectOverlay({
@@ -99,7 +99,7 @@ export default function PerfectOverlay({
           onClick={onCrepuscule}
           className="rounded-md border border-gold bg-surface px-5 py-2 font-display text-xs uppercase tracking-wide text-gold"
         >
-          🌙 Dernier Round
+          🌙 Terminer la journée
         </button>
         <ShareButton params={shareCardParams} source="perfect_overlay" />
         <button

@@ -40,7 +40,7 @@ export async function subscribeToPush(
   return { error: null };
 }
 
-// US-11 : désinscription explicite (toggle désactivé côté QG). Pas un DELETE
+// US-11 : désinscription explicite (toggle désactivé côté Le Vestiaire). Pas un DELETE
 // soumis à RG-04 — donnée technique d'appareil, policy DELETE autorisée
 // (cf. supabase/migrations/20260723090000_create_push_subscriptions.sql).
 export async function unsubscribeFromPush(endpoint: string): Promise<PushActionResult> {

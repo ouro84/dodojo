@@ -19,7 +19,7 @@ describe("isPublicRoute (garde de session proxy.ts)", () => {
 
   test("les routes applicatives normales restent protégées", () => {
     expect(isPublicRoute("/")).toBe(false);
-    expect(isPublicRoute("/qg")).toBe(false);
+    expect(isPublicRoute("/vestiaire")).toBe(false);
   });
 
   test("/oauth/* et /.well-known/* sont publics (US-22 : Gemini n'a pas de cookie Supabase)", () => {
