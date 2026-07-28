@@ -49,6 +49,11 @@ export interface Task {
   is_recurring: boolean;
   recurring_template_id: string | null;
   deadline_at: string | null;
+  // Issue #101 (Axe A, by-pass spec A4-overdue) : timestamp posé au Report
+  // d'un reste via Le Réveil. Persiste jusqu'à résolution (coche/rage quit)
+  // pour porter la pénalité -20 "reste reporté". Nullable : une tâche normale
+  // sans reste reporté n'a pas ce flag.
+  deferred_at: string | null;
   day_date: string;
   position: number;
   created_at: string;

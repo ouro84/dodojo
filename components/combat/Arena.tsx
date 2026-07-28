@@ -32,6 +32,7 @@ import {
   missedDeadlineTasks,
   upcomingDeadlineCount,
   HERO_DAMAGE_PER_MISSED_DEADLINE,
+  HERO_DAMAGE_PER_OVERDUE_TASK,
   collectAbandonCascade,
   applyRageQuitPenalty,
   RAGE_QUIT_XP_PENALTY,
@@ -41,6 +42,7 @@ import {
   planReorder,
   summarizeDay,
   XP_PER_TASK,
+  deferredRestHpPenalties,
   type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
@@ -218,6 +220,13 @@ export default function Arena({
     new Set(missedDeadlineTasks(initialTasks, new Date()).map((t) => t.id)),
   );
   const [heroPulse, setHeroPulse] = useState<{ key: number } | null>(null);
+  // A3 (issue #101) : pulse "heal" gold côté Héros à chaque remontée de
+  // heroHp (coche d'une pénalité, rage quit d'une deadline ratée). Pas
+  // étendu au Réveil (limité à l'Arène, cf. spec A3).
+  const [heroHealPulse, setHeroHealPulse] = useState<{
+    key: number;
+    amount: number;
+  } | null>(null);
   const [deadlineAlert, setDeadlineAlert] = useState<{
     taskId: string;
     taskTitle: string;
@@ -228,6 +237,12 @@ export default function Arena({
   const [emptyStateSeed, setEmptyStateSeed] = useState(randomSeed);
   const [wasEmpty, setWasEmpty] = useState(false);
   const heroPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroHealPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroHealPulseCounterRef = useRef(0);
+  // A3 : ref du heroHp précédent pour détecter les remontées (delta > 0).
+  // Initialisé à null pour ne pas pulser au montage (au 1er rendu, on
+  // initialise simplement le ref sans émettre de pulse).
+  const prevHeroHpRef = useRef<number | null>(null);
   const heroPulseCounterRef = useRef(0);
   const tasksRef = useRef(tasks);
 
@@ -244,6 +259,30 @@ export default function Arena({
   const heroHp = calculateHeroHp([
     ...overdueHpPenalties(overdueTasks),
     ...deadlineHpPenalties(missedDeadlines),
+    // By-pass A4-overdue (issue #101) : pénalité -20 persistante des restes
+    // déferrés depuis Le Réveil. Le state local `tasks` contient déjà les
+    // tâches rapportées par `onResolved(deferredTasks)` (cf. Bug #70) — on
+    // les passe au pool via `deferred_at` non-null + !is_completed && !is_abandoned.
+    ...deferredRestHpPenalties(tasks),
+  ]);
+  // A4 (issue #101) : sets d'ids pour activer les chips pénalité -10/-20 HP
+  // sur les TaskRow correspondantes. Déjà filtrées `!is_completed &&
+  // !is_abandoned` côté calcul (activeTasks filtre `is_abandoned` ;
+  // missedDeadlineTasks + overdueTasks sont recalculés à chaque rendu, donc
+  // les chips disparaissent dès résolution). Pas de useMemo : la règle
+  // react-hooks/preserve-manual-memoization bloque les dep arrays contenant
+  // missedDeadlines (nouvelle réf à chaque rendu) — cf. CLAUDE.md note.
+  // By-pass A4-overdue : on ajoute les tâches déferrées (deferred_at != null)
+  // au set "reste reporté" pour que leur chip -20 reste visible après Report,
+  // jusqu'à résolution (coche/rage quit clear le deferred_at).
+  const missedDeadlineIds = new Set(missedDeadlines.map((t) => t.id));
+  const overdueRestIds = new Set([
+    ...overdueTasks
+      .filter((t) => !t.is_completed && !t.is_abandoned)
+      .map((t) => t.id),
+    ...tasks
+      .filter((t) => t.deferred_at !== null && !t.is_completed && !t.is_abandoned)
+      .map((t) => t.id),
   ]);
   // US-18 : héros affiché = celui équipé (fallback défaut si id inconnu).
   const equippedHero =
@@ -297,6 +336,9 @@ export default function Arena({
       if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
       if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
       if (heroPulseTimeoutRef.current) clearTimeout(heroPulseTimeoutRef.current);
+      // A3 : cleanup du timeout heal pulse (sinon fuite + setHeroHealPulse
+      // sur un composant démonté = warning React).
+      if (heroHealPulseTimeoutRef.current) clearTimeout(heroHealPulseTimeoutRef.current);
     };
   }, []);
 
@@ -343,6 +385,31 @@ export default function Arena({
 
     return () => clearInterval(timer);
   }, []);
+
+  // A3 (issue #101) : à chaque remontée de heroHp (delta > 0), on émet un
+  // pulse "heal" gold au-dessus du Héros. Les baisses (delta <= 0) ne se
+  // déclenchent pas ici — elles sont déjà couvertes par heroPulse existant
+  // (polling deadline). On évite aussi un pulse au montage via prevHeroHpRef
+  // initialisé à null (premier rendu : on se contente d'amorcer le ref).
+  useEffect(() => {
+    const prev = prevHeroHpRef.current;
+    if (prev === null) {
+      prevHeroHpRef.current = heroHp;
+      return;
+    }
+    const delta = heroHp - prev;
+    prevHeroHpRef.current = heroHp;
+
+    if (delta > 0) {
+      heroHealPulseCounterRef.current += 1;
+      const key = heroHealPulseCounterRef.current;
+      setHeroHealPulse({ key, amount: delta });
+      if (heroHealPulseTimeoutRef.current) clearTimeout(heroHealPulseTimeoutRef.current);
+      heroHealPulseTimeoutRef.current = setTimeout(() => {
+        setHeroHealPulse((current) => (current?.key === key ? null : current));
+      }, 1400);
+    }
+  }, [heroHp]);
 
   // Combo : incrémente de `hits` (tâches terminées d'un coup) et flashe la
   // bannière si un palier est atteint. `reset` remet la série à zéro.
@@ -410,6 +477,7 @@ export default function Arena({
       is_recurring: false,
       recurring_template_id: null,
       deadline_at: null,
+      deferred_at: null,
       day_date: today,
       position: nextSiblingPosition(roots),
       created_at: new Date().toISOString(),
@@ -453,6 +521,7 @@ export default function Arena({
       is_recurring: false,
       recurring_template_id: null,
       deadline_at: null,
+      deferred_at: null,
       day_date: today,
       position: nextSiblingPosition(siblings),
       created_at: new Date().toISOString(),
@@ -879,6 +948,17 @@ export default function Arena({
             heroHp={heroHp}
             heroMaxHp={HERO_MAX_HP}
             heroAlarm={heroPulse !== null}
+            // A2 (issue #101) : breakdown des pénalités Héros pour le
+            // popover de transparence du calcul. overdueTasks et
+            // missedDeadlines sont déjà calculés plus haut.
+            heroPenaltiesBreakdown={{
+              overdueCount: overdueTasks.filter(
+                (t) => !t.is_completed && !t.is_abandoned,
+              ).length,
+              overdueHpPerItem: HERO_DAMAGE_PER_OVERDUE_TASK,
+              missedCount: missedDeadlines.length,
+              missedHpPerItem: HERO_DAMAGE_PER_MISSED_DEADLINE,
+            }}
             bossName={bossName}
             bossFramePrefix={boss.idleFramePrefix}
             bossFrameCount={boss.idleFrameCount}
@@ -912,6 +992,13 @@ export default function Arena({
             <FloatingText
               amount={HERO_DAMAGE_PER_MISSED_DEADLINE}
               kind="damage"
+              anchor="hero"
+            />
+          )}
+          {heroHealPulse && (
+            <FloatingText
+              amount={heroHealPulse.amount}
+              kind="heal"
               anchor="hero"
             />
           )}
@@ -1088,6 +1175,9 @@ export default function Arena({
             onSetDeadline={handleSetDeadline}
             addingSubtaskParentId={addingSubtaskParentId}
             pendingMutationIds={pendingMutationIds}
+            // A4 (issue #101) : chips -10/-20 HP sur les tâches en pénalité.
+            missedDeadlineIds={missedDeadlineIds}
+            overdueRestIds={overdueRestIds}
             dragOverInfo={dragOverInfo}
           />
           <DragOverlay>

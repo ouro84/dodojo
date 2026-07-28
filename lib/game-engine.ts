@@ -206,6 +206,15 @@ export const HERO_DAMAGE_PER_MISSED_DEADLINE = 10;
 
 export type OverdueTask = Pick<Task, "is_abandoned" | "is_completed">;
 
+// Issue #101 (Axe A, by-pass spec A4-overdue) : tâche reportée depuis Le
+// Réveil. La pénalité -20 "reste reporté" persiste jusqu'à résolution via
+// le flag `deferred_at`. Champs Pick minimaux pour rester testable
+// sans dépendance au rendu UI.
+export type DeferredRestTask = Pick<
+  Task,
+  "id" | "deferred_at" | "is_completed" | "is_abandoned"
+>;
+
 // US-05 : le pool HP Héros accepte un poids par tâche (overdue reporté = -20,
 // deadline horaire ratée = -10) plutôt qu'un poids fixe pour toute la liste.
 export type HeroHpPenaltyTask = Pick<Task, "is_abandoned" | "is_completed"> & {
@@ -225,6 +234,24 @@ export function calculateHeroHp(penaltyTasks: HeroHpPenaltyTask[]): number {
 // et l'Arène.
 export function overdueHpPenalties(tasks: OverdueTask[]): HeroHpPenaltyTask[] {
   return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
+}
+
+// Issue #101 (Axe A, by-pass spec A4-overdue) : construit les entrées pondérées
+// du pool HP Héros pour des tâches reportées depuis Le Réveil (poids -20 pares
+// pares). Contrairement à `overdueHpPenalties`, ce pool inclut des tâches dont
+// `deferred_at` est non nul — la pénalité -20 "reste reporté" persiste après
+// le Report (qui changeait uniquement `day_date` à `today`) jusqu'à résolution
+// (coche/rage quit). Utilisé par l'Arène via `tasks` (state local qui contient
+// déjà les tâches déferrées rapportées par `onResolved`).
+export function deferredRestHpPenalties(
+  tasks: DeferredRestTask[],
+): HeroHpPenaltyTask[] {
+  return tasks
+    .filter(
+      (task) =>
+        task.deferred_at !== null && !task.is_completed && !task.is_abandoned,
+    )
+    .map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
 }
 
 export type DeadlineTask = Pick<
