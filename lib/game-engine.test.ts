@@ -8,6 +8,8 @@ import {
   missedDeadlineTasks,
   upcomingDeadlineCount,
   deadlineHpPenalties,
+  deferredRestHpPenalties,
+  HERO_DAMAGE_PER_OVERDUE_TASK,
   deadlineIso,
   localTimeFromIso,
   computeGoldEarned,
@@ -54,6 +56,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     is_recurring: false,
     recurring_template_id: null,
     deadline_at: null,
+    deferred_at: null,
     day_date: "2026-07-16",
     position: 0,
     created_at: "2026-07-16T00:00:00.000Z",
@@ -226,6 +229,68 @@ describe("overdueHpPenalties (US-05)", () => {
     expect(overdueHpPenalties(tasks)).toEqual([
       { ...tasks[0], weight: 20 },
       { ...tasks[1], weight: 20 },
+    ]);
+  });
+});
+
+describe("deferredRestHpPenalties (by-pass A4-overdue, issue #101)", () => {
+  test("0 tâche → []", () => {
+    expect(deferredRestHpPenalties([])).toEqual([]);
+  });
+
+  test("1 tâche deferred_at non-null active → poids -20", () => {
+    const tasks = [
+      makeTask({ id: "1", deferred_at: "2026-07-28T00:00:00.000Z" }),
+    ];
+    expect(deferredRestHpPenalties(tasks)).toEqual([
+      { ...tasks[0], weight: HERO_DAMAGE_PER_OVERDUE_TASK },
+    ]);
+  });
+
+  test("1 tâche deferred_at null → [] (tâche normale sans reste reporté)", () => {
+    const tasks = [makeTask({ id: "1", deferred_at: null })];
+    expect(deferredRestHpPenalties(tasks)).toEqual([]);
+  });
+
+  test("1 tâche deferred_at non-null mais is_completed → [] (résolue)", () => {
+    const tasks = [
+      makeTask({
+        id: "1",
+        deferred_at: "2026-07-28T00:00:00.000Z",
+        is_completed: true,
+      }),
+    ];
+    expect(deferredRestHpPenalties(tasks)).toEqual([]);
+  });
+
+  test("1 tâche deferred_at non-null mais is_abandoned → [] (annihilée/rage quit)", () => {
+    const tasks = [
+      makeTask({
+        id: "1",
+        deferred_at: "2026-07-28T00:00:00.000Z",
+        is_abandoned: true,
+      }),
+    ];
+    expect(deferredRestHpPenalties(tasks)).toEqual([]);
+  });
+
+  test("mélange : seules les tâches deferred_at non-null et actives sortent", () => {
+    const tasks = [
+      makeTask({ id: "active", deferred_at: "2026-07-28T00:00:00.000Z" }),
+      makeTask({ id: "normal", deferred_at: null }),
+      makeTask({
+        id: "done",
+        deferred_at: "2026-07-28T00:00:00.000Z",
+        is_completed: true,
+      }),
+      makeTask({
+        id: "abandoned",
+        deferred_at: "2026-07-28T00:00:00.000Z",
+        is_abandoned: true,
+      }),
+    ];
+    expect(deferredRestHpPenalties(tasks)).toEqual([
+      { ...tasks[0], weight: HERO_DAMAGE_PER_OVERDUE_TASK },
     ]);
   });
 });

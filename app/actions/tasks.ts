@@ -199,7 +199,7 @@ export async function setTaskCompleted(
 
   const { error: updateError } = await supabase
     .from("tasks")
-    .update({ is_completed: isCompleted })
+    .update({ is_completed: isCompleted, deferred_at: null })
     .eq("id", id)
     .eq("user_id", user.id);
 
@@ -286,7 +286,11 @@ export async function rageQuitTask(id: string): Promise<TaskActionResult> {
 
   const { error } = await supabase
     .from("tasks")
-    .update({ is_abandoned: true, abandon_reason: "rage_quit" })
+    .update({
+      is_abandoned: true,
+      abandon_reason: "rage_quit",
+      deferred_at: null,
+    })
     .in("id", cascadeIds)
     .eq("user_id", user.id);
 
@@ -468,7 +472,7 @@ export async function completeOverdueTask(id: string): Promise<TaskActionResult>
 
   const { error } = await supabase
     .from("tasks")
-    .update({ is_completed: true })
+    .update({ is_completed: true, deferred_at: null })
     .or(`id.eq.${id},parent_id.eq.${id}`)
     .eq("user_id", user.id)
     .eq("is_abandoned", false);
@@ -510,6 +514,11 @@ export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
       day_date: today,
       position: nextSiblingPosition(roots ?? []),
       deadline_at: null,
+      // Issue #101 (Axe A, by-pass A4-overdue) : le flag `deferred_at` persiste
+      // jusqu'à résolution (coche/rage quit). La pénalité -20 "reste reporté"
+      // reste active sur la HeroBar après Report, jusqu'à ce que l'utilisateur
+      // résolve la tâche.
+      deferred_at: new Date().toISOString(),
     })
     .or(`id.eq.${id},parent_id.eq.${id}`)
     .eq("user_id", user.id)
@@ -561,7 +570,13 @@ export async function deferAllOverdue(): Promise<TaskActionResult> {
   const today = await userToday(supabase, user.id);
   const { data: updated, error } = await supabase
     .from("tasks")
-    .update({ day_date: today, deadline_at: null })
+    .update({
+      day_date: today,
+      deadline_at: null,
+      // Issue #101 (Axe A, by-pass A4-overdue) : même logique que
+      // deferOverdueTask — `deferred_at` persiste jusqu'à résolution.
+      deferred_at: new Date().toISOString(),
+    })
     .eq("user_id", user.id)
     .lt("day_date", today)
     .eq("is_completed", false)

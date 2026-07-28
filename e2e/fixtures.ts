@@ -160,6 +160,47 @@ export async function seedOverdueTask(title: string, daysAgo = 1): Promise<strin
   return data.id as string;
 }
 
+// US-05 (issue #101 A3 / A4) : sème une tâche avec une deadline horaire
+// déjà dans le passé (≤ now), pour court-circuiter le polling ~45s de
+// l'Arène. La tâche est détectée comme `missedDeadlineTasks` dès le 1er
+// rendu (deadline_at <= now) → pénalité -10 HP active immédiatement.
+// Retourne l'id créé pour le nettoyage.
+export async function seedMissedDeadlineTask(
+  title: string,
+  options: { minutesAgo?: number } = {},
+): Promise<string> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "Seed missed deadline : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
+    );
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("Seed missed deadline : utilisateur test introuvable.");
+
+  const minutesAgo = options.minutesAgo ?? 5;
+  const deadlineAt = new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  const dayDate = new Date().toISOString().slice(0, 10);
+  const { data, error } = await admin
+    .from("tasks")
+    .insert({
+      user_id: uid,
+      title,
+      day_date: dayDate,
+      deadline_at: deadlineAt,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(`Seed missed deadline : insert échoué (${error?.message ?? "inconnu"}).`);
+  }
+  return data.id as string;
+}
+
 // Vérifie l'état réel en base d'une tâche (RG-04 : jamais de DELETE côté
 // app, seulement is_abandoned/is_completed - cf. e2e/wake-up-ritual.spec.ts).
 export async function getTaskById(

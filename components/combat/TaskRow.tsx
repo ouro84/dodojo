@@ -25,6 +25,12 @@ interface TaskRowProps {
   // que la phase "création non confirmée". Les deux désactivent les
   // interactions mais le `isMutating` survient sur une tâche déjà persistée.
   isMutating?: boolean;
+  // A4 (issue #101) : true si cette tâche est une pénalité active pour la
+  // jauge Héros. Les chips ne sont pas animés (motion-reduce friendly) et
+  // disparaissent dès résolution (coche/abandon/report) car le calcul des
+  // Sets est reroulé par Arena à chaque rendu.
+  isMissedDeadline?: boolean;
+  isOverdueRest?: boolean;
   dropIndicator?: DragOverInfo | null;
 }
 
@@ -37,6 +43,8 @@ export default function TaskRow({
   onSetDeadline,
   isAddingSubtask,
   isMutating = false,
+  isMissedDeadline = false,
+  isOverdueRest = false,
   dropIndicator = null,
 }: TaskRowProps) {
   const isPending = isOptimisticTask(task);
@@ -130,6 +138,22 @@ export default function TaskRow({
         disabled={isLocked}
         onSave={(deadlineAt) => onSetDeadline(task.id, deadlineAt)}
       />
+      {isMissedDeadline && (
+        <span
+          aria-label="Pénalité -10 HP : deadline ratée"
+          className="shrink-0 rounded bg-alert/10 px-1.5 py-0.5 text-[0.65rem] font-display uppercase tracking-wide text-alert"
+        >
+          -10 HP
+        </span>
+      )}
+      {isOverdueRest && (
+        <span
+          aria-label="Pénalité -20 HP : reste reporté"
+          className="shrink-0 rounded bg-alert/5 px-1.5 py-0.5 text-[0.65rem] font-display uppercase tracking-wide text-alert"
+        >
+          -20 HP
+        </span>
+      )}
       <button
         type="button"
         onClick={() => onAbandon(task.id)}

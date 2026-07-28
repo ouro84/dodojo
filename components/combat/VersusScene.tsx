@@ -8,6 +8,15 @@ import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
 import { IMPACT_VARIANTS } from "./ImpactVfx";
 
+// A2 (issue #101) : breakdown des pénalités Héros propagé depuis Arena
+// jusqu'à HeroBar. Type en miroir de HeroBar.tsx (garder les deux alignés).
+interface HeroPenaltiesBreakdown {
+  overdueCount: number;
+  overdueHpPerItem: number;
+  missedCount: number;
+  missedHpPerItem: number;
+}
+
 interface VersusSceneProps {
   heroName: string;
   heroLabel?: string;
@@ -16,6 +25,7 @@ interface VersusSceneProps {
   heroHp: number;
   heroMaxHp: number;
   heroAlarm?: boolean;
+  heroPenaltiesBreakdown?: HeroPenaltiesBreakdown | null;
   bossName: string;
   bossFramePrefix: string;
   bossFrameCount: number;
@@ -38,6 +48,7 @@ export default function VersusScene({
   heroHp,
   heroMaxHp,
   heroAlarm = false,
+  heroPenaltiesBreakdown = undefined,
   bossName,
   bossFramePrefix,
   bossFrameCount,
@@ -78,7 +89,19 @@ export default function VersusScene({
       <div className="absolute inset-x-0 top-0 z-[5] h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
       <div className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 p-2">
         <div className="flex-1">
-          <HeroBar heroName={heroLabel ?? heroName} currentHp={heroHp} maxHp={heroMaxHp} alarm={heroAlarm} />
+          <HeroBar
+            heroName={heroLabel ?? heroName}
+            currentHp={heroHp}
+            maxHp={heroMaxHp}
+            alarm={heroAlarm}
+            // A2 : passe le breakdown si fourni par Arena. undefined = pas
+            // de popover (comportement WakeUpRitual, mais ici VersusScene
+            // n'est jamais monté hors Arena). On normalise null→undefined
+            // pour conserver l'absence de popover sur valeur null.
+            penaltiesBreakdown={
+              heroPenaltiesBreakdown === null ? undefined : heroPenaltiesBreakdown
+            }
+          />
         </div>
         <div className="flex flex-col items-center pt-1">
           <MidnightTimer />
