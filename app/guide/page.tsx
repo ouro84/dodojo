@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { chargerIndexGuide, grouperParSection } from "@/lib/guide";
+import BackLink from "@/components/ui/BackLink";
 import BottomNav from "@/components/ui/BottomNav";
 
 export const metadata = { title: "Le Guide" };
@@ -10,6 +11,7 @@ export default async function GuidePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-6">
+      <BackLink href="/vestiaire" label="Retour au Vestiaire" />
       <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
         Le Guide
       </h1>

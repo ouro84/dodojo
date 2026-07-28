@@ -5,6 +5,7 @@ import { dayKey } from "@/lib/game-engine";
 import RecurringManager, {
   type ManagedTemplate,
 } from "@/components/combat/RecurringManager";
+import BackLink from "@/components/ui/BackLink";
 import BottomNav from "@/components/ui/BottomNav";
 
 export const metadata: Metadata = { title: "Mes Routines — Dodojo" };
@@ -58,6 +59,7 @@ export default async function EntrainementPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
+      <BackLink href="/vestiaire" label="Retour au Vestiaire" />
       <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
         Mes Routines
       </h1>

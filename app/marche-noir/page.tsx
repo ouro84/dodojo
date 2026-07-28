@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { goldBalance } from "@/lib/game-engine";
 import { CharacterSelect } from "@/components/shop/CharacterSelect";
+import BackLink from "@/components/ui/BackLink";
 import BottomNav from "@/components/ui/BottomNav";
 
 export const metadata: Metadata = { title: "Le Marché Noir — Dodojo" };
@@ -53,6 +54,7 @@ export default async function EchoppePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8">
+      <BackLink href="/vestiaire" label="Retour au Vestiaire" />
       <CharacterSelect
         ownedIds={ownedIds}
         equippedId={profile.equipped_hero_id}
