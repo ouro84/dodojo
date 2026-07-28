@@ -9,6 +9,9 @@ nouvelle section versionnée et datée.
 
 ## [Unreleased]
 
+### Produit
+- Issue #101 (A1) : section « HP du Héros » ajoutée au Guide `content/guide/hp.md` — explicite les deux sources de pénalité (-20 reste reporté, -10 deadline ratée), la distinction jauges offensive/défensive et PERFECT vs K.O. ; `resume` de `index.json` mis à jour.
+
 ### Corrections
 - Fiabilisation e2e (2026-07-24) : deux flakes en run complet corrigés. (1) `admin.auth.admin.listUsers()`/`deleteUser()` (API Admin GoTrue Supabase) rejetaient intermittemment un JWT valide sous charge — reproduit à la demande (rafale concurrente) et guéri par retry (`listUsersRetrying`/`deleteUserRetrying`, `e2e/fixtures.ts`), utilisés partout où l'ancien code appelait directement l'API ; révélait aussi un `deleteUser` dont l'erreur n'était jamais vérifiée dans `resetOnboardingUser`, laissant un compte de test orphelin faire échouer le signup suivant (`onboarding.spec.ts`). (2) `nesting-dnd.spec.ts` : capture de pointeur dnd-kit résiduelle après un drag simulé sans `pointermove` de relâche — un clic ultérieur (bouton Abandonner) pouvait se perdre silencieusement ; `dragOnto` ajoute désormais un mouvement de souris après le `mouseup`.
 - Audit UX/UI (2026-07-24) : `BottomNav` était monté uniquement sur l'Arène — QG, Échoppe, Panthéon, Guide et Entraînement n'avaient aucune nav persistante et 4 implémentations différentes de lien "retour" (position, style, flèche variables). `BottomNav` est désormais présent sur tous les écrans authentifiés (actif sur l'onglet parent pour Panthéon/Guide/Entraînement) ; les liens "Retour au QG"/"Retour à l'Arène" devenus redondants sont supprimés, ne subsiste qu'un `BackLink` unique pour remonter du Guide article au sommaire.
