@@ -237,19 +237,26 @@ export function overdueHpPenalties(tasks: OverdueTask[]): HeroHpPenaltyTask[] {
 }
 
 // Issue #101 (Axe A, by-pass spec A4-overdue) : construit les entrées pondérées
-// du pool HP Héros pour des tâches reportées depuis Le Réveil (poids -20 pares
-// pares). Contrairement à `overdueHpPenalties`, ce pool inclut des tâches dont
+// du pool HP Héros pour des tâches reportées depuis Le Réveil (poids -20 par
+// reste). Contrairement à `overdueHpPenalties`, ce pool inclut des tâches dont
 // `deferred_at` est non nul — la pénalité -20 "reste reporté" persiste après
 // le Report (qui changeait uniquement `day_date` à `today`) jusqu'à résolution
 // (coche/rage quit). Utilisé par l'Arène via `tasks` (state local qui contient
 // déjà les tâches déferrées rapportées par `onResolved`).
+//
+// Robustesse : on utilise `!= null` (loose equality) plutôt que `!== null`
+// (strict) pour tolérer le cas où la colonne `deferred_at` n'existe pas encore
+// en base — Supabase retourne alors `undefined` au lieu de `null`. Sans ça,
+// `undefined !== null` est `true` et on traiterait faussement toutes les
+// tâches comme "déferrées". Une fois la migration poussée, le select retourne
+// `null` et le filtre reste correct.
 export function deferredRestHpPenalties(
   tasks: DeferredRestTask[],
 ): HeroHpPenaltyTask[] {
   return tasks
     .filter(
       (task) =>
-        task.deferred_at !== null && !task.is_completed && !task.is_abandoned,
+        task.deferred_at != null && !task.is_completed && !task.is_abandoned,
     )
     .map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
 }

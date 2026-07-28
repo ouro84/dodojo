@@ -281,7 +281,7 @@ export default function Arena({
       .filter((t) => !t.is_completed && !t.is_abandoned)
       .map((t) => t.id),
     ...tasks
-      .filter((t) => t.deferred_at !== null && !t.is_completed && !t.is_abandoned)
+      .filter((t) => t.deferred_at != null && !t.is_completed && !t.is_abandoned)
       .map((t) => t.id),
   ]);
   // US-18 : héros affiché = celui équipé (fallback défaut si id inconnu).
@@ -950,11 +950,19 @@ export default function Arena({
             heroAlarm={heroPulse !== null}
             // A2 (issue #101) : breakdown des pénalités Héros pour le
             // popover de transparence du calcul. overdueTasks et
-            // missedDeadlines sont déjà calculés plus haut.
+            // missedDeadlines sont déjà calculés plus haut. By-pass
+            // A4-overdue : on inclut aussi les tâches déferrées de `tasks`
+            // car `overdueTasks` est re-fetché après Report (revalidatePath)
+            // et n'inclut plus la tâche reportée (day_date = today).
             heroPenaltiesBreakdown={{
-              overdueCount: overdueTasks.filter(
-                (t) => !t.is_completed && !t.is_abandoned,
-              ).length,
+              overdueCount: new Set([
+                ...overdueTasks.filter(
+                  (t) => !t.is_completed && !t.is_abandoned,
+                ).map((t) => t.id),
+                ...tasks.filter(
+                  (t) => t.deferred_at != null && !t.is_completed && !t.is_abandoned,
+                ).map((t) => t.id),
+              ]).size,
               overdueHpPerItem: HERO_DAMAGE_PER_OVERDUE_TASK,
               missedCount: missedDeadlines.length,
               missedHpPerItem: HERO_DAMAGE_PER_MISSED_DEADLINE,
