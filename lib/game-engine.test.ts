@@ -34,6 +34,9 @@ import {
   isOptimisticTask,
   nextSiblingPosition,
   planReorder,
+  reorderAfterCompletionToggle,
+  insertNewActiveTaskId,
+  planCompletionReorder,
   planWakeUp,
   sortTasksHierarchically,
   summarizeDay,
@@ -42,6 +45,7 @@ import {
   XP_PER_TASK,
   XP_THRESHOLD_PER_LEVEL,
 } from "./game-engine";
+import type { ReorderableCompletionTask } from "./game-engine";
 import type { Task } from "../types";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -626,6 +630,100 @@ describe("nextSiblingPosition (US-04/US-19)", () => {
   test("max + 1 pour une fratrie non vide", () => {
     const siblings = [makeTask({ position: 0 }), makeTask({ position: 3 })];
     expect(nextSiblingPosition(siblings)).toBe(4);
+  });
+});
+
+describe("reorderAfterCompletionToggle (issue #111)", () => {
+  test("cocher : la tâche part en toute dernière position", () => {
+    const result = reorderAfterCompletionToggle(
+      ["a", "b", "c"],
+      "a",
+      true,
+      new Set(["a"]),
+    );
+    expect(result).toEqual(["b", "c", "a"]);
+  });
+
+  test("cocher : préserve l'ordre relatif des autres tâches, y compris un réordonnancement manuel préexistant", () => {
+    // "c" (complétée) a déjà été manuellement placée en tête par un drag.
+    const result = reorderAfterCompletionToggle(
+      ["c", "a", "b"],
+      "b",
+      true,
+      new Set(["c", "b"]),
+    );
+    expect(result).toEqual(["c", "a", "b"]);
+  });
+
+  test("décocher : revient en dernière position parmi les actives (juste avant la première complétée)", () => {
+    const result = reorderAfterCompletionToggle(
+      ["a", "b", "c"],
+      "b",
+      false,
+      new Set(["c"]),
+    );
+    expect(result).toEqual(["a", "b", "c"]);
+  });
+
+  test("décocher : une complétée draguée au-dessus des actives (override) le reste, la tâche décochée va après la dernière active", () => {
+    // "c" (complétée) a été draguée manuellement au-dessus de "a" (active).
+    const result = reorderAfterCompletionToggle(
+      ["c", "a", "b"],
+      "b",
+      false,
+      new Set(["c"]),
+    );
+    expect(result).toEqual(["c", "a", "b"]);
+  });
+
+  test("décocher sans aucune tâche complétée restante : va en toute fin", () => {
+    const result = reorderAfterCompletionToggle(["a", "b"], "a", false, new Set());
+    expect(result).toEqual(["b", "a"]);
+  });
+});
+
+describe("insertNewActiveTaskId (issue #111)", () => {
+  test("aucune tâche complétée : la nouvelle tâche va en toute fin (comportement inchangé)", () => {
+    const result = insertNewActiveTaskId(["a", "b"], "new", new Set());
+    expect(result).toEqual(["a", "b", "new"]);
+  });
+
+  test("des tâches complétées existent : la nouvelle tâche s'insère juste avant la première", () => {
+    const result = insertNewActiveTaskId(["a", "b"], "new", new Set(["b"]));
+    expect(result).toEqual(["a", "new", "b"]);
+  });
+});
+
+describe("planCompletionReorder (issue #111)", () => {
+  test("toggle d'une racine sans enfants : un seul plan, pour le groupe racine", () => {
+    const tasks: ReorderableCompletionTask[] = [
+      { id: "a", parent_id: null, position: 0, is_completed: false, is_abandoned: false },
+      { id: "b", parent_id: null, position: 1, is_completed: true, is_abandoned: false },
+    ];
+    const cascade = [{ taskId: "a", isCompleted: true }];
+    const plans = planCompletionReorder(tasks, cascade);
+    expect(plans).toEqual([{ parentId: null, orderedTaskIds: ["b", "a"] }]);
+  });
+
+  test("toggle d'une racine avec cascade sur ses enfants : deux plans (groupe racine + groupe enfants)", () => {
+    const tasks: ReorderableCompletionTask[] = [
+      { id: "root", parent_id: null, position: 0, is_completed: false, is_abandoned: false },
+      { id: "sibling", parent_id: null, position: 1, is_completed: true, is_abandoned: false },
+      { id: "child1", parent_id: "root", position: 0, is_completed: false, is_abandoned: false },
+      { id: "child2", parent_id: "root", position: 1, is_completed: false, is_abandoned: false },
+    ];
+    const cascade = [
+      { taskId: "root", isCompleted: true },
+      { taskId: "child1", isCompleted: true },
+      { taskId: "child2", isCompleted: true },
+    ];
+    const plans = planCompletionReorder(tasks, cascade);
+    expect(plans).toContainEqual({ parentId: null, orderedTaskIds: ["sibling", "root"] });
+    expect(plans).toContainEqual({ parentId: "root", orderedTaskIds: ["child1", "child2"] });
+  });
+
+  test("cascade vide : aucun plan", () => {
+    expect(planCompletionReorder([], [])).toEqual([]);
   });
 });
 
