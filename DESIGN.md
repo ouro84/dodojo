@@ -202,9 +202,9 @@ Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative
 - **État d'alarme:** clignotement `hero-alarm` (halo `alert` par à-coups, 3 répétitions) sur deadline ratée non résolue.
 
 ### Navigation
-- **Style:** barre basse (`BottomNav`), 3 items égaux (`justify-around`), séparée par une bordure haute `border-border`.
+- **Style:** barre basse (`BottomNav`), 3 items égaux (`justify-around`), séparée par une bordure haute `border-border`. À partir de 1024px (desktop, issue #112), devient un rail fixe à gauche (`position: fixed`, `w-20`, items empilés verticalement, bordure droite au lieu de bordure haute).
 - **Typography:** BoldPixels `text-[0.65rem]` uppercase tracking-wide.
-- **États:** actif = texte `ink` + poids semi-gras + point plein `bg-hp` ; inactif = texte `faint` + point `bg-faint`. Pas d'état hover dédié (contexte mobile tactile).
+- **États:** actif = texte `ink` + poids semi-gras + point plein `bg-hp` ; inactif = texte `faint` + point `bg-faint`, `hover`/`focus-visible` passent à `text-ink` (même convention que les boutons icône, cf. `TaskRow`) — pertinent à partir du rail desktop, piloté à la souris/clavier.
 
 ## 6. Do's and Don'ts
 
