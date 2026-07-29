@@ -3,7 +3,7 @@ export default function EntrainementLoading() {
   return (
     <main
       aria-busy="true"
-      className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6"
+      className="screen-main gap-4 px-4 py-6"
     >
       <div className="skeleton mx-auto h-6 w-48 rounded" />
       <div className="skeleton h-40 w-full rounded-lg" />

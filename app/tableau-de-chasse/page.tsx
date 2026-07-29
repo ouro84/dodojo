@@ -104,7 +104,7 @@ export default async function PantheonPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 py-6">
+    <main className="screen-main gap-3 px-4 py-6">
       <BackLink href="/vestiaire" label="Retour au Vestiaire" />
       <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
         Tableau de Chasse

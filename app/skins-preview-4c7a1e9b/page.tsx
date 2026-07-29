@@ -17,7 +17,7 @@ export default async function SkinsPreviewPage() {
   if (!user) redirect("/login");
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
+    <main className="screen-main gap-4 px-4 py-6">
       <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
         Tenues — test interne
       </h1>
