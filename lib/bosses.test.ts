@@ -28,6 +28,17 @@ describe("catalogue boss (intégrité)", () => {
   test("frame counts positifs", () => {
     for (const boss of BOSSES) expect(boss.idleFrameCount).toBeGreaterThan(0);
   });
+
+  test("aucun nom de boss ne commence par un article (issue #119)", () => {
+    const leadingArticles = ["le ", "la ", "les ", "un ", "une "];
+    for (const boss of BOSSES) {
+      const lower = boss.name.toLowerCase();
+      const startsWithArticle = leadingArticles.some((article) =>
+        lower.startsWith(article),
+      );
+      expect(startsWithArticle, `"${boss.name}" (${boss.id})`).toBe(false);
+    }
+  });
 });
 
 describe("pickDailyBoss (US roster)", () => {
