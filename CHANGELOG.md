@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #112 : webapp responsive sur desktop/grand écran — colonne élargie + nav en rail fixe à partir de 1024px (tablette <1024px inchangée).
 - Issue #101 (A1) : section « HP du Héros » ajoutée au Guide `content/guide/hp.md` — explicite les deux sources de pénalité (-20 reste reporté, -10 deadline ratée), la distinction jauges offensive/défensive et PERFECT vs K.O. ; `resume` de `index.json` mis à jour.
 - Issue #101 (A2) : tapper la `HeroBar` de l'Arène ouvre un popover inline `role="dialog"` détaillant le calcul des HP du Héros (Restes reportés × -20 + Deadlines ratées × -10, Base +100, Total). Cas 0 pénalité : « Aucune pénalité — prêt pour PERFECT » ; cas HP=0 : encart rouge. Le R Réveil reste sans popover (`aria-haspopup` absent).
 - Issue #101 (A3) : un `FloatingText` « +X HP » gold apparaît au-dessus du Héros à chaque remontée de `heroHp` (coche d'une pénalité, rage quit d'une deadline ratée). Pas de pulse au montage (`prevHeroHpRef` initialisé à `null`).
