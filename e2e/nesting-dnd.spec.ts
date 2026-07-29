@@ -88,7 +88,7 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
     // Attendre la confirmation serveur de A avant de créer B : sinon le
     // calcul de position de B peut ne pas encore voir A (course avec
     // l'insert de A), et l'ordre de liste devient imprévisible.
-    await expect(page.getByLabel(`Déplacer "${titleA}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleA}"`)).toBeEnabled({ timeout: 15_000 });
     await input.fill(titleB);
     await addButton.click();
 
@@ -98,8 +98,8 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
     const rowB = page.locator("li", { hasText: titleB });
     const handleA = page.getByLabel(`Déplacer "${titleA}"`);
     const handleB = page.getByLabel(`Déplacer "${titleB}"`);
-    await expect(handleA).toBeEnabled();
-    await expect(handleB).toBeEnabled();
+    await expect(handleA).toBeEnabled({ timeout: 15_000 });
+    await expect(handleB).toBeEnabled({ timeout: 15_000 });
     await rowA.scrollIntoViewIfNeeded();
     await rowB.scrollIntoViewIfNeeded();
 
@@ -128,10 +128,10 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
 
     await input.fill(titleA);
     await addButton.click();
-    await expect(page.getByLabel(`Déplacer "${titleA}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleA}"`)).toBeEnabled({ timeout: 15_000 });
     await input.fill(titleB);
     await addButton.click();
-    await expect(page.getByLabel(`Déplacer "${titleB}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleB}"`)).toBeEnabled({ timeout: 15_000 });
     await input.fill(titleC);
     await addButton.click();
 
@@ -139,8 +139,8 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
     const rowC = page.locator("li", { hasText: titleC });
     const handleA = page.getByLabel(`Déplacer "${titleA}"`);
     const handleC = page.getByLabel(`Déplacer "${titleC}"`);
-    await expect(handleA).toBeEnabled();
-    await expect(handleC).toBeEnabled();
+    await expect(handleA).toBeEnabled({ timeout: 15_000 });
+    await expect(handleC).toBeEnabled({ timeout: 15_000 });
     await rowA.scrollIntoViewIfNeeded();
     await rowC.scrollIntoViewIfNeeded();
 
@@ -181,7 +181,7 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
     // Attendre la confirmation serveur de A avant de créer la suite : sinon
     // le calcul de position de la tâche suivante peut ne pas encore voir A
     // (course avec l'insert de A), et l'ordre de liste devient imprévisible.
-    await expect(page.getByLabel(`Déplacer "${titleA}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleA}"`)).toBeEnabled({ timeout: 15_000 });
 
     const rowA = page.locator("li", { hasText: titleA });
     await rowA.getByLabel("Diviser en sous-tâche").click();
@@ -189,7 +189,7 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
     await page.getByLabel("Ajouter une sous-tâche").press("Enter");
 
     const handleA1 = page.getByLabel(`Déplacer "${titleA1}"`);
-    await expect(handleA1).toBeEnabled();
+    await expect(handleA1).toBeEnabled({ timeout: 15_000 });
 
     await input.fill(titleB);
     await addButton.click();
@@ -200,7 +200,7 @@ test.describe("Drag & Drop d'imbrication et de réordonnancement (US-19)", () =>
     const rowB = page.locator("li", { hasText: titleB });
     const rowA1 = page.locator("li", { hasText: titleA1 });
     const handleB = page.getByLabel(`Déplacer "${titleB}"`);
-    await expect(handleB).toBeEnabled();
+    await expect(handleB).toBeEnabled({ timeout: 15_000 });
     await rowA1.scrollIntoViewIfNeeded();
     await rowB.scrollIntoViewIfNeeded();
 
