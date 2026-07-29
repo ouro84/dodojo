@@ -877,7 +877,7 @@ export default function Arena({
   }
 
   return (
-    <main className="relative mx-auto flex h-dvh w-full max-w-md flex-1 flex-col gap-3 overflow-hidden px-4 py-4">
+    <main className="screen-main relative h-dvh gap-3 overflow-hidden px-4 py-4">
       {/* Audit UX 2026-07-24 (P1) : seul écran de l'app sans heading de page -
           sr-only pour ne pas perturber le HUD, juste un point d'entrée pour
           lecteur d'écran (WCAG 2.4.6 / 1.3.1). */}
