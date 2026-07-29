@@ -3,7 +3,7 @@ export default function GuideArticleLoading() {
   return (
     <main
       aria-busy="true"
-      className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6"
+      className="screen-main gap-4 px-4 py-6"
     >
       <div className="skeleton h-4 w-16 rounded" />
       <div className="skeleton h-6 w-3/4 rounded" />

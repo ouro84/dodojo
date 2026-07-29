@@ -3,7 +3,7 @@ export default function GuideLoading() {
   return (
     <main
       aria-busy="true"
-      className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-6"
+      className="screen-main gap-6 px-4 py-6"
     >
       <div className="skeleton mx-auto h-6 w-40 rounded" />
       {Array.from({ length: 3 }).map((_, section) => (

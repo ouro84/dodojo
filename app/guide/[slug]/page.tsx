@@ -43,7 +43,7 @@ export default async function GuideArticlePage({
   if (!meta || contenu === null) notFound();
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
+    <main className="screen-main gap-4 px-4 py-6">
       <BackLink href="/guide" label="Tout le Guide" />
       <header className="flex flex-col gap-1">
         <p className="text-xs uppercase tracking-wide text-gold">{meta.section}</p>
