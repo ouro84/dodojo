@@ -8,8 +8,10 @@ import {
   collectAbandonCascade,
   dayKey,
   isNestableParent,
+  nextComboState,
   nextSiblingPosition,
   RAGE_QUIT_XP_PENALTY,
+  xpForCompletion,
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import type { CascadeTask } from "@/lib/game-engine";
@@ -32,6 +34,7 @@ export interface TaskActionResult {
   xp?: number;
   leveledUp?: boolean;
   deferredTasks?: Task[];
+  comboCount?: number;
 }
 
 // Le "jour" du jeu est le jour local de l'utilisateur (RG-03), pas l'UTC.
@@ -184,7 +187,7 @@ export async function setTaskCompleted(
 
   const { data: existingTask, error: fetchError } = await supabase
     .from("tasks")
-    .select("is_completed, is_abandoned")
+    .select("is_completed, is_abandoned, xp_awarded")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -215,33 +218,83 @@ export async function setTaskCompleted(
   let level: number | undefined;
   let xp: number | undefined;
   let leveledUp = false;
+  let comboCount: number | undefined;
 
+  // Le profil n'est jamais absent en usage normal (onboarding le garantit) ;
+  // si le fetch échoue quand même, on ne bloque pas la validation de la
+  // tâche pour autant — seul le gain d'XP est perdu pour ce coup.
   if (isRealTransition && !existingTask.is_abandoned) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("level, xp")
+      .select("level, xp, combo_count, last_combo_completed_at")
       .eq("id", user.id)
       .maybeSingle();
 
-    // Le profil n'est jamais absent en usage normal (onboarding le garantit) ;
-    // si le fetch échoue quand même, on ne bloque pas la validation de la
-    // tâche pour autant — seul le gain d'XP est perdu pour ce coup.
     if (!profileError && profile) {
-      const delta = isCompleted ? XP_PER_TASK : -XP_PER_TASK;
-      const next = applyXpDelta(profile, delta);
-      leveledUp = next.level > profile.level;
-      level = next.level;
-      xp = next.xp;
+      if (isCompleted) {
+        // Issue #115 : combo server-authoritative — série de coups à moins de
+        // 15 min d'intervalle, module l'XP réellement accordée à ce coup.
+        const nextCombo = nextComboState(
+          {
+            comboCount: profile.combo_count,
+            lastCompletedAt: profile.last_combo_completed_at,
+          },
+          new Date(),
+        );
+        const xpDelta = xpForCompletion(nextCombo.comboCount);
+        const nextXp = applyXpDelta(profile, xpDelta);
+        leveledUp = nextXp.level > profile.level;
+        level = nextXp.level;
+        xp = nextXp.xp;
+        comboCount = nextCombo.comboCount;
 
-      await supabase
-        .from("profiles")
-        .update({ level: next.level, xp: next.xp })
-        .eq("id", user.id);
+        await supabase
+          .from("profiles")
+          .update({
+            level: nextXp.level,
+            xp: nextXp.xp,
+            combo_count: nextCombo.comboCount,
+            last_combo_completed_at: nextCombo.lastCompletedAt,
+          })
+          .eq("id", user.id);
+
+        await supabase
+          .from("tasks")
+          .update({ xp_awarded: xpDelta })
+          .eq("id", id)
+          .eq("user_id", user.id);
+      } else {
+        // Décocher : rembourse exactement ce qui avait été accordé (fallback
+        // flat XP_PER_TASK pour une tâche complétée avant cette migration,
+        // donc sans xp_awarded stocké) et casse la série, comme un abandon.
+        const refund = existingTask.xp_awarded ?? XP_PER_TASK;
+        const nextXp = applyXpDelta(profile, -refund);
+        leveledUp = nextXp.level > profile.level;
+        level = nextXp.level;
+        xp = nextXp.xp;
+        comboCount = 0;
+
+        await supabase
+          .from("profiles")
+          .update({
+            level: nextXp.level,
+            xp: nextXp.xp,
+            combo_count: 0,
+            last_combo_completed_at: null,
+          })
+          .eq("id", user.id);
+
+        await supabase
+          .from("tasks")
+          .update({ xp_awarded: null })
+          .eq("id", id)
+          .eq("user_id", user.id);
+      }
     }
   }
 
   revalidatePath("/");
-  return { error: null, level, xp, leveledUp };
+  return { error: null, level, xp, leveledUp, comboCount };
 }
 
 // US-15 : Rage Quit — abandonner une tâche active du jour en cours de combat.
@@ -310,9 +363,18 @@ export async function rageQuitTask(id: string): Promise<TaskActionResult> {
     const next = applyRageQuitPenalty(profile);
     level = next.level;
     xp = next.xp;
+    // Issue #115 : abandonner brise la série, comme décocher — le combo n'a
+    // plus de raison d'être client-only "purement visuel" une fois qu'il
+    // module l'XP réelle, il doit rester cohérent avec le serveur en toutes
+    // circonstances.
     await supabase
       .from("profiles")
-      .update({ level: next.level, xp: next.xp })
+      .update({
+        level: next.level,
+        xp: next.xp,
+        combo_count: 0,
+        last_combo_completed_at: null,
+      })
       .eq("id", user.id);
   }
 

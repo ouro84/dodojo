@@ -2,6 +2,9 @@ import { describe, expect, it, test } from "vitest";
 import {
   applyXpDelta,
   calculateBossCurrentHp,
+  comboXpBonus,
+  xpForCompletion,
+  nextComboState,
   calculateBossMaxHp,
   calculateHeroHp,
   overdueHpPenalties,
@@ -34,6 +37,9 @@ import {
   isOptimisticTask,
   nextSiblingPosition,
   planReorder,
+  reorderAfterCompletionToggle,
+  insertNewActiveTaskId,
+  planCompletionReorder,
   planWakeUp,
   sortTasksHierarchically,
   summarizeDay,
@@ -42,6 +48,7 @@ import {
   XP_PER_TASK,
   XP_THRESHOLD_PER_LEVEL,
 } from "./game-engine";
+import type { ReorderableCompletionTask } from "./game-engine";
 import type { Task } from "../types";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -57,6 +64,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     recurring_template_id: null,
     deadline_at: null,
     deferred_at: null,
+    xp_awarded: null,
     day_date: "2026-07-16",
     position: 0,
     created_at: "2026-07-16T00:00:00.000Z",
@@ -629,6 +637,100 @@ describe("nextSiblingPosition (US-04/US-19)", () => {
   });
 });
 
+describe("reorderAfterCompletionToggle (issue #111)", () => {
+  test("cocher : la tâche part en toute dernière position", () => {
+    const result = reorderAfterCompletionToggle(
+      ["a", "b", "c"],
+      "a",
+      true,
+      new Set(["a"]),
+    );
+    expect(result).toEqual(["b", "c", "a"]);
+  });
+
+  test("cocher : préserve l'ordre relatif des autres tâches, y compris un réordonnancement manuel préexistant", () => {
+    // "c" (complétée) a déjà été manuellement placée en tête par un drag.
+    const result = reorderAfterCompletionToggle(
+      ["c", "a", "b"],
+      "b",
+      true,
+      new Set(["c", "b"]),
+    );
+    expect(result).toEqual(["c", "a", "b"]);
+  });
+
+  test("décocher : revient en dernière position parmi les actives (juste avant la première complétée)", () => {
+    const result = reorderAfterCompletionToggle(
+      ["a", "b", "c"],
+      "b",
+      false,
+      new Set(["c"]),
+    );
+    expect(result).toEqual(["a", "b", "c"]);
+  });
+
+  test("décocher : une complétée draguée au-dessus des actives (override) le reste, la tâche décochée va après la dernière active", () => {
+    // "c" (complétée) a été draguée manuellement au-dessus de "a" (active).
+    const result = reorderAfterCompletionToggle(
+      ["c", "a", "b"],
+      "b",
+      false,
+      new Set(["c"]),
+    );
+    expect(result).toEqual(["c", "a", "b"]);
+  });
+
+  test("décocher sans aucune tâche complétée restante : va en toute fin", () => {
+    const result = reorderAfterCompletionToggle(["a", "b"], "a", false, new Set());
+    expect(result).toEqual(["b", "a"]);
+  });
+});
+
+describe("insertNewActiveTaskId (issue #111)", () => {
+  test("aucune tâche complétée : la nouvelle tâche va en toute fin (comportement inchangé)", () => {
+    const result = insertNewActiveTaskId(["a", "b"], "new", new Set());
+    expect(result).toEqual(["a", "b", "new"]);
+  });
+
+  test("des tâches complétées existent : la nouvelle tâche s'insère juste avant la première", () => {
+    const result = insertNewActiveTaskId(["a", "b"], "new", new Set(["b"]));
+    expect(result).toEqual(["a", "new", "b"]);
+  });
+});
+
+describe("planCompletionReorder (issue #111)", () => {
+  test("toggle d'une racine sans enfants : un seul plan, pour le groupe racine", () => {
+    const tasks: ReorderableCompletionTask[] = [
+      { id: "a", parent_id: null, position: 0, is_completed: false, is_abandoned: false },
+      { id: "b", parent_id: null, position: 1, is_completed: true, is_abandoned: false },
+    ];
+    const cascade = [{ taskId: "a", isCompleted: true }];
+    const plans = planCompletionReorder(tasks, cascade);
+    expect(plans).toEqual([{ parentId: null, orderedTaskIds: ["b", "a"] }]);
+  });
+
+  test("toggle d'une racine avec cascade sur ses enfants : deux plans (groupe racine + groupe enfants)", () => {
+    const tasks: ReorderableCompletionTask[] = [
+      { id: "root", parent_id: null, position: 0, is_completed: false, is_abandoned: false },
+      { id: "sibling", parent_id: null, position: 1, is_completed: true, is_abandoned: false },
+      { id: "child1", parent_id: "root", position: 0, is_completed: false, is_abandoned: false },
+      { id: "child2", parent_id: "root", position: 1, is_completed: false, is_abandoned: false },
+    ];
+    const cascade = [
+      { taskId: "root", isCompleted: true },
+      { taskId: "child1", isCompleted: true },
+      { taskId: "child2", isCompleted: true },
+    ];
+    const plans = planCompletionReorder(tasks, cascade);
+    expect(plans).toContainEqual({ parentId: null, orderedTaskIds: ["sibling", "root"] });
+    expect(plans).toContainEqual({ parentId: "root", orderedTaskIds: ["child1", "child2"] });
+  });
+
+  test("cascade vide : aucun plan", () => {
+    expect(planCompletionReorder([], [])).toEqual([]);
+  });
+});
+
 describe("sortTasksHierarchically (US-04)", () => {
   test("tableau vide", () => {
     expect(sortTasksHierarchically([])).toEqual([]);
@@ -871,6 +973,62 @@ describe("applyXpDelta (US-09)", () => {
 
   test("XP_THRESHOLD_PER_LEVEL vaut 100", () => {
     expect(XP_THRESHOLD_PER_LEVEL).toBe(100);
+  });
+});
+
+describe("comboXpBonus / xpForCompletion (issue #115)", () => {
+  test("aucun bonus tant que le combo n'affiche rien (< x2)", () => {
+    expect(comboXpBonus(0)).toBe(0);
+    expect(comboXpBonus(1)).toBe(0);
+    expect(xpForCompletion(1)).toBe(XP_PER_TASK);
+  });
+
+  test("+5 XP par palier au-delà de x2 (x2=+5, x3=+10, x4=+15)", () => {
+    expect(comboXpBonus(2)).toBe(5);
+    expect(comboXpBonus(3)).toBe(10);
+    expect(comboXpBonus(4)).toBe(15);
+    expect(xpForCompletion(2)).toBe(35);
+    expect(xpForCompletion(3)).toBe(40);
+    expect(xpForCompletion(4)).toBe(45);
+  });
+
+  test("non cappé au-delà de x4", () => {
+    expect(xpForCompletion(10)).toBe(30 + 5 * 9);
+  });
+});
+
+describe("nextComboState (issue #115)", () => {
+  test("première complétion (aucun historique) : combo=1", () => {
+    const now = new Date("2026-07-29T10:00:00.000Z");
+    const result = nextComboState({ comboCount: 0, lastCompletedAt: null }, now);
+    expect(result).toEqual({ comboCount: 1, lastCompletedAt: now.toISOString() });
+  });
+
+  test("moins de 15 min depuis le dernier coup : la série continue", () => {
+    const now = new Date("2026-07-29T10:14:59.000Z");
+    const result = nextComboState(
+      { comboCount: 2, lastCompletedAt: "2026-07-29T10:00:00.000Z" },
+      now,
+    );
+    expect(result).toEqual({ comboCount: 3, lastCompletedAt: now.toISOString() });
+  });
+
+  test("exactement 15 min : la série continue encore (borne incluse)", () => {
+    const now = new Date("2026-07-29T10:15:00.000Z");
+    const result = nextComboState(
+      { comboCount: 1, lastCompletedAt: "2026-07-29T10:00:00.000Z" },
+      now,
+    );
+    expect(result.comboCount).toBe(2);
+  });
+
+  test("plus de 15 min depuis le dernier coup : la série repart de 1", () => {
+    const now = new Date("2026-07-29T10:15:01.000Z");
+    const result = nextComboState(
+      { comboCount: 5, lastCompletedAt: "2026-07-29T10:00:00.000Z" },
+      now,
+    );
+    expect(result).toEqual({ comboCount: 1, lastCompletedAt: now.toISOString() });
   });
 });
 

@@ -38,7 +38,11 @@ import {
   RAGE_QUIT_XP_PENALTY,
   comboLabel,
   comboIntensity,
+  nextComboState,
+  type ComboState,
+  insertNewActiveTaskId,
   nextSiblingPosition,
+  planCompletionReorder,
   planReorder,
   summarizeDay,
   XP_PER_TASK,
@@ -210,6 +214,10 @@ export default function Arena({
   const pulseCounterRef = useRef(0);
   const xpPulseCounterRef = useRef(0);
   const comboCounterRef = useRef(0);
+  // Issue #115 : horodatage (ISO) du dernier coup, pour le calcul optimiste
+  // local de la fenêtre de 15 min — resynchronisé par la réponse serveur
+  // (source de vérité), jamais persisté seul côté client.
+  const lastComboCompletedAtRef = useRef<string | null>(null);
   const optimisticIdCounterRef = useRef(0);
 
   // US-05 : horloge de polling (~45s) pendant que l'Arène est montée, pour
@@ -413,26 +421,40 @@ export default function Arena({
 
   // Combo : incrémente de `hits` (tâches terminées d'un coup) et flashe la
   // bannière si un palier est atteint. `reset` remet la série à zéro.
-  function bumpCombo(hits: number) {
-    setComboCount((current) => {
-      const next = current + hits;
-      const label = comboLabel(next);
-      if (label) {
-        comboCounterRef.current += 1;
-        const key = comboCounterRef.current;
-        setComboFlash({ key, label, intensity: comboIntensity(next) });
-        if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
-        comboTimeoutRef.current = setTimeout(() => {
-          setComboFlash((c) => (c?.key === key ? null : c));
-        }, 1200);
-      }
-      return next;
-    });
+  // Issue #115 : le combo module désormais l'XP réelle (calculée
+  // server-authoritative dans setTaskCompleted). Ce guess optimiste applique
+  // la même fenêtre de 15 min localement pour un feedback instantané ; il est
+  // resynchronisé silencieusement sur `comboCount` renvoyé par le serveur une
+  // fois la réponse arrivée (cf. fin de handleToggle), sans redéclencher le
+  // flash si la valeur ne change pas.
+  function bumpComboOptimistic(hits: number) {
+    const now = new Date();
+    let state: ComboState = {
+      comboCount,
+      lastCompletedAt: lastComboCompletedAtRef.current,
+    };
+    for (let i = 0; i < hits; i += 1) {
+      state = nextComboState(state, now);
+    }
+    lastComboCompletedAtRef.current = state.lastCompletedAt;
+
+    const label = comboLabel(state.comboCount);
+    if (label) {
+      comboCounterRef.current += 1;
+      const key = comboCounterRef.current;
+      setComboFlash({ key, label, intensity: comboIntensity(state.comboCount) });
+      if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
+      comboTimeoutRef.current = setTimeout(() => {
+        setComboFlash((c) => (c?.key === key ? null : c));
+      }, 1200);
+    }
+    setComboCount(state.comboCount);
   }
 
   function resetCombo() {
     setComboCount(0);
     setComboFlash(null);
+    lastComboCompletedAtRef.current = null;
     if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
   }
 
@@ -478,6 +500,7 @@ export default function Arena({
       recurring_template_id: null,
       deadline_at: null,
       deferred_at: null,
+      xp_awarded: null,
       day_date: today,
       position: nextSiblingPosition(roots),
       created_at: new Date().toISOString(),
@@ -503,6 +526,30 @@ export default function Arena({
             task.id === optimisticTask.id ? { ...task, id: realId } : task,
           ),
         );
+
+        // Issue #111 : si des tâches racines sont déjà complétées, place la
+        // nouvelle tâche juste au-dessus d'elles plutôt qu'en toute fin.
+        const completedRootIds = new Set(
+          roots.filter((task) => task.is_completed).map((task) => task.id),
+        );
+        if (completedRootIds.size > 0) {
+          const orderedIds = insertNewActiveTaskId(
+            roots.map((task) => task.id),
+            realId,
+            completedRootIds,
+          );
+          const previousSnapshot = tasks;
+          setTasks((prev) => {
+            const positionByTaskId = new Map(orderedIds.map((taskId, index) => [taskId, index]));
+            return prev.map((task) => {
+              const position = positionByTaskId.get(task.id);
+              return position === undefined ? task : { ...task, position };
+            });
+          });
+          void reorderSiblingsAction(null, orderedIds).then((reorderResult) => {
+            if (reorderResult.error) setTasks(previousSnapshot);
+          });
+        }
       }
     });
   }
@@ -522,6 +569,7 @@ export default function Arena({
       recurring_template_id: null,
       deadline_at: null,
       deferred_at: null,
+      xp_awarded: null,
       day_date: today,
       position: nextSiblingPosition(siblings),
       created_at: new Date().toISOString(),
@@ -545,6 +593,28 @@ export default function Arena({
             task.id === optimisticTask.id ? { ...task, id: realId } : task,
           ),
         );
+
+        const completedSiblingIds = new Set(
+          siblings.filter((task) => task.is_completed).map((task) => task.id),
+        );
+        if (completedSiblingIds.size > 0) {
+          const orderedIds = insertNewActiveTaskId(
+            siblings.map((task) => task.id),
+            realId,
+            completedSiblingIds,
+          );
+          const previousSnapshot = tasks;
+          setTasks((prev) => {
+            const positionByTaskId = new Map(orderedIds.map((taskId, index) => [taskId, index]));
+            return prev.map((task) => {
+              const position = positionByTaskId.get(task.id);
+              return position === undefined ? task : { ...task, position };
+            });
+          });
+          void reorderSiblingsAction(parentId, orderedIds).then((reorderResult) => {
+            if (reorderResult.error) setTasks(previousSnapshot);
+          });
+        }
       }
     });
   }
@@ -585,10 +655,21 @@ export default function Arena({
     const previousProfileSnapshot = profile;
     const previousHp = currentHp;
 
+    const reorderPlans = planCompletionReorder(tasks, cascade);
+    const positionByTaskId = new Map<string, number>();
+    for (const plan of reorderPlans) {
+      plan.orderedTaskIds.forEach((id, index) => positionByTaskId.set(id, index));
+    }
+
     const nextCompletionById = new Map(cascade.map((c) => [c.taskId, c.isCompleted]));
     const nextTasks = tasks.map((task) => {
       const nextCompleted = nextCompletionById.get(task.id);
-      return nextCompleted === undefined ? task : { ...task, is_completed: nextCompleted };
+      const nextPosition = positionByTaskId.get(task.id);
+      return {
+        ...task,
+        is_completed: nextCompleted === undefined ? task.is_completed : nextCompleted,
+        position: nextPosition === undefined ? task.position : nextPosition,
+      };
     });
 
     setTasks(nextTasks);
@@ -633,7 +714,7 @@ export default function Arena({
     // décocher la brise. N'affecte ni l'XP ni l'or.
     if (isCompleted) {
       const hits = cascade.filter((change) => change.isCompleted).length;
-      if (hits > 0) bumpCombo(hits);
+      if (hits > 0) bumpComboOptimistic(hits);
     } else {
       resetCombo();
     }
@@ -675,9 +756,31 @@ export default function Arena({
       return;
     }
 
-    const { level, xp } = lastResult ?? {};
+    const { level, xp, comboCount: serverComboCount } = lastResult ?? {};
     if (level !== undefined && xp !== undefined) {
       setProfile((current) => ({ ...current, level, xp }));
+    }
+    if (serverComboCount !== undefined) {
+      setComboCount(serverComboCount);
+    }
+
+    // Issue #111 : persistance best-effort du nouvel ordre. Un échec ici ne
+    // remet pas en cause la complétion déjà confirmée (c'est un bonus visuel,
+    // pas une règle métier critique) — seule la position optimiste de ce
+    // groupe est restaurée si l'appel échoue.
+    for (const plan of reorderPlans) {
+      void reorderSiblingsAction(plan.parentId, plan.orderedTaskIds).then((result) => {
+        if (result.error) {
+          setTasks((current) =>
+            current.map((task) => {
+              const previous = previousTasksSnapshot.find((t) => t.id === task.id);
+              return previous && task.parent_id === plan.parentId
+                ? { ...task, position: previous.position }
+                : task;
+            }),
+          );
+        }
+      });
     }
     } finally {
       // Fix #3 : libère le verrou quel que soit le chemin (succès, erreur

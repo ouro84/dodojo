@@ -130,6 +130,116 @@ export function planReorder(
   };
 }
 
+// Issue #111 : déplace UNE SEULE tâche (celle qui vient de changer d'état)
+// dans la liste ordonnée de sa fratrie, sans toucher à l'ordre relatif des
+// autres — y compris un réordonnancement manuel préexistant (drag & drop),
+// qui reste donc toujours prioritaire sur cette règle automatique. Cocher =
+// va en toute dernière position. Décocher = revient juste après la dernière
+// tâche encore active (pas juste "avant la première complétée" : si une
+// tâche complétée a été draguée manuellement au-dessus d'une active, elle
+// doit rester au-dessus — l'insertion se fait après la dernière active
+// rencontrée, jamais avant une complétée qui précède déjà des actives).
+function insertAfterLastActive(
+  ids: string[],
+  insertId: string,
+  completedIds: Set<string>,
+): string[] {
+  let insertAt = 0;
+  for (let i = 0; i < ids.length; i += 1) {
+    if (!completedIds.has(ids[i])) insertAt = i + 1;
+  }
+  return [...ids.slice(0, insertAt), insertId, ...ids.slice(insertAt)];
+}
+
+export function reorderAfterCompletionToggle(
+  orderedIds: string[],
+  toggledId: string,
+  isCompleted: boolean,
+  completedIds: Set<string>,
+): string[] {
+  const withoutToggled = orderedIds.filter((id) => id !== toggledId);
+  if (isCompleted) {
+    return [...withoutToggled, toggledId];
+  }
+  return insertAfterLastActive(withoutToggled, toggledId, completedIds);
+}
+
+// Issue #111 : position d'une tâche nouvellement créée — dernière position
+// parmi les non-cochées (juste après la dernière tâche active). Identique au
+// comportement existant (ajout en toute fin) quand la fratrie n'a aucune
+// tâche complétée.
+export function insertNewActiveTaskId(
+  orderedIds: string[],
+  newId: string,
+  completedIds: Set<string>,
+): string[] {
+  return insertAfterLastActive(orderedIds, newId, completedIds);
+}
+
+export type ReorderableCompletionTask = Pick<
+  Task,
+  "id" | "parent_id" | "position" | "is_completed" | "is_abandoned"
+>;
+
+export interface CompletionReorderPlan {
+  parentId: string | null;
+  orderedTaskIds: string[];
+}
+
+// Issue #111 : à partir d'une cascade de complétion (`computeToggleCascade`),
+// calcule le nouvel ordre de chaque fratrie touchée (le groupe racine et/ou
+// le groupe des sous-tâches d'un parent précis — une cascade ne peut toucher
+// que ces deux groupes au maximum, RG-01). Chaque tâche de la cascade est
+// déplacée une à une (dans l'ordre de la cascade) via
+// `reorderAfterCompletionToggle`, ce qui préserve l'ordre relatif de tout le
+// reste de la fratrie.
+export function planCompletionReorder(
+  allTasks: ReorderableCompletionTask[],
+  cascade: ToggleCascadeEntry[],
+): CompletionReorderPlan[] {
+  if (cascade.length === 0) return [];
+
+  const byId = new Map(allTasks.map((task) => [task.id, task]));
+  const nextCompletedById = new Map(cascade.map((c) => [c.taskId, c.isCompleted]));
+  const isCompletedAfter = (task: ReorderableCompletionTask) =>
+    nextCompletedById.get(task.id) ?? task.is_completed;
+
+  const groupsTouched = new Set<string | null>();
+  for (const change of cascade) {
+    const task = byId.get(change.taskId);
+    if (task) groupsTouched.add(task.parent_id);
+  }
+
+  const plans: CompletionReorderPlan[] = [];
+  for (const parentId of groupsTouched) {
+    const groupTasks = allTasks.filter(
+      (task) => task.parent_id === parentId && !task.is_abandoned,
+    );
+    let orderedIds = [...groupTasks]
+      .sort((a, b) => a.position - b.position)
+      .map((task) => task.id);
+
+    const completedIds = new Set(
+      groupTasks.filter(isCompletedAfter).map((task) => task.id),
+    );
+
+    for (const change of cascade) {
+      const task = byId.get(change.taskId);
+      if (!task || task.parent_id !== parentId) continue;
+      orderedIds = reorderAfterCompletionToggle(
+        orderedIds,
+        change.taskId,
+        change.isCompleted,
+        completedIds,
+      );
+    }
+
+    plans.push({ parentId, orderedTaskIds: orderedIds });
+  }
+
+  return plans;
+}
+
 export interface ToggleCascadeEntry {
   taskId: string;
   isCompleted: boolean;
@@ -470,6 +580,37 @@ export function applyXpDelta(state: XpState, delta: number): XpState {
   }
 
   return { level, xp };
+}
+
+export const COMBO_WINDOW_MS = 15 * 60 * 1000;
+export const COMBO_XP_BONUS_PER_TIER = 5;
+
+// Issue #115 : bonus d'XP lié au palier de combo courant. 0 tant que le combo
+// n'affiche rien (cohérent avec comboLabel, qui ne s'affiche qu'à partir de
+// x2). +5 par palier au-delà : x2=+5, x3=+10, x4=+15, non cappé.
+export function comboXpBonus(comboCount: number): number {
+  return comboCount >= 2 ? COMBO_XP_BONUS_PER_TIER * (comboCount - 1) : 0;
+}
+
+export function xpForCompletion(comboCount: number): number {
+  return XP_PER_TASK + comboXpBonus(comboCount);
+}
+
+export interface ComboState {
+  comboCount: number;
+  lastCompletedAt: string | null; // ISO
+}
+
+// Issue #115 : prochain état du combo après une complétion, à l'instant
+// `now`. Fenêtre glissante de 15 min : si le dernier coup date de 15 min ou
+// moins, la série continue (+1) ; sinon elle repart de 1 (ce coup compte
+// comme le premier d'une nouvelle série, pas comme une rupture silencieuse).
+export function nextComboState(current: ComboState, now: Date): ComboState {
+  const withinWindow =
+    current.lastCompletedAt !== null &&
+    now.getTime() - new Date(current.lastCompletedAt).getTime() <= COMBO_WINDOW_MS;
+  const comboCount = withinWindow ? current.comboCount + 1 : 1;
+  return { comboCount, lastCompletedAt: now.toISOString() };
 }
 
 // Jour calendaire local (YYYY-MM-DD) dans le fuseau donné. Corrige le piège
