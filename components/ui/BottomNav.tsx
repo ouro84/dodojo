@@ -16,7 +16,7 @@ export default function BottomNav({ active }: BottomNavProps) {
   return (
     <nav
       aria-label="Navigation principale"
-      className="sticky bottom-0 z-30 mt-auto flex justify-around border-t border-border bg-bg pt-2.5"
+      className="sticky bottom-0 z-30 mt-auto flex justify-around border-t border-border bg-bg pt-2.5 lg:fixed lg:inset-y-0 lg:left-0 lg:mt-0 lg:w-20 lg:flex-col lg:items-center lg:justify-start lg:gap-1 lg:border-t-0 lg:border-r lg:pt-6"
     >
       {ITEMS.map((item) => {
         const isActive = item.key === active;
