@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #115 : le combo ne monte plus que si 2 tâches sont cochées à moins de 15 min d'intervalle, et augmente légèrement l'XP gagnée par palier.
 - Issue #111 : une tâche cochée est déplacée en dernière position, une nouvelle tâche s'ajoute au-dessus des tâches déjà complétées (le drag & drop manuel reste prioritaire).
 - Issue #119 : retire l'article ("le"/"la") du nom des boss affiché en jeu.
 - Issue #112 : webapp responsive sur desktop/grand écran — colonne élargie + nav en rail fixe à partir de 1024px (tablette <1024px inchangée).

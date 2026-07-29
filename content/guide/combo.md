@@ -1,1 +1,1 @@
-Enchaîne les tâches sans t'arrêter et le combo grimpe : DOUBLE COUP, COMBO ×N, jusqu'au M-M-MONSTER COMBO. C'est du panache pur — ça ne change ni ton XP ni ton or, ça claque, c'est tout. Décocher ou abandonner brise la série.
+Enchaîne les tâches à moins de 15 minutes d'intervalle et le combo grimpe : DOUBLE COUP, COMBO ×N, jusqu'au M-M-MONSTER COMBO. À partir du double coup, chaque palier ajoute un petit bonus d'XP (+5 par palier). Décocher une tâche ou abandonner brise la série.
