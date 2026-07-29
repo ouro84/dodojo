@@ -22,7 +22,7 @@
 
 - [ ] **PR1 — Foundation Inngest** (lots L0, L1, L2, L4)
   - [x] L0 — Setup SDK + route + .env.example (commit SHA: 3b2970e)
-  - [ ] L1 — Migration cron → Inngest (commit SHA: ______)
+  - [x] L1 — Migration cron → Inngest (commit SHA: 910e9ca)
   - [ ] L2 — Scheduling per-user with TZ (commit SHA: ______)
   - [ ] L4 — Suppression cron GHA + doc (commit SHA: ______)
 - [ ] **PR2 — Fix #102 + préparation #114** (lots L3, L5)
@@ -238,7 +238,7 @@ Chaque lot suit le cycle TDD : ** écriture du test d'abord → rouge → implé
 
 **Critère « lot L1 terminé » :** T1.1 à T1.5 verts + route cron + test route supprimés + déclenchement manuel via dev server Inngest OK + commit renseigné.
 
-- [ ] L1 terminé (commit SHA: ______)
+- [x] L1 terminé (commit SHA: 910e9ca)
 
 ---
 
@@ -668,6 +668,8 @@ Tableau vide initialement — à remplir au fil de l'implémentation. **Toute** 
 | 2026-07-29 | Route `/api/inngest` exporte `{ GET, POST, PUT }` (et non `POST` seul comme écrit plan §L0 L124) | L0 | 3b2970e | Le SDK `inngest@4.13.0` exige ce triplet pour que le dev server Inngest puisse pinger l'endpoint en GET (handshake de sync) — signature `RequestHandler & { GET, POST, PUT }` dans `node_modules/inngest/next.d.ts`. Exposer seulement `POST` casserait le probe Inngest et le dev server ne découvrirait pas l'app. |
 | 2026-07-29 | `INNGEST_APP_ID=dodojo` ajouté au `.env.example` (en plus de `SIGNING_KEY`/`EVENT_KEY` listés plan §L0 L125) | L0 | 3b2970e | Le client `lib/inngest/client.ts` lit `process.env.INNGEST_APP_ID` avec fallback `?? "dodojo"` (prévu plan §L0 L123). Documenter cette var dans `.env.example` évite qu'un opérateur la cherche ailleurs ; `dodojo` est le défaut codé, overridable via env (utilitéandbox de connexion à un env staging Inngest avec un autre app id si besoin). |
 | 2026-07-29 | `signingKey: process.env.INNGEST_SIGNING_KEY` passé explicitement au constructeur `Inngest(...)` (plan §L0 L123) — malgré l'auto-détection env du SDK | L0 | 3b2970e | Le SDK `inngest@4.x` détecte automatiquement `process.env.INNGEST_SIGNING_KEY` (cf. `types.d.ts` : `If not provided, will search for the INNGEST_SIGNING_KEY environment variable`). C'est donc redondant — mais conforme au plan explicite et plus lisible pour un repreneur qui cherche « où la clé est lue ». Accepté. |
+| 2026-07-29 | API `createFunction` en **2 arguments** (`{ id, triggers: { event } }, handler`) — ancienne signature à 3 args (`{ id }, { event }, fn`) obsolète depuis inngest@4.x | L1 | 910e9ca | Plan §L1 L172 indiquait l'ancienne API `{ id, idempotency }, { event }, fn`. Vérification dans `node_modules/inngest/components/Inngest.d.ts` (type `CreateFunction`) + runtime error message : « expected a handler function as the second argument. Triggers belong in the first argument: createFunction({ id, triggers: { event: "..." } }, handler) ». Le mock Inngest dans `send-reminder.test.ts` capture le handler en 2e arg (pas 3e). |
+| 2026-07-29 | Lint 658 erreurs proviennent toutes de `.claude/worktrees/e2e-fixes/.next/...` — code build généré par un worktree opérateur, hors workspace courant | L1 | 910e9ca | `eslint.config.mjs` `globalIgnores([".next/**", ...])` ne matche que `.next/` à la racine ; les sous-dossiers `.claude/worktrees/*/.next` ne sont pas couverts. Pas traité en L1 (hors scope — c'est une dette d'outil du repo, pas un changeset L1). À corriger dans un commit séparé en ajoutant `**/.next/**` (ou `**/.claude/**`) au `globalIgnores`. Le code source du workspace courant reste à 0 errors/0 warnings propres. |
 | | | | | |
 | | | | | |
 
