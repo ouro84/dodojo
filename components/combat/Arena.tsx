@@ -39,6 +39,7 @@ import {
   comboLabel,
   comboIntensity,
   nextSiblingPosition,
+  planCompletionReorder,
   planReorder,
   summarizeDay,
   XP_PER_TASK,
@@ -585,10 +586,21 @@ export default function Arena({
     const previousProfileSnapshot = profile;
     const previousHp = currentHp;
 
+    const reorderPlans = planCompletionReorder(tasks, cascade);
+    const positionByTaskId = new Map<string, number>();
+    for (const plan of reorderPlans) {
+      plan.orderedTaskIds.forEach((id, index) => positionByTaskId.set(id, index));
+    }
+
     const nextCompletionById = new Map(cascade.map((c) => [c.taskId, c.isCompleted]));
     const nextTasks = tasks.map((task) => {
       const nextCompleted = nextCompletionById.get(task.id);
-      return nextCompleted === undefined ? task : { ...task, is_completed: nextCompleted };
+      const nextPosition = positionByTaskId.get(task.id);
+      return {
+        ...task,
+        is_completed: nextCompleted === undefined ? task.is_completed : nextCompleted,
+        position: nextPosition === undefined ? task.position : nextPosition,
+      };
     });
 
     setTasks(nextTasks);
@@ -678,6 +690,25 @@ export default function Arena({
     const { level, xp } = lastResult ?? {};
     if (level !== undefined && xp !== undefined) {
       setProfile((current) => ({ ...current, level, xp }));
+    }
+
+    // Issue #111 : persistance best-effort du nouvel ordre. Un échec ici ne
+    // remet pas en cause la complétion déjà confirmée (c'est un bonus visuel,
+    // pas une règle métier critique) — seule la position optimiste de ce
+    // groupe est restaurée si l'appel échoue.
+    for (const plan of reorderPlans) {
+      void reorderSiblingsAction(plan.parentId, plan.orderedTaskIds).then((result) => {
+        if (result.error) {
+          setTasks((current) =>
+            current.map((task) => {
+              const previous = previousTasksSnapshot.find((t) => t.id === task.id);
+              return previous && task.parent_id === plan.parentId
+                ? { ...task, position: previous.position }
+                : task;
+            }),
+          );
+        }
+      });
     }
     } finally {
       // Fix #3 : libère le verrou quel que soit le chemin (succès, erreur
