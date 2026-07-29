@@ -582,6 +582,37 @@ export function applyXpDelta(state: XpState, delta: number): XpState {
   return { level, xp };
 }
 
+export const COMBO_WINDOW_MS = 15 * 60 * 1000;
+export const COMBO_XP_BONUS_PER_TIER = 5;
+
+// Issue #115 : bonus d'XP lié au palier de combo courant. 0 tant que le combo
+// n'affiche rien (cohérent avec comboLabel, qui ne s'affiche qu'à partir de
+// x2). +5 par palier au-delà : x2=+5, x3=+10, x4=+15, non cappé.
+export function comboXpBonus(comboCount: number): number {
+  return comboCount >= 2 ? COMBO_XP_BONUS_PER_TIER * (comboCount - 1) : 0;
+}
+
+export function xpForCompletion(comboCount: number): number {
+  return XP_PER_TASK + comboXpBonus(comboCount);
+}
+
+export interface ComboState {
+  comboCount: number;
+  lastCompletedAt: string | null; // ISO
+}
+
+// Issue #115 : prochain état du combo après une complétion, à l'instant
+// `now`. Fenêtre glissante de 15 min : si le dernier coup date de 15 min ou
+// moins, la série continue (+1) ; sinon elle repart de 1 (ce coup compte
+// comme le premier d'une nouvelle série, pas comme une rupture silencieuse).
+export function nextComboState(current: ComboState, now: Date): ComboState {
+  const withinWindow =
+    current.lastCompletedAt !== null &&
+    now.getTime() - new Date(current.lastCompletedAt).getTime() <= COMBO_WINDOW_MS;
+  const comboCount = withinWindow ? current.comboCount + 1 : 1;
+  return { comboCount, lastCompletedAt: now.toISOString() };
+}
+
 // Jour calendaire local (YYYY-MM-DD) dans le fuseau donné. Corrige le piège
 // UTC : à 01h à Paris on est déjà "demain" alors que toISOString() dirait
 // encore "hier". en-CA formate en ISO (2026-07-20).

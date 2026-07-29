@@ -2,6 +2,9 @@ import { describe, expect, it, test } from "vitest";
 import {
   applyXpDelta,
   calculateBossCurrentHp,
+  comboXpBonus,
+  xpForCompletion,
+  nextComboState,
   calculateBossMaxHp,
   calculateHeroHp,
   overdueHpPenalties,
@@ -970,6 +973,62 @@ describe("applyXpDelta (US-09)", () => {
 
   test("XP_THRESHOLD_PER_LEVEL vaut 100", () => {
     expect(XP_THRESHOLD_PER_LEVEL).toBe(100);
+  });
+});
+
+describe("comboXpBonus / xpForCompletion (issue #115)", () => {
+  test("aucun bonus tant que le combo n'affiche rien (< x2)", () => {
+    expect(comboXpBonus(0)).toBe(0);
+    expect(comboXpBonus(1)).toBe(0);
+    expect(xpForCompletion(1)).toBe(XP_PER_TASK);
+  });
+
+  test("+5 XP par palier au-delà de x2 (x2=+5, x3=+10, x4=+15)", () => {
+    expect(comboXpBonus(2)).toBe(5);
+    expect(comboXpBonus(3)).toBe(10);
+    expect(comboXpBonus(4)).toBe(15);
+    expect(xpForCompletion(2)).toBe(35);
+    expect(xpForCompletion(3)).toBe(40);
+    expect(xpForCompletion(4)).toBe(45);
+  });
+
+  test("non cappé au-delà de x4", () => {
+    expect(xpForCompletion(10)).toBe(30 + 5 * 9);
+  });
+});
+
+describe("nextComboState (issue #115)", () => {
+  test("première complétion (aucun historique) : combo=1", () => {
+    const now = new Date("2026-07-29T10:00:00.000Z");
+    const result = nextComboState({ comboCount: 0, lastCompletedAt: null }, now);
+    expect(result).toEqual({ comboCount: 1, lastCompletedAt: now.toISOString() });
+  });
+
+  test("moins de 15 min depuis le dernier coup : la série continue", () => {
+    const now = new Date("2026-07-29T10:14:59.000Z");
+    const result = nextComboState(
+      { comboCount: 2, lastCompletedAt: "2026-07-29T10:00:00.000Z" },
+      now,
+    );
+    expect(result).toEqual({ comboCount: 3, lastCompletedAt: now.toISOString() });
+  });
+
+  test("exactement 15 min : la série continue encore (borne incluse)", () => {
+    const now = new Date("2026-07-29T10:15:00.000Z");
+    const result = nextComboState(
+      { comboCount: 1, lastCompletedAt: "2026-07-29T10:00:00.000Z" },
+      now,
+    );
+    expect(result.comboCount).toBe(2);
+  });
+
+  test("plus de 15 min depuis le dernier coup : la série repart de 1", () => {
+    const now = new Date("2026-07-29T10:15:01.000Z");
+    const result = nextComboState(
+      { comboCount: 5, lastCompletedAt: "2026-07-29T10:00:00.000Z" },
+      now,
+    );
+    expect(result).toEqual({ comboCount: 1, lastCompletedAt: now.toISOString() });
   });
 });
 
