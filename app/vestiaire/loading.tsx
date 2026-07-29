@@ -3,7 +3,7 @@ export default function QgLoading() {
   return (
     <main
       aria-busy="true"
-      className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8"
+      className="screen-main gap-4 px-4 py-8"
     >
       <div className="skeleton mx-auto h-6 w-24 rounded" />
       <div className="flex flex-col items-center gap-4">
