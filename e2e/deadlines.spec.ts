@@ -24,13 +24,19 @@ test.describe("Deadlines horaires (US-05)", () => {
     await page.getByRole("button", { name: "Ajouter" }).click();
 
     const row = page.locator("li", { hasText: taskTitle });
+    // handleSetDeadline (Arena.tsx, fix #95) no-op silencieusement tant que la
+    // tâche est encore optimistic (id "optimistic-*") — attendre que le vrai
+    // id serveur ait remplacé l'id optimiste avant d'interagir avec la
+    // deadline, sinon "Enregistrer" ne fait rien et l'assertion suivante ne
+    // peut jamais devenir vraie.
+    await expect(row.getByLabel(`Déplacer "${taskTitle}"`)).toBeEnabled({ timeout: 15_000 });
     await row.getByLabel(`Fixer une deadline pour "${taskTitle}"`).click();
     await page.getByLabel("Heure limite").fill("14:00");
     await page.getByRole("button", { name: "Enregistrer" }).click();
 
     await expect(
       row.getByLabel(`Modifier la deadline de "${taskTitle}" (14:00)`),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("effacer une deadline la retire de la tâche", async ({ page }) => {
@@ -40,16 +46,21 @@ test.describe("Deadlines horaires (US-05)", () => {
     await page.getByRole("button", { name: "Ajouter" }).click();
 
     const row = page.locator("li", { hasText: taskTitle });
+    // Cf. commentaire du test précédent : attendre l'id réel avant toute
+    // interaction avec la deadline (handleSetDeadline no-op sur id optimistic).
+    await expect(row.getByLabel(`Déplacer "${taskTitle}"`)).toBeEnabled({ timeout: 15_000 });
     await row.getByLabel(`Fixer une deadline pour "${taskTitle}"`).click();
     await page.getByLabel("Heure limite").fill("09:15");
     await page.getByRole("button", { name: "Enregistrer" }).click();
     await expect(
       row.getByLabel(`Modifier la deadline de "${taskTitle}" (09:15)`),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     await row.getByLabel(`Modifier la deadline de "${taskTitle}" (09:15)`).click();
     await page.getByRole("button", { name: "Effacer" }).click();
 
-    await expect(row.getByLabel(`Fixer une deadline pour "${taskTitle}"`)).toBeVisible();
+    await expect(row.getByLabel(`Fixer une deadline pour "${taskTitle}"`)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });

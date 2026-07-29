@@ -32,18 +32,18 @@ test.describe("Cascade de complétion parent/sous-tâches", () => {
 
     await page.getByLabel("Ajouter une tâche").fill(titleR);
     await page.getByRole("button", { name: "Ajouter" }).click();
-    await expect(page.getByLabel(`Déplacer "${titleR}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleR}"`)).toBeEnabled({ timeout: 15_000 });
 
     const rowR = page.locator("li", { hasText: titleR });
     await rowR.getByLabel("Diviser en sous-tâche").click();
     await page.getByLabel("Ajouter une sous-tâche").fill(titleS1);
     await page.getByLabel("Ajouter une sous-tâche").press("Enter");
-    await expect(page.getByLabel(`Déplacer "${titleS1}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleS1}"`)).toBeEnabled({ timeout: 15_000 });
 
     await rowR.getByLabel("Diviser en sous-tâche").click();
     await page.getByLabel("Ajouter une sous-tâche").fill(titleS2);
     await page.getByLabel("Ajouter une sous-tâche").press("Enter");
-    await expect(page.getByLabel(`Déplacer "${titleS2}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleS2}"`)).toBeEnabled({ timeout: 15_000 });
 
     // Locators scopés sur l'input de la ligne (pas sur l'aria-label
     // "comme accomplie/non accomplie", qui change avec l'état et casserait
@@ -98,18 +98,18 @@ test.describe("Cascade de complétion parent/sous-tâches", () => {
 
     await page.getByLabel("Ajouter une tâche").fill(titleR);
     await page.getByRole("button", { name: "Ajouter" }).click();
-    await expect(page.getByLabel(`Déplacer "${titleR}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleR}"`)).toBeEnabled({ timeout: 15_000 });
 
     const rowR = page.locator("li", { hasText: titleR });
     await rowR.getByLabel("Diviser en sous-tâche").click();
     await page.getByLabel("Ajouter une sous-tâche").fill(titleS1);
     await page.getByLabel("Ajouter une sous-tâche").press("Enter");
-    await expect(page.getByLabel(`Déplacer "${titleS1}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleS1}"`)).toBeEnabled({ timeout: 15_000 });
 
     await rowR.getByLabel("Diviser en sous-tâche").click();
     await page.getByLabel("Ajouter une sous-tâche").fill(titleS2);
     await page.getByLabel("Ajouter une sous-tâche").press("Enter");
-    await expect(page.getByLabel(`Déplacer "${titleS2}"`)).toBeEnabled();
+    await expect(page.getByLabel(`Déplacer "${titleS2}"`)).toBeEnabled({ timeout: 15_000 });
 
     const checkboxR = rowR.locator('input[type="checkbox"]');
     const checkboxS1 = page.locator("li", { hasText: titleS1 }).locator('input[type="checkbox"]');

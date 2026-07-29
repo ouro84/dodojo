@@ -58,11 +58,31 @@ export async function login(page: Page): Promise<void> {
 
 // US-15 : le "×" ouvre une modale de confirmation (Rage Quit). Le nettoyage e2e
 // doit confirmer la modale pour réellement abandonner la tâche.
+//
+// Piège découvert en diagnostiquant des tâches de nettoyage e2e restées
+// actives en base (is_abandoned=false) malgré un `abandonViaUi` "réussi" :
+// `confirmRageQuit` (Arena.tsx) fait la mutation optimiste en local PUIS
+// déclenche `rageQuitTaskAction(id)` en fire-and-forget (`void promise.then`),
+// sans jamais l'attendre. Quand cet appel est la DERNIÈRE action d'un test
+// (le cas de tous les `afterEach` qui appellent `abandonViaUi` en dernier),
+// Playwright ferme la page immédiatement après le `.click()` — avant que la
+// server action n'ait eu le temps d'atteindre le serveur — ce qui avorte la
+// requête en vol et laisse la tâche active en base. Reproduit de façon
+// déterministe (jamais flaky) : dans `subtasks.spec.ts`, qui appelle
+// `abandonViaUi` deux fois dans le même afterEach, seul le 1er appel
+// persistait (le 2e disposait du temps d'exécution du 1er comme tampon), le
+// dernier échouait systématiquement. Fix : attendre la réponse réseau de la
+// server action déclenchée par le clic de confirmation avant de rendre la
+// main à l'appelant.
 export async function abandonViaUi(page: Page, title: string): Promise<void> {
   const trigger = page.getByLabel(`Abandonner "${title}"`);
   if (!(await trigger.count())) return;
   await trigger.first().click();
-  await page.getByRole("button", { name: "Abandonner", exact: true }).click();
+  const confirmBtn = page.getByRole("button", { name: "Abandonner", exact: true });
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === "POST"),
+    confirmBtn.click(),
+  ]);
 }
 
 // US-18 : remet l'état Marché Noir du compte e2e fixe à zéro (compte unique partagé,

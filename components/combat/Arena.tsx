@@ -487,7 +487,13 @@ export default function Arena({
 
   function handleAdd(title: string) {
     optimisticIdCounterRef.current += 1;
-    const roots = tasks.filter((task) => task.parent_id === null);
+    // Bug #111 reorder : exclure les racines abandonnées. `roots.map(id)` nourrit
+    // `reorderSiblingsAction`, qui rejette (`is_abandoned`) tout id abandonné —
+    // sur ce compte partagé qui accumule des racines "Rage Quit"/"Annihiler"
+    // (RG-04, jamais de DELETE), une seule racine abandonnée suffisait à faire
+    // échouer le reorder et, via le rollback, à effacer la tâche qu'on venait
+    // d'ajouter (cf. previousSnapshot ci-dessous).
+    const roots = tasks.filter((task) => task.parent_id === null && !task.is_abandoned);
     const optimisticTask: Task = {
       id: `optimistic-${optimisticIdCounterRef.current}`,
       user_id: profile.id,
@@ -538,16 +544,30 @@ export default function Arena({
             realId,
             completedRootIds,
           );
-          const previousSnapshot = tasks;
+          // Rollback ciblé sur les positions touchées, capturées depuis le
+          // `prev` réel de ce setTasks (pas un `tasks` de fermeture, stale
+          // depuis avant l'ajout optimiste) — un reorder en erreur ne doit
+          // jamais effacer la tâche qui vient d'être ajoutée avec succès.
+          const previousPositions = new Map<string, number>();
           setTasks((prev) => {
             const positionByTaskId = new Map(orderedIds.map((taskId, index) => [taskId, index]));
             return prev.map((task) => {
               const position = positionByTaskId.get(task.id);
-              return position === undefined ? task : { ...task, position };
+              if (position === undefined) return task;
+              previousPositions.set(task.id, task.position);
+              return { ...task, position };
             });
           });
           void reorderSiblingsAction(null, orderedIds).then((reorderResult) => {
-            if (reorderResult.error) setTasks(previousSnapshot);
+            if (reorderResult.error) {
+              setTasks((prev) =>
+                prev.map((task) =>
+                  previousPositions.has(task.id)
+                    ? { ...task, position: previousPositions.get(task.id)! }
+                    : task,
+                ),
+              );
+            }
           });
         }
       }
@@ -556,7 +576,10 @@ export default function Arena({
 
   function handleAddSubtask(parentId: string, title: string) {
     optimisticIdCounterRef.current += 1;
-    const siblings = tasks.filter((task) => task.parent_id === parentId);
+    // Cf. handleAdd : exclure les sous-tâches abandonnées du pool de reorder.
+    const siblings = tasks.filter(
+      (task) => task.parent_id === parentId && !task.is_abandoned,
+    );
     const optimisticTask: Task = {
       id: `optimistic-${optimisticIdCounterRef.current}`,
       user_id: profile.id,
@@ -603,16 +626,28 @@ export default function Arena({
             realId,
             completedSiblingIds,
           );
-          const previousSnapshot = tasks;
+          // Cf. handleAdd : rollback ciblé sur les positions, jamais sur un
+          // snapshot stale d'avant l'ajout.
+          const previousPositions = new Map<string, number>();
           setTasks((prev) => {
             const positionByTaskId = new Map(orderedIds.map((taskId, index) => [taskId, index]));
             return prev.map((task) => {
               const position = positionByTaskId.get(task.id);
-              return position === undefined ? task : { ...task, position };
+              if (position === undefined) return task;
+              previousPositions.set(task.id, task.position);
+              return { ...task, position };
             });
           });
           void reorderSiblingsAction(parentId, orderedIds).then((reorderResult) => {
-            if (reorderResult.error) setTasks(previousSnapshot);
+            if (reorderResult.error) {
+              setTasks((prev) =>
+                prev.map((task) =>
+                  previousPositions.has(task.id)
+                    ? { ...task, position: previousPositions.get(task.id)! }
+                    : task,
+                ),
+              );
+            }
           });
         }
       }
