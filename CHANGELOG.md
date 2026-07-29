@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #111 : une tâche cochée est déplacée en dernière position, une nouvelle tâche s'ajoute au-dessus des tâches déjà complétées (le drag & drop manuel reste prioritaire).
 - Issue #119 : retire l'article ("le"/"la") du nom des boss affiché en jeu.
 - Issue #112 : webapp responsive sur desktop/grand écran — colonne élargie + nav en rail fixe à partir de 1024px (tablette <1024px inchangée).
 - Issue #101 (A1) : section « HP du Héros » ajoutée au Guide `content/guide/hp.md` — explicite les deux sources de pénalité (-20 reste reporté, -10 deadline ratée), la distinction jauges offensive/défensive et PERFECT vs K.O. ; `resume` de `index.json` mis à jour.

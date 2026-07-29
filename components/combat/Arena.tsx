@@ -38,6 +38,7 @@ import {
   RAGE_QUIT_XP_PENALTY,
   comboLabel,
   comboIntensity,
+  insertNewActiveTaskId,
   nextSiblingPosition,
   planCompletionReorder,
   planReorder,
@@ -504,6 +505,30 @@ export default function Arena({
             task.id === optimisticTask.id ? { ...task, id: realId } : task,
           ),
         );
+
+        // Issue #111 : si des tâches racines sont déjà complétées, place la
+        // nouvelle tâche juste au-dessus d'elles plutôt qu'en toute fin.
+        const completedRootIds = new Set(
+          roots.filter((task) => task.is_completed).map((task) => task.id),
+        );
+        if (completedRootIds.size > 0) {
+          const orderedIds = insertNewActiveTaskId(
+            roots.map((task) => task.id),
+            realId,
+            completedRootIds,
+          );
+          const previousSnapshot = tasks;
+          setTasks((prev) => {
+            const positionByTaskId = new Map(orderedIds.map((taskId, index) => [taskId, index]));
+            return prev.map((task) => {
+              const position = positionByTaskId.get(task.id);
+              return position === undefined ? task : { ...task, position };
+            });
+          });
+          void reorderSiblingsAction(null, orderedIds).then((reorderResult) => {
+            if (reorderResult.error) setTasks(previousSnapshot);
+          });
+        }
       }
     });
   }
@@ -546,6 +571,28 @@ export default function Arena({
             task.id === optimisticTask.id ? { ...task, id: realId } : task,
           ),
         );
+
+        const completedSiblingIds = new Set(
+          siblings.filter((task) => task.is_completed).map((task) => task.id),
+        );
+        if (completedSiblingIds.size > 0) {
+          const orderedIds = insertNewActiveTaskId(
+            siblings.map((task) => task.id),
+            realId,
+            completedSiblingIds,
+          );
+          const previousSnapshot = tasks;
+          setTasks((prev) => {
+            const positionByTaskId = new Map(orderedIds.map((taskId, index) => [taskId, index]));
+            return prev.map((task) => {
+              const position = positionByTaskId.get(task.id);
+              return position === undefined ? task : { ...task, position };
+            });
+          });
+          void reorderSiblingsAction(parentId, orderedIds).then((reorderResult) => {
+            if (reorderResult.error) setTasks(previousSnapshot);
+          });
+        }
       }
     });
   }
