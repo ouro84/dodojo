@@ -18,6 +18,9 @@ export interface Profile {
   webhook_token_hash: string | null;
   webhook_token_created_at: string | null;
   webhook_token_last_used_at: string | null;
+  // Issue #115 : combo server-authoritative — cf. lib/game-engine.ts (nextComboState).
+  combo_count: number;
+  last_combo_completed_at: string | null;
   created_at: string;
 }
 
@@ -54,6 +57,9 @@ export interface Task {
   // pour porter la pénalité -20 "reste reporté". Nullable : une tâche normale
   // sans reste reporté n'a pas ce flag.
   deferred_at: string | null;
+  // Issue #115 : XP réellement accordée à la complétion (inclut le bonus
+  // combo). Nullable : jamais complétée, ou complétée avant cette colonne.
+  xp_awarded: number | null;
   day_date: string;
   position: number;
   created_at: string;

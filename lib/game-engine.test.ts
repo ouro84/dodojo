@@ -61,6 +61,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     recurring_template_id: null,
     deadline_at: null,
     deferred_at: null,
+    xp_awarded: null,
     day_date: "2026-07-16",
     position: 0,
     created_at: "2026-07-16T00:00:00.000Z",
