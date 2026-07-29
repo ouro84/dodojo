@@ -21,7 +21,7 @@
 ## 🎯 Statut global
 
 - [ ] **PR1 — Foundation Inngest** (lots L0, L1, L2, L4)
-  - [ ] L0 — Setup SDK + route + .env.example (commit SHA: ______)
+  - [x] L0 — Setup SDK + route + .env.example (commit SHA: 3b2970e)
   - [ ] L1 — Migration cron → Inngest (commit SHA: ______)
   - [ ] L2 — Scheduling per-user with TZ (commit SHA: ______)
   - [ ] L4 — Suppression cron GHA + doc (commit SHA: ______)
@@ -154,7 +154,7 @@ Chaque lot suit le cycle TDD : ** écriture du test d'abord → rouge → implé
 
 **Critère « lot L0 terminé » :** `npx tsc --noEmit` vert + `npm run build` vert + dev server Inngest découvre l'app + commit renseigné.
 
-- [ ] L0 terminé (commit SHA: ______)
+- [x] L0 terminé (commit SHA: 3b2970e)
 
 ---
 
@@ -664,10 +664,10 @@ Tableau vide initialement — à remplir au fil de l'implémentation. **Toute** 
 | 2026-07-28 | Rédaction initiale du plan | — | — | Validation utilisateur Inngest vs QStash (50K exec/mois + 10 schedules illimités vs 1K msg/jour + 10 schedules max qui casserait #114). |
 | 2026-07-28 | `buildReminderPayload` importé depuis `@/lib/copy/notifications` (et non `@/lib/push-copy.ts` comme le plan US-11 original le proposait) | L1 | — | Le plan US-11 n'a jamais livré `lib/push-copy.ts` — le refactor Volume Intérieur (US-49/54) a migré le contenu vers `lib/copy/notifications.ts` avec le paramètre `level`. Vérifié via `rg "buildReminderPayload"`. |
 | 2026-07-28 | Dernière migration Supabase connue sur `main` : `20260728110000_add_tasks_deferred_at.sql` | L5 | — | L5 devra bump son timestamp à `20260728120000` ou plus si une autre PR mergeentre-temps. Vérifier via `Get-ChildItem supabase/migrations` avant de poser le fichier. |
-| 2026-07-29 | `inngest@^4.13.0` installé (dernière version stable au moment du lot) | L0 | (L0 commit) | Plan §L0 L122 indiquait « version cible à re-vérifier au moment du LOT (`npm view inngest version`) — ne pas fixer en plan ». Résultat : 4.13.0. Pin via `^4.13.0` dans `package.json`. |
-| 2026-07-29 | Route `/api/inngest` exporte `{ GET, POST, PUT }` (et non `POST` seul comme écrit plan §L0 L124) | L0 | (L0 commit) | Le SDK `inngest@4.13.0` exige ce triplet pour que le dev server Inngest puisse pinger l'endpoint en GET (handshake de sync) — signature `RequestHandler & { GET, POST, PUT }` dans `node_modules/inngest/next.d.ts`. Exposer seulement `POST` casserait le probe Inngest et le dev server ne découvrirait pas l'app. |
-| 2026-07-29 | `INNGEST_APP_ID=dodojo` ajouté au `.env.example` (en plus de `SIGNING_KEY`/`EVENT_KEY` listés plan §L0 L125) | L0 | (L0 commit) | Le client `lib/inngest/client.ts` lit `process.env.INNGEST_APP_ID` avec fallback `?? "dodojo"` (prévu plan §L0 L123). Documenter cette var dans `.env.example` évite qu'un opérateur la cherche ailleurs ; `dodojo` est le défaut codé, overridable via env (utilitéandbox de connexion à un env staging Inngest avec un autre app id si besoin). |
-| 2026-07-29 | `signingKey: process.env.INNGEST_SIGNING_KEY` passé explicitement au constructeur `Inngest(...)` (plan §L0 L123) — malgré l'auto-détection env du SDK | L0 | (L0 commit) | Le SDK `inngest@4.x` détecte automatiquement `process.env.INNGEST_SIGNING_KEY` (cf. `types.d.ts` : `If not provided, will search for the INNGEST_SIGNING_KEY environment variable`). C'est donc redondant — mais conforme au plan explicite et plus lisible pour un repreneur qui cherche « où la clé est lue ». Accepté. |
+| 2026-07-29 | `inngest@^4.13.0` installé (dernière version stable au moment du lot) | L0 | 3b2970e | Plan §L0 L122 indiquait « version cible à re-vérifier au moment du LOT (`npm view inngest version`) — ne pas fixer en plan ». Résultat : 4.13.0. Pin via `^4.13.0` dans `package.json`. |
+| 2026-07-29 | Route `/api/inngest` exporte `{ GET, POST, PUT }` (et non `POST` seul comme écrit plan §L0 L124) | L0 | 3b2970e | Le SDK `inngest@4.13.0` exige ce triplet pour que le dev server Inngest puisse pinger l'endpoint en GET (handshake de sync) — signature `RequestHandler & { GET, POST, PUT }` dans `node_modules/inngest/next.d.ts`. Exposer seulement `POST` casserait le probe Inngest et le dev server ne découvrirait pas l'app. |
+| 2026-07-29 | `INNGEST_APP_ID=dodojo` ajouté au `.env.example` (en plus de `SIGNING_KEY`/`EVENT_KEY` listés plan §L0 L125) | L0 | 3b2970e | Le client `lib/inngest/client.ts` lit `process.env.INNGEST_APP_ID` avec fallback `?? "dodojo"` (prévu plan §L0 L123). Documenter cette var dans `.env.example` évite qu'un opérateur la cherche ailleurs ; `dodojo` est le défaut codé, overridable via env (utilitéandbox de connexion à un env staging Inngest avec un autre app id si besoin). |
+| 2026-07-29 | `signingKey: process.env.INNGEST_SIGNING_KEY` passé explicitement au constructeur `Inngest(...)` (plan §L0 L123) — malgré l'auto-détection env du SDK | L0 | 3b2970e | Le SDK `inngest@4.x` détecte automatiquement `process.env.INNGEST_SIGNING_KEY` (cf. `types.d.ts` : `If not provided, will search for the INNGEST_SIGNING_KEY environment variable`). C'est donc redondant — mais conforme au plan explicite et plus lisible pour un repreneur qui cherche « où la clé est lue ». Accepté. |
 | | | | | |
 | | | | | |
 
