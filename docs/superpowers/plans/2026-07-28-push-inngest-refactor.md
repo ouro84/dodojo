@@ -1,5 +1,7 @@
 # Plan d'implémentation — Migration notifs push vers Inngest (issues #102 + #114)
 
+> ⚠️ OBSOLÈTE — remplacé intégralement par 2026-07-30-push-inngest-migration.md (l'API inngest.schedules.* décrite ici n'existe pas). Conservé pour l'historique des SHA uniquement.
+
 > Date création : 2026-07-28
 > Statut global : EN COURS
 > Branche : docs/102-114-push-inngest-plan
