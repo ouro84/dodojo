@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createSerwistRoute } from "@serwist/turbopack";
 import { resolveBuildRevision } from "@/lib/pwa/build-revision";
+import { buildAdditionalPrecacheEntries } from "@/app/serwist/precache-entries";
 
 // Un identifiant par build (SHA Vercel en prod, SHA git en local) partagé
 // par toutes les entrées ci-dessous : à chaque déploiement, ces entrées
@@ -15,10 +16,5 @@ export const { dynamic, dynamicParams, revalidate, generateStaticParams, GET } =
   createSerwistRoute({
     swSrc: "app/sw.ts",
     useNativeEsbuild: true,
-    additionalPrecacheEntries: [
-      { url: "/offline", revision },
-      { url: "/fonts/boldpixels.woff2", revision },
-      { url: "/fonts/boldpixels.woff", revision },
-      { url: "/manifest.webmanifest", revision },
-    ],
+    additionalPrecacheEntries: buildAdditionalPrecacheEntries(revision),
   });

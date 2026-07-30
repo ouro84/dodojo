@@ -21,6 +21,9 @@ export interface Profile {
   // Issue #115 : combo server-authoritative — cf. lib/game-engine.ts (nextComboState).
   combo_count: number;
   last_combo_completed_at: string | null;
+  // Préparation issue #114 : défaut utilisateur (minutes avant deadline),
+  // toujours renseigné (non nullable en base).
+  reminder_offset_minutes: number;
   created_at: string;
 }
 
@@ -60,6 +63,9 @@ export interface Task {
   // Issue #115 : XP réellement accordée à la complétion (inclut le bonus
   // combo). Nullable : jamais complétée, ou complétée avant cette colonne.
   xp_awarded: number | null;
+  // Préparation issue #114 : override par tâche. null = hérite de
+  // profiles.reminder_offset_minutes.
+  reminder_offset_minutes: number | null;
   day_date: string;
   position: number;
   created_at: string;

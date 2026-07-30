@@ -129,3 +129,24 @@ déclencheur change. Toute valeur non-déterministe (`now`, jour local, variante
 de copy) est calculée une fois par le fan-out et voyage dans l'event : Inngest
 ré-exécute le code hors `step.run` à chaque retry, un calcul côté
 `send-reminder` briserait la stabilité du texte affiché.
+
+---
+
+## Notifs avant deadline (#114) — design retenu
+
+Fondation posée en L6b : migration `reminder_offset_minutes` (`profiles`, défaut
+30, non nullable ; `tasks`, nullable = hérite du profil) + types. Pas de helper,
+pas de stub, aucune API Inngest appelée dans ce lot.
+
+Design retenu pour l'implémentation future : à la pose/modification d'une
+`deadline_at`, émettre un event Inngest et laisser une fonction dédiée faire
+`step.sleepUntil("wait", deadline − offset)` puis re-lire la DB dans un
+`step.run` (tâche encore active ? non cochée ? deadline inchangée ?) avant
+d'envoyer la notif ; annulation via `cancelOn` sur un event d'effacement de la
+deadline ; idempotence par `taskId`.
+
+**Pourquoi pas de cron one-shot** : une expression cron n'a pas de champ année
+— `"0 15 30 7 *"` se redéclencherait chaque 30 juillet, pas une seule fois.
+Manipuler un instant absolu (`step.sleepUntil`) plutôt qu'une expression
+récurrente supprime aussi la question DST que cette approche aurait laissée
+ouverte.

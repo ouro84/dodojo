@@ -57,20 +57,30 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
         return;
       }
 
-      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!publicKey) {
-        setError("Configuration push manquante.");
-        return;
-      }
+      // Réconciliation (piège H5) : si le navigateur a déjà une souscription
+      // active (ex. ligne DB perdue/jamais créée), ne jamais rappeler
+      // subscribe() — ça échouerait ou recréerait une souscription
+      // équivalente pour rien. On réutilise l'existante et on s'assure juste
+      // que la DB est à jour, plutôt que de se contenter d'afficher "on"
+      // sans vérifier : la DB reste la source de vérité.
+      const existing = await registration.pushManager.getSubscription();
+      let pushSubscription = existing;
+      if (!pushSubscription) {
+        const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!publicKey) {
+          setError("Configuration push manquante.");
+          return;
+        }
 
-      const pushSubscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        // TS 5.9 distingue Uint8Array<ArrayBuffer> de Uint8Array<ArrayBufferLike> ;
-        // BufferSource (défini pour SharedArrayBuffer aussi) n'infère pas l'un
-        // depuis l'autre — le cast est sûr, le buffer vient bien d'un ArrayBuffer
-        // neuf (new Uint8Array(length) dans urlBase64ToUint8Array).
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-      });
+        pushSubscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          // TS 5.9 distingue Uint8Array<ArrayBuffer> de Uint8Array<ArrayBufferLike> ;
+          // BufferSource (défini pour SharedArrayBuffer aussi) n'infère pas l'un
+          // depuis l'autre — le cast est sûr, le buffer vient bien d'un ArrayBuffer
+          // neuf (new Uint8Array(length) dans urlBase64ToUint8Array).
+          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+        });
+      }
       const json = pushSubscription.toJSON();
       if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
         setError("Souscription push incomplète.");
