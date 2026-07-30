@@ -118,7 +118,7 @@ Avant chaque PR, ajouter `npm run e2e` (Playwright démarre son propre serveur d
   - [x] L0 — Setup SDK + route + `.env.example` (SHA: `3b2970e`)
   - [x] L1 — Fonction `send-reminder`, route cron supprimée (SHA: `910e9ca`)
   - [x] **L1b** — Correctifs du code L1 (SHA: `428cd53`)
-  - [ ] **L2b** — Fonction cron de fan-out (SHA: ____)
+  - [x] **L2b** — Fonction cron de fan-out (SHA: `5013078`)
   - [ ] **L3b** — Mise en service prod + observabilité (SHA: ____)
   - [ ] **L4b** — Suppression cron GHA + docs (SHA: ____)
   - [ ] **Recette de bout en bout** — 8 maillons en prod, puis notification reçue à 17h30 réel (date : ____)
@@ -521,6 +521,8 @@ Plus les 4 vérifications humaines de #102. `gh pr create --base main --head fea
 | 2026-07-30 | Rebase sur `origin/main` (26 commits) : **aucun cassage** `tsc`/tests, contrairement au risque anticipé | L-0.2 | — | `lib/game-engine.ts`/`types/index.ts` ont bougé (+141 LOC combo server-authoritative) mais sans conflit ni régression de typage sur le domaine push. |
 | 2026-07-30 | `hp` : correction aussi du champ Notion `Résumé` (pas seulement le contenu) | L-0.1 | `7b96e69` | Le résumé Notion ne mentionnait que le Boss alors que le contenu restauré couvre Boss + Héros + Perfect/K.O. — incohérence non explicitement listée par le plan mais relevant du même travail de réconciliation. |
 | 2026-07-30 | Syntaxe `idempotency` confirmée : expression **CEL** (pas un template string) — `event.data.profileId + "-" + event.data.dayKey` | L1b | `428cd53` | Vérifiée via la doc officielle Inngest (`docs/reference/functions/create`) : exemples `'event.data.customer_id'` et `'event.data.account_id + "-" + event.user.email'`. Fenêtre de dédup fixe 24h (équivalent `rateLimit` limit=1/period=24h). |
+| 2026-07-30 | Syntaxe du trigger cron statique confirmée : `triggers: { cron: "..." }`, pas de préfixe `TZ=` nécessaire ici | L2b | `5013078` | Vérifiée via la doc officielle Inngest (`docs/guides/scheduled-functions`). Le préfixe `TZ=Zone/Timezone expr` existe et est supporté par le SDK, mais inutile ici : le cron tourne en UTC (`*/15 * * * *`), le fuseau par profil est géré par `isWithinReminderWindow`. Note à reporter dans CLAUDE.md en L4b. |
+| 2026-07-30 | Vérification manuelle locale L2b faite via l'API d'introspection (`GET /api/inngest` → `function_count`/`mode`) plutôt que via le clic « Invoke » du dashboard (non actionnable par un agent sans navigateur) | L2b | `5013078` | `INNGEST_DEV=1` nécessaire côté `next dev` : `.env.local` porte de vraies clés Inngest prod (`INNGEST_SIGNING_KEY`), donc le SDK est en mode cloud par défaut et rejette les requêtes non signées d'`inngest-cli dev` (401 "No x-inngest-signature provided") sans ce flag. `function_count: 2, mode: "dev"` confirmé après sync. |
 | | | | | |
 
 ---
