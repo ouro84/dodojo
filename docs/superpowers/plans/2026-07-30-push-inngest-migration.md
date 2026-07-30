@@ -122,7 +122,7 @@ Avant chaque PR, ajouter `npm run e2e` (Playwright démarre son propre serveur d
   - [x] **L3b** — Mise en service prod + observabilité (SHA: `d19dbab`, `894b6f7`)
   - [x] **L4b** — Suppression cron GHA + docs (SHA: `1a52f3d`)
   - [ ] **Recette de bout en bout** — 8 maillons en prod, puis notification reçue à 17h30 réel (date : ____)
-- [ ] **PR2 — #102 + fondation #114** (branche `feat/102-push-toggle-fix`)
+- [x] **PR2 — #102 + fondation #114** (branche `feat/102-push-toggle-fix`, [PR #127](https://github.com/ouro84/dodojo/pull/127), en attente de merge)
   - [x] **L5b** — Diagnostic puis fix #102 (SHA: `8a5ba83`)
   - [x] **L6b** — Migration `reminder_offset_minutes` + design note #114 (SHA: `60cbfb3`) — appliquée en base distante, confirmée sans écart
 
