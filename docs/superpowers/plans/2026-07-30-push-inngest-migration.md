@@ -120,7 +120,7 @@ Avant chaque PR, ajouter `npm run e2e` (Playwright démarre son propre serveur d
   - [x] **L1b** — Correctifs du code L1 (SHA: `428cd53`)
   - [x] **L2b** — Fonction cron de fan-out (SHA: `5013078`)
   - [ ] **L3b** — Mise en service prod + observabilité (SHA: ____)
-  - [ ] **L4b** — Suppression cron GHA + docs (SHA: ____)
+  - [x] **L4b** — Suppression cron GHA + docs (SHA: `1a52f3d`)
   - [ ] **Recette de bout en bout** — 8 maillons en prod, puis notification reçue à 17h30 réel (date : ____)
 - [ ] **PR2 — #102 + fondation #114** (branche `feat/102-push-toggle-fix`)
   - [ ] **L5b** — Diagnostic puis fix #102 (SHA: ____)
