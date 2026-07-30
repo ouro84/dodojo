@@ -117,7 +117,7 @@ Avant chaque PR, ajouter `npm run e2e` (Playwright démarre son propre serveur d
 - [ ] **PR1 — Backend Inngest** (branche `feat/push-inngest-refactor`)
   - [x] L0 — Setup SDK + route + `.env.example` (SHA: `3b2970e`)
   - [x] L1 — Fonction `send-reminder`, route cron supprimée (SHA: `910e9ca`)
-  - [ ] **L1b** — Correctifs du code L1 (SHA: ____)
+  - [x] **L1b** — Correctifs du code L1 (SHA: `428cd53`)
   - [ ] **L2b** — Fonction cron de fan-out (SHA: ____)
   - [ ] **L3b** — Mise en service prod + observabilité (SHA: ____)
   - [ ] **L4b** — Suppression cron GHA + docs (SHA: ____)
@@ -520,6 +520,7 @@ Plus les 4 vérifications humaines de #102. `gh pr create --base main --head fea
 | 2026-07-30 | Notion est la source de vérité du Guide, mais `hp.md` est plus récent dans le repo (`majLe` recule au pull) | L-0 | — | Réparer Notion d'abord, puis puller et committer : committer le pull en l'état ferait perdre 2 sections publiées. |
 | 2026-07-30 | Rebase sur `origin/main` (26 commits) : **aucun cassage** `tsc`/tests, contrairement au risque anticipé | L-0.2 | — | `lib/game-engine.ts`/`types/index.ts` ont bougé (+141 LOC combo server-authoritative) mais sans conflit ni régression de typage sur le domaine push. |
 | 2026-07-30 | `hp` : correction aussi du champ Notion `Résumé` (pas seulement le contenu) | L-0.1 | `7b96e69` | Le résumé Notion ne mentionnait que le Boss alors que le contenu restauré couvre Boss + Héros + Perfect/K.O. — incohérence non explicitement listée par le plan mais relevant du même travail de réconciliation. |
+| 2026-07-30 | Syntaxe `idempotency` confirmée : expression **CEL** (pas un template string) — `event.data.profileId + "-" + event.data.dayKey` | L1b | `428cd53` | Vérifiée via la doc officielle Inngest (`docs/reference/functions/create`) : exemples `'event.data.customer_id'` et `'event.data.account_id + "-" + event.user.email'`. Fenêtre de dédup fixe 24h (équivalent `rateLimit` limit=1/period=24h). |
 | | | | | |
 
 ---
