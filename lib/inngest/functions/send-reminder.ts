@@ -62,6 +62,16 @@ export const sendReminder = inngest.createFunction(
     // check DB `lastReminderSentOn === today` de isReminderEligible, qui ne
     // doit jamais être retiré (cf. plan §6 L1b C6).
     idempotency: "event.data.profileId + \"-\" + event.data.dayKey",
+    // Aucune alerte automatique connue sur le palier gratuit Inngest (cf.
+    // plan §6 L3b) : ce console.error, visible dans les logs Vercel et le
+    // dashboard Inngest, est la seule trace en cas d'échec après retries.
+    onFailure: async ({ event, error }) => {
+      console.error("[inngest:send-reminder] échec définitif", {
+        profileId: event.data.event.data.profileId,
+        dayKey: event.data.event.data.dayKey,
+        error: error.message,
+      });
+    },
   },
   async ({ event, step }) => {
     const profileId: string = event.data.profileId;

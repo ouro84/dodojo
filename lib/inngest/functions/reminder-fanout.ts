@@ -59,7 +59,18 @@ function computeVariantIndex(profileId: string, day: string): number {
 }
 
 export const reminderFanout = inngest.createFunction(
-  { id: "reminder-fanout", triggers: { cron: REMINDER_FANOUT_CRON } },
+  {
+    id: "reminder-fanout",
+    triggers: { cron: REMINDER_FANOUT_CRON },
+    // Aucune alerte automatique connue sur le palier gratuit Inngest (cf.
+    // plan §6 L3b) : ce console.error, visible dans les logs Vercel et le
+    // dashboard Inngest, est la seule trace en cas d'échec après retries.
+    // Un run de fan-out en échec silencieux = aucun rappel envoyé ce jour-là
+    // pour tous les profils, sans qu'aucune alerte ne se déclenche.
+    onFailure: async ({ error }) => {
+      console.error("[inngest:reminder-fanout] échec définitif", { error: error.message });
+    },
+  },
   async ({ step }) => {
     const selection = await step.run("select-eligible", async () => {
       // now DOIT être créé ici, dans le step → memoïsé, déterministe au retry
