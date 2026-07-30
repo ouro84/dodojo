@@ -124,7 +124,7 @@ Avant chaque PR, ajouter `npm run e2e` (Playwright démarre son propre serveur d
   - [ ] **Recette de bout en bout** — 8 maillons en prod, puis notification reçue à 17h30 réel (date : ____)
 - [ ] **PR2 — #102 + fondation #114** (branche `feat/102-push-toggle-fix`)
   - [x] **L5b** — Diagnostic puis fix #102 (SHA: `8a5ba83`)
-  - [ ] **L6b** — Migration `reminder_offset_minutes` + design note #114 (SHA: ____)
+  - [x] **L6b** — Migration `reminder_offset_minutes` + design note #114 (SHA: `60cbfb3`) — appliquée en base distante, confirmée sans écart
 
 ---
 
