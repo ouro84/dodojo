@@ -49,6 +49,34 @@ async function renderMaskableIcon(svgBuffer, size) {
     .toBuffer();
 }
 
+// Issue #97 : favicon/apple-icon ne sont jamais recadrés en mode "maskable"
+// (pas de crop adaptatif Android/iOS dessus) — leur appliquer la safe-area
+// à 60% de renderMaskableIcon ne sert à rien et écrase le logo dans une
+// grande bordure BRAND_BG. Ces icônes veulent un rendu plein cadre.
+// Le SVG source a lui-même une marge interne (~30% de vide dans son
+// viewBox) : on la retire une fois via un trim haute résolution avant de
+// composer, pour que le logo remplisse vraiment le cadre même à 16x16.
+async function trimSvgContent(svgBuffer) {
+  const probe = await sharp(svgBuffer)
+    .resize(1024, 1024, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+  return sharp(probe).trim().toBuffer();
+}
+
+async function renderFullBleedIcon(trimmedContentBuffer, size) {
+  const content = await sharp(trimmedContentBuffer)
+    .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: BRAND_BG },
+  })
+    .composite([{ input: content, gravity: "center" }])
+    .png()
+    .toBuffer();
+}
+
 // Audit UX 2026-07-24 (P2) : app/favicon.ico était un triangle générique sans
 // rapport avec la marque (orphelin d'un prototype antérieur). Encodeur ICO
 // minimal (frames PNG embarquées, supporté par tous les navigateurs modernes
@@ -80,12 +108,13 @@ function buildIco(pngBuffersBySize) {
 
 async function main() {
   const svgBuffer = await fs.readFile(SOURCE_SVG);
+  const trimmedContent = await trimSvgContent(svgBuffer);
 
   const any192 = await renderAnyIcon(svgBuffer, 192);
   const any512 = await renderAnyIcon(svgBuffer, 512);
   const maskable192 = await renderMaskableIcon(svgBuffer, 192);
   const maskable512 = await renderMaskableIcon(svgBuffer, 512);
-  const appleIcon = await renderMaskableIcon(svgBuffer, 180);
+  const appleIcon = await renderFullBleedIcon(trimmedContent, 180);
 
   await fs.writeFile(path.join(ICONS_DIR, "icon-192.png"), any192);
   await fs.writeFile(path.join(ICONS_DIR, "icon-512.png"), any512);
@@ -93,9 +122,9 @@ async function main() {
   await fs.writeFile(path.join(ICONS_DIR, "icon-maskable-512.png"), maskable512);
   await fs.writeFile(path.join(ROOT, "app", "apple-icon.png"), appleIcon);
 
-  const favicon16 = await renderMaskableIcon(svgBuffer, 16);
-  const favicon32 = await renderMaskableIcon(svgBuffer, 32);
-  const favicon48 = await renderMaskableIcon(svgBuffer, 48);
+  const favicon16 = await renderFullBleedIcon(trimmedContent, 16);
+  const favicon32 = await renderFullBleedIcon(trimmedContent, 32);
+  const favicon48 = await renderFullBleedIcon(trimmedContent, 48);
   const ico = buildIco([
     { size: 16, buffer: favicon16 },
     { size: 32, buffer: favicon32 },
