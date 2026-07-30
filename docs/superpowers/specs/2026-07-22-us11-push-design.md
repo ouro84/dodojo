@@ -108,3 +108,24 @@ d'obliger l'utilisateur à ouvrir Dodojo juste pour dismiss.
 - Vitest : `lib/push-copy.ts` (gabarits, injection du nombre de tâches restantes).
 - Pas de test e2e sur l'envoi push réel (API navigateur non fiable en headless,
   dépendance à un vrai service de push).
+
+---
+
+## Refactor Inngest (2026-07-30)
+
+Plan complet : `docs/superpowers/plans/2026-07-30-push-inngest-migration.md`.
+
+Le cron GitHub Actions ci-dessus n'a **jamais fonctionné en production** (100%
+d'échec, crédits GHA épuisés, `schedule` étranglé sur repo privé). Remplacé
+par **Inngest** : QStash écarté (1K msg/jour + 10 schedules max, casserait dès
+#114) ; un schedule Inngest par utilisateur écarté aussi — `inngest.schedules.*`
+**n'existe pas** dans le SDK 4.13.0 (vérifié : 0 occurrence dans
+`node_modules/inngest`). Design retenu : cron **statique** `reminder-fanout`
+(`*/15 * * * *` UTC, couvre tous les fuseaux dont :30/:45) qui sélectionne les
+profils dus et émet un event `push/send-reminder` par profil, consommé par
+`send-reminder` (web-push + marquage DB). Les 5 conditions d'éligibilité
+ci-dessus et `REMINDER_WINDOW_MINUTES` sont **inchangées** — seul le
+déclencheur change. Toute valeur non-déterministe (`now`, jour local, variante
+de copy) est calculée une fois par le fan-out et voyage dans l'event : Inngest
+ré-exécute le code hors `step.run` à chaque retry, un calcul côté
+`send-reminder` briserait la stabilité du texte affiché.

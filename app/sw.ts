@@ -75,7 +75,7 @@ interface NotificationOptionsWithActions extends NotificationOptions {
 }
 
 // US-11 : notification de rappel (payload JSON envoyé par
-// app/api/cron/push-reminders/route.ts via web-push). "Plus tard" (action)
+// lib/inngest/functions/send-reminder.ts via web-push). "Plus tard" (action)
 // referme sans ouvrir l'app — évite de forcer l'ouverture juste pour dismiss.
 self.addEventListener("push", (event: PushEvent) => {
   if (!event.data) return;

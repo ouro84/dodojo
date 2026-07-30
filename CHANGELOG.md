@@ -21,6 +21,7 @@ nouvelle section versionnée et datée.
 - Issue #101 (by-pass A4-overdue) : la pénalité -20 « reste reporté » persiste maintenant jusqu'à résolution après « Reporter » un reste au Réveil (avant, `deferOverdueTask` mettait `day_date = today` → la tâche sortait du pool serveur dès le Report, pénalité invisible sans action de l'utilisateur). Nouvelle colonne `tasks.deferred_at` + nouvelle fonction pure `deferredRestHpPenalties` dans `lib/game-engine.ts`. Le mainteneur a autorisé cette déviation de la spec d'origine (qui interdisait de modifier le moteur) pour préserver l'esprit « le chip -20 reste jusqu'à résolution ».
 
 ### Technique
+- Issue #114 (fondation) : migration du cron push de GitHub Actions (échec 100% en prod, jamais fonctionnel) vers Inngest — cron statique `reminder-fanout` (`*/15 * * * *`) + fonction `send-reminder` par profil éligible, déterminisme garanti (valeurs figées dans l'event), observabilité `onFailure`.
 - Issue #101 : 4 specs e2e Playwright (`hero-bar-tooltip`, `hero-heal-float`, `deadline-missed-chip`, `overdue-rest-chip`) + helper `seedMissedDeadlineTask` (`e2e/fixtures.ts`) pour court-circuiter le polling ~45s. Tests unitaires Vitest `deferredRestHpPenalties` (6 cas) dans `lib/game-engine.test.ts`.
 
 ### Corrections

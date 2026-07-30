@@ -3,8 +3,11 @@ import { calculateBossCurrentHp, dayKey, type HpTask } from "./game-engine";
 export const REMINDER_HOUR = 17;
 export const REMINDER_MINUTE = 30;
 // Largeur totale de la fenêtre (±10 min autour de 17h30), calée sur la
-// cadence du cron externe (~15 min, cf. workflow GitHub Actions) avec marge
-// pour son jitter.
+// cadence du cron Inngest de fan-out (*/15, cf. reminder-fanout.ts) avec
+// marge. Avec le fan-out, cette fenêtre EST le sélecteur des utilisateurs
+// dus à chaque run — ne pas la réduire sans revoir la cadence du cron.
+// Mode de défaillance : un retard de queue Inngest > 10 min fait sauter le
+// rappel du jour pour les profils concernés (le lendemain repart normalement).
 export const REMINDER_WINDOW_MINUTES = 20;
 
 function localMinutesSinceMidnight(nowUtc: Date, timezone: string): number {
