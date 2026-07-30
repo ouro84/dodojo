@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export interface SerializedPushSubscription {
@@ -37,6 +38,7 @@ export async function subscribeToPush(
   );
 
   if (error) return { error: "Impossible d'activer les rappels. Réessaie." };
+  revalidatePath("/vestiaire");
   return { error: null };
 }
 
@@ -57,5 +59,6 @@ export async function unsubscribeFromPush(endpoint: string): Promise<PushActionR
     .eq("endpoint", endpoint);
 
   if (error) return { error: "Impossible de désactiver les rappels. Réessaie." };
+  revalidatePath("/vestiaire");
   return { error: null };
 }
