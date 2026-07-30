@@ -113,7 +113,7 @@ Avant chaque PR, ajouter `npm run e2e` (Playwright démarre son propre serveur d
 
 ## 4. Statut
 
-- [x] **L-0** — Hygiène : Guide/Notion, rebase, dettes annexes, plan unique (SHA: `7b96e69`, `8175305`)
+- [x] **L-0** — Hygiène : Guide/Notion, rebase, dettes annexes, plan unique (SHA: `7b96e69`, `8175305`, `1d536a3`)
 - [ ] **PR1 — Backend Inngest** (branche `feat/push-inngest-refactor`)
   - [x] L0 — Setup SDK + route + `.env.example` (SHA: `3b2970e`)
   - [x] L1 — Fonction `send-reminder`, route cron supprimée (SHA: `910e9ca`)
