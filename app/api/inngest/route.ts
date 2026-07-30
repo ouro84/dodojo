@@ -7,8 +7,8 @@ import { sendReminder } from "@/lib/inngest/functions/send-reminder";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// L1 : `send-reminder` est enregistrée. Le tableau grossira en L5 si d'autres
-// fonctions sont introduites (pas de新品种 en L2).
+// L1 : `send-reminder` est enregistrée. Le tableau grossira en L2b si d'autres
+// fonctions sont introduites.
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [sendReminder],
