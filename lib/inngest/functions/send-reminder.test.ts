@@ -88,6 +88,12 @@ class FakeSupabaseClient {
 // Capture le handler de la fonction Inngest instanciée.
 // SDK 4.x API : createFunction({ id, triggers }, handler) — le handler est
 // 2e argument, plus 3e (legacy <4.0).
+interface SendReminderEventData {
+  profileId: string;
+  dayKey: string;
+  nowIso: string;
+  variantIndex: number;
+}
 const { inngestClientMock, capturedFns } = vi.hoisted(() => ({
   inngestClientMock: {
     createFunction: vi.fn(),
@@ -95,7 +101,7 @@ const { inngestClientMock, capturedFns } = vi.hoisted(() => ({
   capturedFns: [] as Array<{
     id: string;
     fn: (args: {
-      event: { id?: string; name: string; data: { profileId: string } };
+      event: { id?: string; name: string; data: SendReminderEventData };
       step: { run: <T>(id: string, cb: () => T | Promise<T>) => Promise<T> };
     }) => Promise<unknown>;
   }>,
@@ -109,7 +115,7 @@ inngestClientMock.createFunction.mockImplementation(
   (
     opts: { id: string },
     fn: (args: {
-      event: { id?: string; name: string; data: { profileId: string } };
+      event: { id?: string; name: string; data: SendReminderEventData };
       step: { run: <T>(id: string, cb: () => T | Promise<T>) => Promise<T> };
     }) => Promise<unknown>,
   ) => {
@@ -180,11 +186,22 @@ afterEach(() => {
   vi.resetModules();
 });
 
-async function invokeSendReminder(profileId: string, eventId = "evt_1"): Promise<unknown> {
+async function invokeSendReminder(
+  profileId: string,
+  eventId = "evt_1",
+  overrides: Partial<Omit<SendReminderEventData, "profileId">> = {},
+): Promise<unknown> {
   const fn = capturedFns.find((f) => f.id === "send-reminder");
   if (!fn) throw new Error("send-reminder function not registered");
+  const data: SendReminderEventData = {
+    profileId,
+    dayKey: "2026-07-22",
+    nowIso: NOW_1730_PARIS,
+    variantIndex: 0,
+    ...overrides,
+  };
   return await fn.fn({
-    event: { id: eventId, name: "send-reminder", data: { profileId } },
+    event: { id: eventId, name: "push/send-reminder", data },
     step: makeFakeStep(),
   });
 }
@@ -209,14 +226,14 @@ describe("send-reminder", () => {
     expect(dbTables.profiles[0]?.last_reminder_sent_on).toBeNull();
   });
 
-  test("T1.5 — 404 supprime la sub ET marque last_reminder_sent_on", async () => {
+  test("T1.5 — 404 supprime la sub, sans marquer last_reminder_sent_on (aligné sur 410, C4)", async () => {
     sendNotificationMock.mockRejectedValueOnce({ statusCode: 404 });
 
     await invokeSendReminder("u1");
 
     expect(sendNotificationMock).toHaveBeenCalledTimes(1);
     expect(dbTables.push_subscriptions).toHaveLength(0);
-    expect(dbTables.profiles[0]?.last_reminder_sent_on).toBe("2026-07-22");
+    expect(dbTables.profiles[0]?.last_reminder_sent_on).toBeNull();
   });
 
   test("T1.4 — ignore un profil non éligible (manque de souscription)", async () => {
@@ -239,5 +256,20 @@ describe("send-reminder", () => {
 
     // sendNotification appelée exactement UNE fois (pas deux).
     expect(sendNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("T1.6 — déterminisme du texte : deux invocations du même event produisent un body identique", async () => {
+    sendNotificationMock.mockResolvedValue(undefined);
+
+    await invokeSendReminder("u1", "evt_a", { variantIndex: 3 });
+    const firstBody = sendNotificationMock.mock.calls[0]?.[1] as string;
+
+    dbTables = baseTables(); // reset : on ne teste pas l'idempotence DB ici, juste le texte
+    sendNotificationMock.mockClear();
+
+    await invokeSendReminder("u1", "evt_b", { variantIndex: 3 });
+    const secondBody = sendNotificationMock.mock.calls[0]?.[1] as string;
+
+    expect(firstBody).toBe(secondBody);
   });
 });

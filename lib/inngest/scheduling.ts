@@ -1,20 +1,6 @@
 import { dayKey, type HpTask } from "@/lib/game-engine";
 import type { ReminderCandidate } from "@/lib/push-eligibility";
 
-// Cron expression attendue par Inngest pour le reminder quotidien 17h30 locale.
-// Le fuseau n'est PAS encodé dans le cron — il est fourni séparément au
-// `inngest.schedules.create({ cron, timezone })` (L2). La cron expr reste
-// donc identique pour tous les users ("30 17 * * *"), Inngest calcule la
-// conversion TZ nativement.
-export const REMINDER_DAILY_CRON = "30 17 * * *";
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function buildDailyReminderCron(timezone?: string): string {
-  // Le paramètre est conservé pour compat d'API avec d'éventuels appelants
-  // réclamant un fuseau (L2 le gère via Inngest `schedule.timezone`, pas ici).
-  return REMINDER_DAILY_CRON;
-}
-
 // Interfaces DB brutes (relevantes pour les deux L1 et send-reminder).
 interface SubscriptionRow {
   user_id: string;

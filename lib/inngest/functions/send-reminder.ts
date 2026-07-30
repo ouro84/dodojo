@@ -4,7 +4,7 @@ import { inngest } from "@/lib/inngest/client";
 import { buildCandidatesFromDb, pickSubscriptionsToSend } from "@/lib/inngest/scheduling";
 import { isReminderEligible } from "@/lib/push-eligibility";
 import { buildReminderPayload } from "@/lib/copy/notifications";
-import { calculateBossCurrentHp, dayKey } from "@/lib/game-engine";
+import { calculateBossCurrentHp } from "@/lib/game-engine";
 import type { SendReminderEvent } from "./send-reminder.types";
 
 interface SubscriptionRow {
@@ -54,10 +54,19 @@ function configureVapid() {
 }
 
 export const sendReminder = inngest.createFunction(
-  { id: "send-reminder", triggers: { event: "send-reminder" satisfies SendReminderEvent["name"] } },
+  {
+    id: "send-reminder",
+    triggers: { event: "push/send-reminder" satisfies SendReminderEvent["name"] },
+    // Dédoublonne un event du même jour pour le même profil (fenêtre 24h,
+    // cf. doc Inngest). Protection best-effort : la garde réelle reste le
+    // check DB `lastReminderSentOn === today` de isReminderEligible, qui ne
+    // doit jamais être retiré (cf. plan §6 L1b C6).
+    idempotency: "event.data.profileId + \"-\" + event.data.dayKey",
+  },
   async ({ event, step }) => {
     const profileId: string = event.data.profileId;
-    const now = new Date();
+    const today = event.data.dayKey;
+    const now = new Date(event.data.nowIso);
 
     const subs = await step.run("fetch-context-subs", async () => {
       const supabase = makeSupabaseClient();
@@ -99,15 +108,12 @@ export const sendReminder = inngest.createFunction(
     const { profile, tasks, dayResults } = context;
 
     const [candidate] = buildCandidatesFromDb(subs, [profile], tasks, dayResults, now);
+    if (!isReminderEligible(candidate, now)) return;
 
-    const eligible = await step.run("is-eligible", async () => {
-      return isReminderEligible(candidate, now);
-    });
-    if (!eligible) return;
-
-    const today = dayKey(now, profile.timezone);
     const remaining = calculateBossCurrentHp(candidate.todayTasks);
-    const payload = JSON.stringify(buildReminderPayload(remaining, profile.aggressivity_level));
+    const payload = JSON.stringify(
+      buildReminderPayload(remaining, profile.aggressivity_level, () => event.data.variantIndex),
+    );
 
     const pushResult = await step.run("send-push", async () => {
       configureVapid();
@@ -119,7 +125,6 @@ export const sendReminder = inngest.createFunction(
       }
       const supabase = makeSupabaseClient();
       let didSend = false;
-      let saw404 = false;
       for (const sub of pickSubscriptionsToSend(profileId, subsByUser)) {
         try {
           await webpush.sendNotification(
@@ -131,28 +136,14 @@ export const sendReminder = inngest.createFunction(
           const statusCode = (err as { statusCode?: number }).statusCode;
           if (statusCode === 404 || statusCode === 410) {
             await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
-            if (statusCode === 404) saw404 = true;
           }
         }
       }
-      return { didSend, saw404 };
+      return { didSend };
     });
 
     if (pushResult.didSend) {
       await step.run("mark-sent", async () => {
-        const supabase = makeSupabaseClient();
-        await supabase.from("profiles").update({ last_reminder_sent_on: today }).eq("id", profileId);
-        return { marked: true };
-      });
-      return;
-    }
-
-    // Aucun envoi réussi. Si au moins une sub a renvoyé 404 (endpoint mort mais
-    // notif considérée "validée" pour la journée — cf. plan T1.5), on marque
-    // malgré tout last_reminder_sent_on. Sur 410 pur (souscription résiliée
-    // côté provider), on ne marque pas (cf. plan T1.1).
-    if (pushResult.saw404) {
-      await step.run("mark-sent-after-404", async () => {
         const supabase = makeSupabaseClient();
         await supabase.from("profiles").update({ last_reminder_sent_on: today }).eq("id", profileId);
         return { marked: true };

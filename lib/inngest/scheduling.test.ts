@@ -115,11 +115,3 @@ describe("buildCandidatesFromDb", () => {
     expect(candidates[0]?.dayResultExists).toBe(true);
   });
 });
-
-describe("buildDailyReminderCron", () => {
-  test('renvoie "30 17 * * *" quel que soit le fuseau (TZ résolu par Inngest)', async () => {
-    const { buildDailyReminderCron } = await import("./scheduling");
-    expect(buildDailyReminderCron()).toBe("30 17 * * *");
-    expect(buildDailyReminderCron("Asia/Tokyo")).toBe("30 17 * * *");
-  });
-});
