@@ -7,14 +7,15 @@ import {
   currentStreak,
   dayKey,
   summarizeDay,
-  titleForStreak,
   type SummaryTask,
 } from "@/lib/game-engine";
+import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
 import type { DayOutcome } from "@/types";
 
 interface CloseDayResult {
   error: string | null;
   outcome?: DayOutcome;
+  newAchievements?: string[];
 }
 
 async function timezoneOf(
@@ -90,22 +91,22 @@ export async function closeDay(): Promise<CloseDayResult> {
   // US-12 : rafraîchit les caches de série (source = day_results).
   const { data: prof } = await supabase
     .from("profiles")
-    .select("best_streak, current_title")
+    .select("best_streak")
     .eq("id", user.id)
     .maybeSingle();
   const bestStreak = Math.max(prof?.best_streak ?? 0, streakToday);
-  const title = titleForStreak(bestStreak);
   await supabase
     .from("profiles")
-    .update({
-      streak_days: streakToday,
-      best_streak: bestStreak,
-      ...(title ? { current_title: title } : {}),
-    })
+    .update({ streak_days: streakToday, best_streak: bestStreak })
     .eq("id", user.id);
 
+  // Issue #72 : après le rafraîchissement du cache streak (bestStreak à jour),
+  // évalue les succès (streak, première victoire...).
+  const ctx = await assembleAchievementContext(supabase, user.id);
+  const newAchievements = await applyNewAchievements(supabase, user.id, ctx);
+
   revalidatePath("/");
-  return { error: null, outcome: summary.outcome };
+  return { error: null, outcome: summary.outcome, newAchievements };
 }
 
 // US-08 (D8) : à la fin du traitement du Réveil, enregistre rétroactivement un
@@ -195,19 +196,17 @@ export async function backfillMissedDays(): Promise<{ error: string | null }> {
 
   const { data: prof } = await supabase
     .from("profiles")
-    .select("best_streak, current_title")
+    .select("best_streak")
     .eq("id", user.id)
     .maybeSingle();
   const bestStreak = Math.max(prof?.best_streak ?? 0, streakNow);
-  const title = titleForStreak(bestStreak);
   await supabase
     .from("profiles")
-    .update({
-      streak_days: streakNow,
-      best_streak: bestStreak,
-      ...(title ? { current_title: title } : {}),
-    })
+    .update({ streak_days: streakNow, best_streak: bestStreak })
     .eq("id", user.id);
+
+  const ctx = await assembleAchievementContext(supabase, user.id);
+  await applyNewAchievements(supabase, user.id, ctx);
 
   revalidatePath("/");
   return { error: null };

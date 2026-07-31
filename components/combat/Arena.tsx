@@ -1020,6 +1020,10 @@ export default function Arena({
       setBanner(result.error);
       return;
     }
+    const newAchievements = result.newAchievements;
+    if (newAchievements?.length) {
+      setAchievementQueue((prev) => [...prev, ...newAchievements]);
+    }
     setRecap(summarizeDay(tasks, "manual"));
   }
 
