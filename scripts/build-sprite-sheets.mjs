@@ -167,7 +167,99 @@ async function writeStill(frame, box, outPath) {
     .toFile(outPath);
 }
 
+const HERO_PACKS = {
+  "fire-knight": "MC/Elementals_fire_knight_FREE_v1.1",
+  "water-priestess": "MC/Elementals_water_priestess_FREE_v1.1",
+  "ground-monk": "MC/Elementals_ground_monk_FREE_v1.3.1",
+  "wind-hashashin": "MC/elementals_wind_hashashin_FREE_v1.1",
+  "leaf-ranger": "MC/Elementals_Leaf_ranger_Free_v1.0",
+  "crystal-mauler": "MC/Elementals_Crystal_Mauler_Free_v1.0",
+  "metal-bladekeeper": "MC/Elementals_metal_bladekeeper_FREE_v1.1",
+};
+
+// Anim logique -> fragment de nom de dossier présent dans tous les packs.
+const HERO_ANIM_PATTERNS = {
+  idle: "idle",
+  atk1: "1_atk",
+  atk2: "2_atk",
+  atk3: "3_atk",
+  sp_atk: "sp_atk",
+  take_hit: "take_hit",
+};
+
+async function findDirContaining(root, fragment) {
+  const entries = await fs.readdir(root, { withFileTypes: true, recursive: true });
+  const hits = entries
+    .filter((e) => e.isDirectory() && e.name.toLowerCase().includes(fragment))
+    .map((e) => path.join(e.parentPath ?? e.path, e.name));
+  if (hits.length === 0) {
+    throw new Error(`Dossier "*${fragment}*" introuvable sous ${root}`);
+  }
+  // Le plus court chemin gagne : évite d'attraper un sous-dossier annexe.
+  return hits.sort((a, b) => a.length - b.length)[0];
+}
+
+// Frame d'impact par défaut : 40 % de l'animation. Surchargeable ci-dessous
+// après calage visuel sur /roster-preview-8f3a2c9d (cf. Task 3.6).
+const IMPACT_FRAME_OVERRIDES = {};
+
+function defaultImpactFrame(frames) {
+  return Math.max(1, Math.min(frames - 1, Math.round(frames * 0.4)));
+}
+
+function impactFrameFor(slug, anim, frames) {
+  return IMPACT_FRAME_OVERRIDES[`${slug}.${anim}`] ?? defaultImpactFrame(frames);
+}
+
+const HERO_ATTACK_ANIMS = new Set(["atk1", "atk2", "atk3", "sp_atk"]);
+
+async function buildHeroes() {
+  const meta = {};
+  for (const [slug, pack] of Object.entries(HERO_PACKS)) {
+    const root = A(pack);
+    // 1. Charger toutes les anims avant de décider de la boîte.
+    const loaded = {};
+    for (const [anim, fragment] of Object.entries(HERO_ANIM_PATTERNS)) {
+      loaded[anim] = await loadFramesFromDir(await findDirContaining(root, fragment));
+    }
+    // 2. Boîte union sur TOUTES les frames de TOUTES les anims.
+    const box = unionBox(Object.values(loaded).flat());
+    const idleBox = unionBox(loaded.idle);
+
+    const outDir = PUB(`sprites/mc/${slug}`);
+    await fs.rm(path.join(outDir, "anim"), { recursive: true, force: true });
+
+    const anims = {};
+    for (const [anim, frames] of Object.entries(loaded)) {
+      await writeSheet(frames, box, path.join(outDir, "anim", `${anim}.png`));
+      anims[anim] = {
+        frames: frames.length,
+        impactFrame: HERO_ATTACK_ANIMS.has(anim)
+          ? impactFrameFor(slug, anim, frames.length)
+          : null,
+      };
+    }
+    await writeStill(loaded.idle[0], box, path.join(outDir, "still.png"));
+
+    const legacy = LEGACY_IDLE_HEIGHTS[slug];
+    if (!legacy) throw new Error(`Hauteur de référence manquante pour ${slug}`);
+    meta[slug] = {
+      tileW: box.width,
+      tileH: box.height,
+      renderScale: box.height / legacy,
+      // Espace ajouté SOUS les pieds de l'idle par l'élargissement de la boîte,
+      // en fraction de la tuile. Le rendu décale le sprite de cette valeur vers
+      // le bas pour que la ligne de sol reste exactement où elle est aujourd'hui.
+      groundOffset: (box.top + box.height - (idleBox.top + idleBox.height)) / box.height,
+      anims,
+    };
+    console.log(`héros ${slug} : tuile ${box.width}x${box.height}, scale ${meta[slug].renderScale.toFixed(3)}`);
+  }
+  return meta;
+}
+
 export {
   A, PUB, LEGACY_IDLE_HEIGHTS, numericSort,
   loadFramesFromDir, sliceSheet, unionBox, writeSheet, writeStill,
+  buildHeroes,
 };
