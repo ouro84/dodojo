@@ -36,7 +36,7 @@ const FRAME_BOSSES = [
 // --- Boss "low boss" à spritesheet (idle) : frames = nb d'images dans la bande ---
 const LB = "Boss/low boss";
 const SHEET_BOSSES = [
-  { slug: "satyr", file: A(`${LB}/Free-Satyr-Sprite-Sheet-Pixel-Art-Pack/Satyr_1/Idle.png`), frames: 7 },
+  { slug: "satyr", file: A(`${LB}/Free-Satyr-Sprite-Sheet-Pixel-Art-Pack/Satyr_2/Idle.png`), frames: 7 },
   { slug: "urban-zombie", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_1/Idle.png`), frames: 6 },
   { slug: "mushroom", file: A(`${LB}/Mushroom/Mushroom without VFX/Mushroom-Idle.png`), frames: 7 },
   { slug: "gorgon", file: A(`${LB}/free-gorgon-pixel-art-character-sprite-sheets/Gorgon_1/Idle.png`), frames: 7 },
