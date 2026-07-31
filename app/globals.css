@@ -163,6 +163,19 @@ body {
   }
 }
 
+/* Flipbook de spritesheet (issue #48) : la bande défile d'une tuile par step.
+   --sprite-end est posé en style inline par SpriteAnimator (px, pas de %,
+   car un background-position en pourcentage est relatif à l'écart
+   conteneur/image et donnerait un décalage sur les tuiles non carrées). */
+@keyframes sprite-run {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: var(--sprite-end);
+  }
+}
+
 /* ---- Flash de combat (US-21) ---- */
 @keyframes hit-shake {
   10%,
@@ -355,5 +368,8 @@ body {
   .hero-alarm {
     animation: none;
     box-shadow: 0 0 0 2px var(--color-alert);
+  }
+  .sprite-run {
+    animation: none !important;
   }
 }
