@@ -135,6 +135,29 @@ export async function resetShopState(): Promise<void> {
   );
 }
 
+// Issue #72 : vide le journal de succès + réinitialise le titre équipé pour
+// le compte e2e fixe. Sans ça, les succès s'accumulent sur le compte
+// partagé (ADR-04) et polluent les assertions des runs suivants.
+export async function resetAchievementsState(): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error("Reset achievements e2e : env manquant.");
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const testUser = users.find((u) => u.email === email);
+  if (!testUser) throw new Error("Reset achievements e2e : utilisateur de test introuvable.");
+  const uid = testUser.id;
+
+  await admin.from("unlocked_achievements").delete().eq("user_id", uid);
+  await admin
+    .from("profiles")
+    .update({ equipped_title_code: null, title_manually_set: false })
+    .eq("id", uid);
+}
+
 // US-29 : supprime le user auth de test onboarding (cascade profiles /
 // unlocked_heroes / daily_boss) pour repartir d'un signup vierge à chaque run.
 export async function resetOnboardingUser(): Promise<void> {
