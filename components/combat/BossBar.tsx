@@ -2,9 +2,11 @@ interface BossBarProps {
   bossName: string;
   currentHp: number;
   maxHp: number;
+  /** Sous 25% des HP (cf. isBossInDanger) : jauge clignotante, tension de fin de combat. */
+  danger?: boolean;
 }
 
-export default function BossBar({ bossName, currentHp, maxHp }: BossBarProps) {
+export default function BossBar({ bossName, currentHp, maxHp, danger = false }: BossBarProps) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
 
   return (
@@ -15,7 +17,7 @@ export default function BossBar({ bossName, currentHp, maxHp }: BossBarProps) {
         aria-valuemin={0}
         aria-valuemax={maxHp}
         aria-label={`Vie du Boss : ${currentHp} sur ${maxHp}`}
-        className="relative h-3.5 overflow-hidden rounded-sm bg-hp-dim"
+        className={`relative h-3.5 overflow-hidden rounded-sm bg-hp-dim ${danger ? "boss-danger-blink" : ""}`}
       >
         {/* Chip damage : la couche fantôme descend en retard sur la barre réelle.
             L'écart entre les deux donne l'ampleur du coup — signature visuelle des

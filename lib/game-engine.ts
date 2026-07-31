@@ -477,6 +477,15 @@ export function koOutcome(
   return heroHp === HERO_MAX_HP ? "perfect" : "ko";
 }
 
+/** Sous ce ratio, le Boss entre en « danger » : jauge clignotante et idle
+ *  ralenti. C'est ce qui fait monter la tension sur la fin d'un combat. */
+export const BOSS_DANGER_HP_RATIO = 0.25;
+
+export function isBossInDanger(currentHp: number, maxHp: number): boolean {
+  if (maxHp <= 0 || currentHp <= 0) return false;
+  return currentHp / maxHp < BOSS_DANGER_HP_RATIO;
+}
+
 export const XP_PER_TASK = 30;
 export const XP_THRESHOLD_PER_LEVEL = 100;
 

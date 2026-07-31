@@ -8,6 +8,7 @@ import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
 import HeroVfx from "./HeroVfx";
 import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
+import { isBossInDanger } from "@/lib/game-engine";
 
 // A2 (issue #101) : breakdown des pénalités Héros propagé depuis Arena
 // jusqu'à HeroBar. Type en miroir de HeroBar.tsx (garder les deux alignés).
@@ -89,6 +90,7 @@ export default function VersusScene({
 }: VersusSceneProps) {
   const heroMeta = heroSpriteMeta(heroSlug);
   const bossMeta = bossSpriteMeta(bossSlug);
+  const bossDanger = isBossInDanger(currentHp, maxHp);
 
   return (
     <div
@@ -124,7 +126,7 @@ export default function VersusScene({
           <MidnightTimer />
         </div>
         <div className="flex-1">
-          <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} />
+          <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} danger={bossDanger} />
           {upcomingDeadlineCount > 0 && (
             <p
               className="mt-0.5 text-right text-[0.65rem] uppercase tracking-wide text-alert drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
@@ -172,6 +174,7 @@ export default function VersusScene({
           frozen={frozen}
           fallbackHurtDeath={bossFallbackHurtDeath}
           reducedMotion={reducedMotion}
+          danger={bossDanger}
           flip={bossFlip}
           onImpact={onBossImpact}
           alt={`Le Boss du jour : ${bossName}`}

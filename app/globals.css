@@ -195,6 +195,21 @@ body {
   animation: knockback 220ms ease-out;
 }
 
+/* Jauge du Boss en danger (issue #48) : le clignotement annonce le dernier coup. */
+@keyframes boss-danger-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.boss-danger-blink {
+  animation: boss-danger-blink 900ms ease-in-out infinite;
+}
+
 /* ---- Flash de combat (US-21) ---- */
 @keyframes hit-shake {
   10%,
@@ -392,6 +407,9 @@ body {
     animation: none !important;
   }
   .is-knockback {
+    animation: none;
+  }
+  .boss-danger-blink {
     animation: none;
   }
 }

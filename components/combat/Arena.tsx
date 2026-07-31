@@ -56,6 +56,8 @@ import { DEFAULT_BACKGROUND_ID, getBackground } from "@/lib/backgrounds";
 import { heroSpriteMeta } from "@/lib/sprite-metadata";
 import {
   ATTACK_DURATION_MS,
+  DEATH_DURATION_MS,
+  KO_FADE_MS,
   SP_ATTACK_DURATION_MS,
   addPendingHit,
   hitStopMs,
@@ -97,6 +99,7 @@ import { getAchievement } from "@/lib/achievements";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
 import { pickVfxVariant } from "./HeroVfx";
+import KoSlam from "./KoSlam";
 
 interface ArenaProps {
   initialProfile: Profile;
@@ -166,6 +169,10 @@ export default function Arena({
     monstersDefeated: number;
     firstVictory: boolean;
   } | null>(null);
+  // Issue #48 : séquence de mort du Boss avant l'overlay (death -> slam K.O.
+  // -> fondu -> PerfectOverlay), cf. startKoSequence.
+  const koSequenceRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [koSlam, setKoSlam] = useState(false);
   // US-29 : coach du 1er combat.
   const [tutorialActive, setTutorialActive] = useState(!hasSeenTutorial);
   const tutorialSeenRef = useRef(false);
@@ -210,10 +217,15 @@ export default function Arena({
     anim?: HeroAttackAnim;
     key: number;
   } | null>(null);
+  // Boss déjà K.O. au chargement (reste d'une session précédente) : on fige
+  // sur death sans jouer la séquence (pas de slam, pas d'overlay).
   const [bossAnim, setBossAnim] = useState<{
     state: "idle" | "attack" | "hurt" | "death";
     key: number;
-  }>({ state: "idle", key: 0 });
+  }>(() => ({
+    state: calculateBossCurrentHp(initialTasks) === 0 ? "death" : "idle",
+    key: 0,
+  }));
   const [frozen, setFrozen] = useState(false);
   const [vfxVariant, setVfxVariant] = useState<string | null>(null);
   const pendingHitRef = useRef<PendingHits | null>(null);
@@ -405,6 +417,7 @@ export default function Arena({
       // Issue #48 : timers d'impact/hit-stop des animations de combat.
       if (impactTimerRef.current) clearTimeout(impactTimerRef.current);
       if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
+      koSequenceRef.current.forEach(clearTimeout);
     };
   }, []);
 
@@ -428,6 +441,20 @@ export default function Arena({
     recapPlayedRef.current = true;
     triggerBossAttack("recap");
   }, [missedDeadlines.length, overdueTasks.length, reducedMotion, showWakeUp]);
+
+  // Renaissance : une tâche ajoutée après le K.O. re-soigne le Boss (cf.
+  // koOutcome, garde prevBossHp===0). La séquence de mort en cours est
+  // annulée — pas de slam, pas d'overlay. Ajustement pendant le rendu (même
+  // patron que wasEmpty/CharacterSprite) plutôt qu'un effet : évite le
+  // re-rendu en cascade signalé par react-hooks/set-state-in-effect.
+  const [prevCurrentHpForRenaissance, setPrevCurrentHpForRenaissance] = useState(currentHp);
+  if (currentHp !== prevCurrentHpForRenaissance) {
+    setPrevCurrentHpForRenaissance(currentHp);
+    if (currentHp > 0) {
+      cancelKoSequence();
+      setBossAnim((prev) => (prev.state === "death" ? { state: "idle", key: prev.key + 1 } : prev));
+    }
+  }
 
   // US-05 : polling léger (~45s) pendant que l'Arène est montée. Ne se
   // déclenche jamais rétroactivement pour une deadline déjà ratée avant le
@@ -647,6 +674,32 @@ export default function Arena({
       bossAttackPendingRef.current = null;
       triggerBossAttack(reason);
     }
+  }
+
+  type KoPayload = NonNullable<Parameters<typeof setKoState>[0]>;
+
+  // Décale l'ouverture de PerfectOverlay pour laisser la mort du Boss et le
+  // slam « K.O. » se jouer : death (DEATH_DURATION_MS) -> slam + fondu
+  // (KO_FADE_MS) -> setKoState (ouvre l'overlay). Sous reduced-motion, aucun
+  // délai : l'overlay s'ouvre immédiatement (comportement pré-#48).
+  function startKoSequence(payload: KoPayload) {
+    if (reducedMotion) {
+      setKoState(payload);
+      return;
+    }
+    koSequenceRef.current.push(
+      setTimeout(() => setKoSlam(true), DEATH_DURATION_MS),
+      setTimeout(() => {
+        setKoSlam(false);
+        setKoState(payload);
+      }, DEATH_DURATION_MS + KO_FADE_MS),
+    );
+  }
+
+  function cancelKoSequence() {
+    koSequenceRef.current.forEach(clearTimeout);
+    koSequenceRef.current = [];
+    setKoSlam(false);
   }
 
   function handleAdd(title: string) {
@@ -905,7 +958,7 @@ export default function Arena({
         const milestone = [7, 30, 100].includes(streakIfVictory)
           ? streakIfVictory
           : null;
-        setKoState({
+        startKoSequence({
           tier,
           milestone,
           damageDealt: nextMaxHp,
@@ -963,7 +1016,10 @@ export default function Arena({
       setTasks(previousTasksSnapshot);
       setProfile(previousProfileSnapshot);
       setLevelUpValue(null);
-      if (hpDelta > 0) setKoState(null);
+      if (hpDelta > 0) {
+        cancelKoSequence();
+        setKoState(null);
+      }
       resetCombo();
       setBanner(lastResult.error);
       return;
@@ -1315,6 +1371,7 @@ export default function Arena({
             onBossImpact={onBossImpact}
             onHeroAttackEnd={onHeroAttackEnd}
           />
+          {koSlam && <KoSlam />}
           {comboFlash && (
             <ComboBanner
               key={comboFlash.key}

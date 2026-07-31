@@ -46,6 +46,7 @@ import {
   xpThresholdForLevel,
   XP_PER_TASK,
   XP_THRESHOLD_PER_LEVEL,
+  isBossInDanger,
 } from "./game-engine";
 import type { ReorderableCompletionTask } from "./game-engine";
 import type { Task } from "../types";
@@ -1223,5 +1224,20 @@ describe("currentStreak", () => {
     expect(currentStreak(rows, today).length).toBeGreaterThanOrEqual(100);
     // Avec seulement 60 jours fournis (le bug), le palier 100 est hors de portée.
     expect(currentStreak(rows.slice(0, 60), today).length).toBeLessThan(100);
+  });
+});
+
+describe("isBossInDanger", () => {
+  it("passe en danger sous le quart des HP", () => {
+    expect(isBossInDanger(24, 100)).toBe(true);
+    expect(isBossInDanger(25, 100)).toBe(false);
+  });
+
+  it("n'est pas en danger quand le Boss est déjà K.O.", () => {
+    expect(isBossInDanger(0, 100)).toBe(false);
+  });
+
+  it("gère un Boss sans HP maximum", () => {
+    expect(isBossInDanger(0, 0)).toBe(false);
   });
 });
