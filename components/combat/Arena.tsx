@@ -80,6 +80,7 @@ import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
 import PerfectOverlay from "./PerfectOverlay";
 import LevelUpOverlay from "./LevelUpOverlay";
+import AchievementToast from "./AchievementToast";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
 import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
@@ -152,6 +153,7 @@ export default function Arena({
   const [tutorialActive, setTutorialActive] = useState(!hasSeenTutorial);
   const tutorialSeenRef = useRef(false);
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
+  const [achievementQueue, setAchievementQueue] = useState<string[]>([]);
   const [banner, setBanner] = useState<string | null>(null);
   // US-15 : id en attente de confirmation de Rage Quit + toast d'annulation.
   const [rageQuitConfirmId, setRageQuitConfirmId] = useState<string | null>(null);
@@ -778,9 +780,14 @@ export default function Arena({
     // parallèle, chacun partirait du même profil pas encore à jour et
     // écraserait le gain d'XP des autres.
     let lastResult: Awaited<ReturnType<typeof setTaskCompletedAction>> | null = null;
+    const newAchievementCodes: string[] = [];
     for (const change of cascade) {
       lastResult = await setTaskCompletedAction(change.taskId, change.isCompleted);
+      if (lastResult.newAchievements?.length) newAchievementCodes.push(...lastResult.newAchievements);
       if (lastResult.error) break;
+    }
+    if (newAchievementCodes.length > 0) {
+      setAchievementQueue((prev) => [...prev, ...newAchievementCodes]);
     }
 
     if (lastResult?.error) {
@@ -1192,6 +1199,10 @@ export default function Arena({
               onDismiss={() => setLevelUpValue(null)}
             />
           )}
+          <AchievementToast
+            codes={achievementQueue}
+            onDismissAll={() => setAchievementQueue([])}
+          />
         </div>
       </div>
 
