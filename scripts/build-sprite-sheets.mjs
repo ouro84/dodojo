@@ -258,8 +258,165 @@ async function buildHeroes() {
   return meta;
 }
 
+// --- Boss à frames individuelles (idle) --- (repris de copy-boss-sprites.mjs)
+const FRAME_BOSSES = [
+  {
+    slug: "frost-guardian",
+    dir: A("Boss/Frost_Guardian_FREE_v1.0/Frost_Guardian_FREE_v1.0/PNG files/idle"),
+  },
+  {
+    slug: "demon-slime",
+    dir: A("Boss/boss_demon_slime_FREE_v1.0/boss_demon_slime_FREE_v1.0/individual sprites/01_demon_idle"),
+  },
+  {
+    slug: "cthulhu",
+    dir: A("Boss/free_cthulu_v1/free_cthulu/animations/PNG/idle"),
+  },
+  {
+    slug: "minotaur",
+    dir: A("Boss/mino_v1.1_free/mino_v1.1_free/animations/idle"),
+  },
+];
+
+// --- Boss "low boss" à spritesheet (idle) : frames = nb d'images dans la bande ---
+const LB = "Boss/low boss";
+const SHEET_BOSSES = [
+  { slug: "satyr", file: A(`${LB}/Free-Satyr-Sprite-Sheet-Pixel-Art-Pack/Satyr_2/Idle.png`), frames: 7 },
+  { slug: "urban-zombie", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_1/Idle.png`), frames: 6 },
+  { slug: "mushroom", file: A(`${LB}/Mushroom/Mushroom without VFX/Mushroom-Idle.png`), frames: 7 },
+  { slug: "gorgon", file: A(`${LB}/free-gorgon-pixel-art-character-sprite-sheets/Gorgon_1/Idle.png`), frames: 7 },
+  { slug: "fire-wizard", file: A(`${LB}/free-wizard-sprite-sheets-pixel-art/Fire vizard/Idle.png`), frames: 7 },
+  { slug: "lightning-mage", file: A(`${LB}/free-wizard-sprite-sheets-pixel-art/Lightning Mage/Idle.png`), frames: 7 },
+  { slug: "gangster", file: A(`${LB}/gangster-pixel-character-sprite-sheets-pack/Gangsters_1/Idle.png`), frames: 6 },
+  { slug: "knight", file: A(`${LB}/knight-character-sprites-pixel-art/Spritesheet 128/Knight_1/Idle.png`), frames: 4 },
+  { slug: "temptress", file: A(`${LB}/Free-Satyr-Sprite-Sheet-Pixel-Art-Pack/Satyr_1/Idle.png`), frames: 7 },
+  { slug: "idler", file: A(`${LB}/Free-Satyr-Sprite-Sheet-Pixel-Art-Pack/Satyr_3/Idle.png`), frames: 6 },
+  { slug: "jaded", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_2/Idle.png`), frames: 6 },
+  { slug: "procrastinator", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_3/Idle.png`), frames: 6 },
+  { slug: "dock-corpse", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_4/Idle.png`), frames: 7 },
+  { slug: "gorgon-ivory", file: A(`${LB}/free-gorgon-pixel-art-character-sprite-sheets/Gorgon_2/Idle.png`), frames: 7 },
+  { slug: "gorgon-scarlet", file: A(`${LB}/free-gorgon-pixel-art-character-sprite-sheets/Gorgon_3/Idle.png`), frames: 7 },
+  { slug: "accomplice", file: A(`${LB}/gangster-pixel-character-sprite-sheets-pack/Gangsters_2/Idle.png`), frames: 7 },
+  { slug: "mob-baron", file: A(`${LB}/gangster-pixel-character-sprite-sheets-pack/Gangsters_3/Idle.png`), frames: 7 },
+  { slug: "knight-amethyst", file: A(`${LB}/knight-character-sprites-pixel-art/Spritesheet 128/Knight_2/Idle.png`), frames: 4 },
+  { slug: "knight-garnet", file: A(`${LB}/knight-character-sprites-pixel-art/Spritesheet 128/Knight_3/Idle.png`), frames: 4 },
+  { slug: "wandering-mage", file: A(`${LB}/free-wizard-sprite-sheets-pixel-art/Wanderer Magican/Idle.png`), frames: 8 },
+  { slug: "minotaur-warrior", file: A(`${LB}/free-minotaur-sprite-sheet-pixel-art-pack/Minotaur_1/Idle.png`), frames: 10 },
+  { slug: "minotaur-ardent", file: A(`${LB}/free-minotaur-sprite-sheet-pixel-art-pack/Minotaur_2/Idle.png`), frames: 10 },
+  { slug: "minotaur-occult", file: A(`${LB}/free-minotaur-sprite-sheet-pixel-art-pack/Minotaur_3/Idle.png`), frames: 10 },
+];
+
+// Sous-dossiers d'anims des 4 boss à frames individuelles (chemins vérifiés).
+const FRAME_BOSS_ANIM_DIRS = {
+  "frost-guardian": { idle: "idle", attack: "1_atk", hurt: "take_hit", death: "death" },
+  "demon-slime": {
+    idle: "01_demon_idle", attack: "03_demon_cleave",
+    hurt: "04_demon_take_hit", death: "05_demon_death",
+  },
+  cthulhu: { idle: "idle", attack: "1atk", hurt: "hurt", death: "death" },
+  // mino_v1.1_free n'a ni hurt ni death : lib/bosses.ts porte fallbackHurtDeath.
+  minotaur: { idle: "idle", attack: "atk_1" },
+};
+
+// Noms de fichiers candidats par anim pour les packs "low boss".
+const SHEET_ANIM_CANDIDATES = {
+  idle: ["Idle.png"],
+  attack: ["Attack_1.png", "Attack 1.png", "Attack.png"],
+  hurt: ["Hurt.png", "Hit.png"],
+  death: ["Dead.png", "Die.png"],
+};
+
+async function resolveSheetFile(dir, prefix, anim) {
+  const candidates = [
+    ...SHEET_ANIM_CANDIDATES[anim],
+    // Le pack Mushroom préfixe tous ses fichiers : Mushroom-Attack.png, etc.
+    // Le préfixe réel est le nom du dossier du PACK, pas celui du sous-dossier
+    // de variante ("Mushroom without VFX") : on tente donc aussi le nom du
+    // dossier parent, plus tolérant que le seul basename(dir).
+    ...SHEET_ANIM_CANDIDATES[anim].map((c) => `${prefix}-${c}`),
+    ...SHEET_ANIM_CANDIDATES[anim].map((c) => `${path.basename(path.dirname(dir))}-${c}`),
+    ...(anim === "death" ? [`${prefix}-Die.png`] : []),
+    ...(anim === "hurt" ? [`${prefix}-Hit.png`] : []),
+  ];
+  for (const name of candidates) {
+    const full = path.join(dir, name);
+    try {
+      await fs.access(full);
+      return full;
+    } catch {
+      // candidat suivant
+    }
+  }
+  return null;
+}
+
+async function buildBosses() {
+  const meta = {};
+
+  for (const { slug, dir } of FRAME_BOSSES) {
+    const animDirs = FRAME_BOSS_ANIM_DIRS[slug];
+    const packRoot = path.dirname(dir); // `dir` pointe sur l'idle dans copy-boss-sprites
+    const loaded = {};
+    for (const [anim, sub] of Object.entries(animDirs)) {
+      loaded[anim] = await loadFramesFromDir(path.join(packRoot, sub));
+    }
+    meta[slug] = await emitBoss(slug, loaded);
+  }
+
+  for (const { slug, file, frames: idleFrames } of SHEET_BOSSES) {
+    const dir = path.dirname(file);
+    const prefix = path.basename(dir); // ex. "Mushroom without VFX" -> non utilisé si candidat direct
+    const { width: idleWidth } = await sharp(file).metadata();
+    const tileW = idleWidth / idleFrames;
+    if (!Number.isInteger(tileW)) {
+      throw new Error(`${slug} : tuile non entière (${idleWidth}/${idleFrames})`);
+    }
+    const loaded = { idle: await sliceSheet(file, tileW) };
+    for (const anim of ["attack", "hurt", "death"]) {
+      const found = await resolveSheetFile(dir, prefix, anim);
+      if (!found) throw new Error(`${slug} : feuille "${anim}" introuvable dans ${dir}`);
+      loaded[anim] = await sliceSheet(found, tileW);
+    }
+    meta[slug] = await emitBoss(slug, loaded);
+  }
+
+  return meta;
+}
+
+const BOSS_ATTACK_ANIMS = new Set(["attack"]);
+
+async function emitBoss(slug, loaded) {
+  const box = unionBox(Object.values(loaded).flat());
+  const idleBox = unionBox(loaded.idle);
+  const outDir = PUB(`sprites/bosses/${slug}`);
+  await fs.rm(path.join(outDir, "anim"), { recursive: true, force: true });
+
+  const anims = {};
+  for (const [anim, frames] of Object.entries(loaded)) {
+    await writeSheet(frames, box, path.join(outDir, "anim", `${anim}.png`));
+    anims[anim] = {
+      frames: frames.length,
+      impactFrame: BOSS_ATTACK_ANIMS.has(anim)
+        ? impactFrameFor(slug, anim, frames.length)
+        : null,
+    };
+  }
+  await writeStill(loaded.idle[0], box, path.join(outDir, "still.png"));
+
+  const legacy = LEGACY_IDLE_HEIGHTS[slug];
+  if (!legacy) throw new Error(`Hauteur de référence manquante pour ${slug}`);
+  console.log(`boss ${slug} : tuile ${box.width}x${box.height}, anims ${Object.keys(anims).join("/")}`);
+  return {
+    tileW: box.width,
+    tileH: box.height,
+    renderScale: box.height / legacy,
+    groundOffset: (box.top + box.height - (idleBox.top + idleBox.height)) / box.height,
+    anims,
+  };
+}
+
 export {
   A, PUB, LEGACY_IDLE_HEIGHTS, numericSort,
   loadFramesFromDir, sliceSheet, unionBox, writeSheet, writeStill,
-  buildHeroes,
+  buildHeroes, buildBosses,
 };
