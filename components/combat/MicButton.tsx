@@ -7,9 +7,17 @@ import { sanitizeTranscript } from "@/lib/speech";
 interface MicButtonProps {
   disabled?: boolean;
   onTranscript: (title: string) => void;
+  // Issue #116 : MicButton est monté deux fois sur le même écran (formulaire
+  // du jour + section "Demain" via AddTaskForm) — libellé distinct requis,
+  // même raison que submitLabel sur AddTaskForm (régression e2e constatée).
+  label?: string;
 }
 
-export default function MicButton({ disabled = false, onTranscript }: MicButtonProps) {
+export default function MicButton({
+  disabled = false,
+  onTranscript,
+  label = "Dicter une tâche",
+}: MicButtonProps) {
   const handleResult = useCallback(
     (raw: string) => {
       const clean = sanitizeTranscript(raw);
@@ -31,7 +39,7 @@ export default function MicButton({ disabled = false, onTranscript }: MicButtonP
       <button
         type="button"
         disabled={disabled}
-        aria-label={isListening ? "Arrêter l'écoute" : "Dicter une tâche"}
+        aria-label={isListening ? "Arrêter l'écoute" : label}
         aria-pressed={isListening}
         onClick={isListening ? stop : start}
         className={`shrink-0 rounded-md border border-border bg-surface p-3.5 text-ink disabled:opacity-40 ${

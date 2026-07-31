@@ -157,4 +157,18 @@ describe("insertTaskForUser (US-03/US-22 — extraction réutilisable hors sessi
     expect(outcome.bossMaxHp).toBe(20);
     expect(outcome.bossCurrentHp).toBe(20);
   });
+
+  test("dayDate explicite (issue #116) : ignore dayKey(now), insère sur le jour fourni", async () => {
+    const tables: Record<string, Row[]> = { tasks: [] };
+
+    const outcome = await insertTaskForUser(fakeSupabase(tables), {
+      userId: "u1",
+      title: "Préparer demain",
+      timezone: "Europe/Paris",
+      dayDate: "2026-07-23",
+    });
+
+    expect(outcome.dayDate).toBe("2026-07-23");
+    expect(tables.tasks[0]).toMatchObject({ day_date: "2026-07-23" });
+  });
 });

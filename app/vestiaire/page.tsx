@@ -10,6 +10,7 @@ import PushReminderToggle from "@/components/qg/PushReminderToggle";
 import WebhookTokenSection from "@/components/qg/WebhookTokenSection";
 import GeminiConnectionSection from "@/components/qg/GeminiConnectionSection";
 import AggressivityLevelSection from "@/components/qg/AggressivityLevelSection";
+import PlanTomorrowSection from "@/components/qg/PlanTomorrowSection";
 import { isGeminiConnected } from "@/lib/oauth-gemini";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
 import BottomNav from "@/components/ui/BottomNav";
@@ -44,7 +45,9 @@ export default async function QgPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("best_streak, timezone, webhook_token_hash, webhook_token_last_used_at, aggressivity_level")
+      .select(
+        "best_streak, timezone, webhook_token_hash, webhook_token_last_used_at, aggressivity_level, plan_tomorrow_after_hour",
+      )
       .eq("id", user.id)
       .maybeSingle(),
     isGeminiConnected(supabase, user.id),
@@ -76,6 +79,7 @@ export default async function QgPage() {
         <InstallCta />
       </div>
       <AggressivityLevelSection initialLevel={resolveAggressivityLevel(profile?.aggressivity_level)} />
+      <PlanTomorrowSection initialHour={profile?.plan_tomorrow_after_hour ?? 18} />
       <IntegrationsSection>
         <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
         <WebhookTokenSection

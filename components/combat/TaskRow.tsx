@@ -19,6 +19,10 @@ interface TaskRowProps {
   onAbandon: (id: string) => void;
   onAddSubtask: (parentId: string, title: string) => void;
   onSetDeadline: (id: string, deadlineAt: string | null) => void;
+  // Issue #116 : report proactif vers demain, gated par l'heure seuil
+  // (profiles.plan_tomorrow_after_hour) — calculé côté Arena.
+  onReportTomorrow: (id: string) => void;
+  showReportTomorrow?: boolean;
   isAddingSubtask: boolean;
   // True pendant qu'une mutation de cette tâche est en vol côté serveur
   // (toggle, abandon, deadline). Distinct de `isOptimisticTask` qui ne couvre
@@ -41,6 +45,8 @@ export default function TaskRow({
   onAbandon,
   onAddSubtask,
   onSetDeadline,
+  onReportTomorrow,
+  showReportTomorrow = false,
   isAddingSubtask,
   isMutating = false,
   isMissedDeadline = false,
@@ -153,6 +159,17 @@ export default function TaskRow({
         >
           -20 HP
         </span>
+      )}
+      {showReportTomorrow && (
+        <button
+          type="button"
+          onClick={() => onReportTomorrow(task.id)}
+          disabled={isLocked}
+          aria-label={`Reporter "${task.title}" à demain`}
+          className="shrink-0 rounded px-2 py-2.5 text-xs text-faint hover:text-ink focus-visible:text-ink disabled:cursor-wait disabled:opacity-40"
+        >
+          →
+        </button>
       )}
       <button
         type="button"

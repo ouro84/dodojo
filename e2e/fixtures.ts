@@ -268,6 +268,35 @@ export async function getTaskById(
   return data ?? null;
 }
 
+// Issue #116 : règle profiles.plan_tomorrow_after_hour pour le compte e2e fixe
+// (ADR-04). Combiné à page.clock côté test pour un gate déterministe, quelle
+// que soit l'heure réelle d'exécution de la CI.
+export async function setPlanTomorrowAfterHour(hour: number): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "setPlanTomorrowAfterHour : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
+    );
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("setPlanTomorrowAfterHour : utilisateur test introuvable.");
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ plan_tomorrow_after_hour: hour })
+    .eq("id", uid);
+  if (error) throw new Error(`setPlanTomorrowAfterHour a échoué : ${error.message}`);
+}
+
+// Remet le défaut (18) pour ne pas polluer les autres tests du compte partagé.
+export async function resetPlanTomorrowAfterHour(): Promise<void> {
+  await setPlanTomorrowAfterHour(18);
+}
+
 // Nettoyage du reste semé ci-dessus (service_role bypass RLS - pas
 // l'exception applicative RG-04, ceci est un utilitaire de test uniquement).
 export async function deleteTaskById(id: string): Promise<void> {

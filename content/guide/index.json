@@ -97,6 +97,17 @@
     "majLe": "2026-07-27T19:09:00.000Z"
   },
   {
+    "titre": "Planifier demain",
+    "slug": "planifier-demain",
+    "section": "Journée",
+    "ordre": 30,
+    "resume": "Créer une tâche pour demain ou reporter une tâche du jour, sans malus.",
+    "motsCles": [
+      "rituel"
+    ],
+    "majLe": "2026-07-31T21:11:00.000Z"
+  },
+  {
     "titre": "Séries & jokers",
     "slug": "streak",
     "section": "Progression",
