@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #116 : section "Demain" dans l'Arène (réglable, 12h-23h) — créer une tâche directement pour demain, reporter une tâche du jour vers demain sans malus, ou la ramener à aujourd'hui. Réglage dans Le Vestiaire, ligne de La Voix au premier déblocage du jour.
 - Issue #48 : Animations de combat : le héros attaque avec un effet propre à son élément, le Boss encaisse et meurt, et contre-attaque sur une deadline ratée ou un Rage Quit. Hit-stop, recul, jauge fantôme et « K.O. » qui claque.
 - Issue #122 : tarif plat du Marché Noir — 500 or par héros (au lieu du barème gradué 150-350), 300 or par tenue alternative (au lieu de `30% du prix du héros`). Ralentit l'acquisition pour préserver la valeur-récompense de l'or ; les anciens achats gardent leur `price_paid` historique (pas de migration rétroactive, RG-04 esprit).
 - Issue #72 : système de succès & titres (26 succès, 4 raretés, catalogue `/tableau-de-chasse/succes`, titre équipable manuellement, succès mystère + barres de progression, notification `AchievementToast`).
