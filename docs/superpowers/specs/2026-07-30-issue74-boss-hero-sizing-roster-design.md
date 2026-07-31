@@ -82,7 +82,7 @@ anciens ») ne change pas — il était déjà correct, seul le sprite ne corres
 violette) deviennent deux nouveaux boss à part (cf. section D) plutôt que d'être
 perdus.
 
-## D. Extension du roster — 14 nouveaux boss
+## D. Extension du roster — 15 nouveaux boss
 
 Inventaire des variantes de packs CraftPix jamais utilisées (7 packs, tuile 128px
 confirmée par mesure directe des fichiers déjà catalogués) :
@@ -134,18 +134,19 @@ via l'écran de test interne `/roster-preview-8f3a2c9d`, comme le reste du roste
 nom de boss commençant par un article (« le »/« la »/« un »/...) — les noms ci-dessus
 ont été choisis sans article de tête pour passer ce test existant sans modification.
 
-Total roster : 12 → **26 boss** (14 nouveaux, `satyr` corrigé en place — pas un 15e
-ajout).
+Total roster : 12 → **27 boss** (15 nouveaux, en plus du fix du sprite `satyr` qui ne
+compte pas comme un ajout — il libère `Satyr_1`, l'un des 15, plutôt que d'en
+consommer un).
 
 ## Fichiers touchés
 
 - `scripts/copy-boss-sprites.mjs` : trim bbox-union post-extraction (tous les boss,
-  existants et nouveaux) ; 14 nouvelles entrées `FRAME_BOSSES`/`SHEET_BOSSES` ;
+  existants et nouveaux) ; 15 nouvelles entrées `FRAME_BOSSES`/`SHEET_BOSSES` ;
   bascule de la source `satyr` vers `Satyr_2`.
-- `lib/bosses.ts` : +14 entrées `Boss`.
+- `lib/bosses.ts` : +15 entrées `Boss`.
 - `components/combat/VersusScene.tsx` : `h-28`→`h-24` (boss), `h-28`→`h-[88px]`
   (héros).
-- `ASSETS.md` : table roster mise à jour (12→26), doc du trim bbox-union, doc du fix
+- `ASSETS.md` : table roster mise à jour (12→27), doc du trim bbox-union, doc du fix
   `satyr`, doc du pack minotaure low-boss désormais exploité.
 - `CLAUDE.md` : mise à jour de l'entrée « Roster de Boss & décors dynamiques »
   (règle projet — tout changement de comportement non-évident documenté dans le même
@@ -157,9 +158,9 @@ ajout).
 - `lib/bosses.test.ts` : générique (pas de compte de boss figé), couvre déjà
   l'intégrité des `backgroundThemes` (thème → au moins une variante de décor
   existante), l'unicité des `id`, et l'absence d'article de tête dans les noms —
-  vérifié manuellement ci-dessus pour les 14 nouvelles entrées, doit rester vert sans
+  vérifié manuellement ci-dessus pour les 15 nouvelles entrées, doit rester vert sans
   modification du test.
-- Vérification manuelle obligatoire via `/roster-preview-8f3a2c9d` : les 26 boss
+- Vérification manuelle obligatoire via `/roster-preview-8f3a2c9d` : les 27 boss
   s'affichent à une hauteur de personnage visuellement cohérente (fix A), et
   l'orientation `flip` de chaque nouveau boss est confirmée à l'œil (comme pour le
   reste du roster).
