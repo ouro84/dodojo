@@ -29,6 +29,8 @@ interface CharacterSpriteProps {
   danger?: boolean;
   /** minotaur : pack sans hurt ni death, on retombe sur l'idle + effet CSS. */
   fallbackHurtDeath?: boolean;
+  /** Écran de calage (RosterPreview) : ralentit l'anim sans changer impactFrame. */
+  speedMultiplier?: number;
   reducedMotion?: boolean;
   onImpact?: () => void;
   onStateEnd?: () => void;
@@ -61,6 +63,7 @@ export default function CharacterSprite({
   extraDelayMs = 0,
   danger = false,
   fallbackHurtDeath = false,
+  speedMultiplier = 1,
   reducedMotion = false,
   onImpact,
   onStateEnd,
@@ -106,7 +109,8 @@ export default function CharacterSprite({
 
   const renderedHeight = baseHeight * meta.renderScale;
   const loop = animName === "idle";
-  const duration = durationFor(animName, anim.frames) * (danger && loop ? 1.3 : 1);
+  const duration =
+    durationFor(animName, anim.frames) * (danger && loop ? 1.3 : 1) * (1 / speedMultiplier);
   // Arrondi à 2 décimales : l'arithmétique flottante brute (ex. 0.1 * 132)
   // produit des valeurs comme 13.200000000000001, imperceptible à l'écran
   // mais qui casse toute comparaison de style exacte (tests, snapshots).
