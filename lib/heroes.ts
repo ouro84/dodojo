@@ -15,7 +15,7 @@ export const HEROES: Hero[] = [
     slug: "fire-knight",
     idleFramePrefix: idlePrefix("fire-knight"),
     idleFrameCount: 8,
-    price: 150,
+    price: 500,
     isDefault: true,
   },
   {
@@ -25,7 +25,7 @@ export const HEROES: Hero[] = [
     slug: "water-priestess",
     idleFramePrefix: idlePrefix("water-priestess"),
     idleFrameCount: 8,
-    price: 200,
+    price: 500,
     isDefault: false,
   },
   {
@@ -35,7 +35,7 @@ export const HEROES: Hero[] = [
     slug: "ground-monk",
     idleFramePrefix: idlePrefix("ground-monk"),
     idleFrameCount: 6,
-    price: 200,
+    price: 500,
     isDefault: false,
   },
   {
@@ -45,7 +45,7 @@ export const HEROES: Hero[] = [
     slug: "wind-hashashin",
     idleFramePrefix: idlePrefix("wind-hashashin"),
     idleFrameCount: 8,
-    price: 300,
+    price: 500,
     isDefault: false,
   },
   {
@@ -55,7 +55,7 @@ export const HEROES: Hero[] = [
     slug: "leaf-ranger",
     idleFramePrefix: idlePrefix("leaf-ranger"),
     idleFrameCount: 12,
-    price: 300,
+    price: 500,
     isDefault: false,
   },
   {
@@ -65,7 +65,7 @@ export const HEROES: Hero[] = [
     slug: "crystal-mauler",
     idleFramePrefix: idlePrefix("crystal-mauler"),
     idleFrameCount: 8,
-    price: 350,
+    price: 500,
     isDefault: false,
   },
   {
@@ -75,7 +75,7 @@ export const HEROES: Hero[] = [
     slug: "metal-bladekeeper",
     idleFramePrefix: idlePrefix("metal-bladekeeper"),
     idleFrameCount: 8,
-    price: 350,
+    price: 500,
     isDefault: false,
   },
 ];

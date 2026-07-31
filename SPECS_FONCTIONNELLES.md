@@ -292,6 +292,29 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
 
 ---
 
+### 🛠️ HORS SPRINT — RECALIBRAGE ÉCONOMIQUE (ISSUE #122)
+
+> Hors lotissement sprint (fix économique isolé), voir `CHANGELOG.md [Unreleased]` pour la ligne produit. Spec commentée sur l'issue GitHub : <https://github.com/ouro84/dodojo/issues/122>.
+
+#### Issue #122 : Tarif plat du Marché Noir
+*   **Standard :** En tant que Héros, je veux que tous les combattants coûtent 500 or et toutes les tenues alternatives 300 or (au lieu d'un barème gradué 150-350 pour les héros et `30% du prix du héros` pour les tenues) pour que chaque acquisition représente un effort significatif et préserve la valeur de l'or comme récompense.
+*   **BDD :**
+    ```gherkin
+    Given Un profil avec 490 pièces d'or et aucun héros additionnel débloqué
+    When L'utilisateur tente de débloquer un héros à 500 or dans Le Marché Noir
+    Then L'achat est refusé et le solde reste à 490
+    And Un texte explicite rappelle qu'il manque 10 or
+    ```
+
+    ```gherkin
+    Given Un profil avec 1500 pièces d'or et le starter de l'onboarding équipé
+    When L'utilisateur débloque successivement un héros (500) puis une tenue alternative (300) de ce nouveau héros
+    Then Son solde descend à 700
+    And Le héros passe en couleur dans la matrice, la tenue est possédée
+    ```
+
+---
+
 ## 4. Modèle de Données (Relationnel - Supabase / PostgreSQL)
 
 ### Table : `profiles`
