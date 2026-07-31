@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BOSSES } from "@/lib/bosses";
 import { BACKGROUNDS } from "@/lib/backgrounds";
+import { HEROES } from "@/lib/heroes";
 import RosterPreview from "@/components/combat/RosterPreview";
 
 // Écran de test INTERNE du roster de boss / décors.
@@ -24,7 +25,7 @@ export default async function RosterPreviewPage() {
       <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
         Roster — test interne
       </h1>
-      <RosterPreview bosses={BOSSES} backgrounds={BACKGROUNDS} />
+      <RosterPreview bosses={BOSSES} backgrounds={BACKGROUNDS} heroes={HEROES} />
     </main>
   );
 }

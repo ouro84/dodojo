@@ -128,6 +128,17 @@ mais l'implémentation réelle côté Google peut différer sur des détails et 
 ajustée en conséquence. C'est la raison pour laquelle l'audit du 2026-07-21
 recommandait initialement de repousser cette US — le risque de rework est réel.
 
+**Revérifié post-déploiement (issue #104, résultat négatif indépendant du code)** :
+l'implémentation Dodojo est correcte (endpoints prod conformes RFC 8414/9728,
+vérifiés en direct). Le blocage réel n'est ni un rework technique ni un défaut de
+spec côté Dodojo : la fonctionnalité grand public concernée (« Custom apps for
+Spark », pas Gemini Enterprise Agent Platform que les premières hypothèses de
+l'issue visaient à tort) est actuellement exclue de l'EEE/UK/Suisse/Nigeria par
+Google lui-même (rollout Gemini Spark + revue de conformité AI Act européen en
+cours, aucune date officielle). Vérifié en direct sur un compte réel (Android,
+France) : la section « Custom apps »/MCP n'apparaît pas du tout dans les réglages
+Gemini. Rien à corriger côté Dodojo tant que Google n'étend pas ce rollout à l'EEE.
+
 ---
 
 ## Tests
