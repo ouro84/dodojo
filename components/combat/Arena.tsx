@@ -206,12 +206,12 @@ export default function Arena({
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   const [heroAnim, setHeroAnim] = useState<{
-    state: "idle" | "attack";
-    anim: HeroAttackAnim;
+    state: "idle" | "attack" | "hurt";
+    anim?: HeroAttackAnim;
     key: number;
   } | null>(null);
   const [bossAnim, setBossAnim] = useState<{
-    state: "idle" | "hurt" | "death";
+    state: "idle" | "attack" | "hurt" | "death";
     key: number;
   }>({ state: "idle", key: 0 });
   const [frozen, setFrozen] = useState(false);
@@ -220,6 +220,16 @@ export default function Arena({
   const animKeyRef = useRef(0);
   const impactTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const freezeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Issue #48 (Task 4.1) : attaque du Boss sur deadline ratée / Rage Quit.
+  const [bossAttackReason, setBossAttackReason] = useState<
+    "deadline" | "rage_quit" | "recap" | null
+  >(null);
+  const bossAttackPendingRef = useRef<null | "deadline" | "rage_quit" | "recap">(null);
+  // Miroir de heroAnim (même patron que tasksRef) : triggerBossAttack est
+  // appelée depuis le polling deadline, un effet à deps `[]` (fermeture figée
+  // au montage) — lire heroAnim directement y renverrait toujours sa valeur
+  // initiale (null) et désactiverait la garde anti-chevauchement des animes.
+  const heroAnimRef = useRef(heroAnim);
 
   const [showWakeUp, setShowWakeUp] = useState(overdueTasks.length > 0);
   const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
@@ -400,6 +410,10 @@ export default function Arena({
     tasksRef.current = tasks;
   }, [tasks]);
 
+  useEffect(() => {
+    heroAnimRef.current = heroAnim;
+  }, [heroAnim]);
+
   // US-05 : polling léger (~45s) pendant que l'Arène est montée. Ne se
   // déclenche jamais rétroactivement pour une deadline déjà ratée avant le
   // montage (cf. knownMissedDeadlineIdsRef, initialisé au chargement).
@@ -419,6 +433,7 @@ export default function Arena({
         heroPulseCounterRef.current += 1;
         const key = heroPulseCounterRef.current;
         setHeroPulse({ key });
+        triggerBossAttack("deadline");
         setDeadlineAlert({
           taskId: freshlyMissed[0].id,
           taskTitle: freshlyMissed[0].title,
@@ -577,6 +592,46 @@ export default function Arena({
     setFrozen(true);
     if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
     freezeTimerRef.current = setTimeout(() => setFrozen(false), stop);
+  }
+
+  // Issue #48 (Task 4.1) : contre-attaque du Boss (deadline ratée, Rage Quit,
+  // récapitulatif au chargement — Task 4.2). Héros et Boss n'animent jamais en
+  // même temps : si le héros est en train de frapper, l'attaque attend la fin
+  // de son anim (rejouée depuis onHeroAttackEnd, cf. plus bas).
+  function triggerBossAttack(reason: "deadline" | "rage_quit" | "recap") {
+    if (reducedMotion) return;
+    if (heroAnimRef.current?.state === "attack") {
+      bossAttackPendingRef.current = reason;
+      return;
+    }
+    animKeyRef.current += 1;
+    setBossAnim({ state: "attack", key: animKeyRef.current });
+    setBossAttackReason(reason);
+  }
+
+  function onBossImpact() {
+    animKeyRef.current += 1;
+    setHeroAnim({ state: "hurt", key: animKeyRef.current });
+    const stop = hitStopMs({ isFatal: false, comboCount: 0, hits: 1 });
+    setFrozen(true);
+    if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
+    freezeTimerRef.current = setTimeout(() => setFrozen(false), stop);
+
+    if (bossAttackReason === "rage_quit") {
+      // Rage Quit : -5 XP, aucun HP. L'anim est narrative, la jauge ne bouge pas.
+      triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    }
+    // deadline / recap : les HP sont déjà décomptés par le calcul de heroHp,
+    // le FloatingText et le clignotement de jauge existants restent en place.
+  }
+
+  // Rejoue une attaque du Boss mise en attente pendant que le héros frappait.
+  function onHeroAttackEnd() {
+    if (bossAttackPendingRef.current) {
+      const reason = bossAttackPendingRef.current;
+      bossAttackPendingRef.current = null;
+      triggerBossAttack(reason);
+    }
   }
 
   function handleAdd(title: string) {
@@ -1027,7 +1082,14 @@ export default function Arena({
 
     setTasks(nextTasks);
     setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
-    triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    // Issue #48 : la contre-attaque du Boss porte le pulse -XP à l'impact
+    // (onBossImpact) ; sous reduced-motion, aucune anim ne se joue, le pulse
+    // reste donc immédiat pour ne jamais perdre le feedback.
+    if (reducedMotion) {
+      triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    } else {
+      triggerBossAttack("rage_quit");
+    }
     resetCombo(); // abandonner brise la série
     setUndoState({
       id,
@@ -1235,6 +1297,8 @@ export default function Arena({
             bossState={bossAnim.state}
             bossStateKey={bossAnim.key}
             frozen={frozen}
+            onBossImpact={onBossImpact}
+            onHeroAttackEnd={onHeroAttackEnd}
           />
           {comboFlash && (
             <ComboBanner

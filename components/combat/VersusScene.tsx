@@ -48,6 +48,10 @@ interface VersusSceneProps {
   frozen?: boolean;
   /** minotaur : pack sans hurt ni death (cf. lib/bosses.ts). */
   bossFallbackHurtDeath?: boolean;
+  /** Frame de contact de l'attaque du Boss (deadline ratée / rage quit). */
+  onBossImpact?: () => void;
+  /** Fin de l'anim d'attaque du Héros : rejoue une attaque Boss en attente. */
+  onHeroAttackEnd?: () => void;
 }
 
 // Décor + Boss dynamiques : le boss du jour et son décor cohérent sont tirés par
@@ -80,6 +84,8 @@ export default function VersusScene({
   bossStateKey = 0,
   frozen = false,
   bossFallbackHurtDeath = false,
+  onBossImpact,
+  onHeroAttackEnd,
 }: VersusSceneProps) {
   const heroMeta = heroSpriteMeta(heroSlug);
   const bossMeta = bossSpriteMeta(bossSlug);
@@ -147,6 +153,7 @@ export default function VersusScene({
           stateKey={heroStateKey}
           frozen={frozen}
           reducedMotion={reducedMotion}
+          onStateEnd={onHeroAttackEnd}
           alt={`Ton héros : ${heroName}`}
           className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
         />
@@ -166,6 +173,7 @@ export default function VersusScene({
           fallbackHurtDeath={bossFallbackHurtDeath}
           reducedMotion={reducedMotion}
           flip={bossFlip}
+          onImpact={onBossImpact}
           alt={`Le Boss du jour : ${bossName}`}
           className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
         />
