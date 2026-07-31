@@ -2,12 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import {
-  goldBalance,
-  tableauChasseStats,
-  titleForStreak,
-  xpThresholdForLevel,
-} from "@/lib/game-engine";
+import { goldBalance, tableauChasseStats, xpThresholdForLevel } from "@/lib/game-engine";
+import { getAchievement } from "@/lib/achievements";
 import DamageSparkline from "@/components/pantheon/DamageSparkline";
 import WinRateRing from "@/components/pantheon/WinRateRing";
 import CombatJournal from "@/components/pantheon/CombatJournal";
@@ -31,10 +27,11 @@ export default async function PantheonPage() {
     { data: goldHistory },
     { data: unlockedHeroes },
     { data: unlockedSkins },
+    { data: unlockedAchievements },
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("username, level, xp, current_title, best_streak")
+      .select("username, level, xp, equipped_title_code, best_streak")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -50,6 +47,7 @@ export default async function PantheonPage() {
     supabase.from("day_results").select("gold_earned").eq("user_id", user.id),
     supabase.from("unlocked_heroes").select("price_paid").eq("user_id", user.id),
     supabase.from("unlocked_skins").select("price_paid").eq("user_id", user.id),
+    supabase.from("unlocked_achievements").select("code").eq("user_id", user.id),
   ]);
 
   // État Error (règle projet n°3).
@@ -76,13 +74,10 @@ export default async function PantheonPage() {
   const xpThreshold = xpThresholdForLevel(profile.level);
   const xpPct = Math.min(100, Math.round((profile.xp / xpThreshold) * 100));
 
-  const TITLE_TIERS = [
-    { streak: 7, name: "Calme" },
-    { streak: 30, name: "Silence" },
-    { streak: 100, name: "Esprit Vide" },
-  ];
-  const nextLocked = TITLE_TIERS.find((t) => profile.best_streak < t.streak);
-  const activeTitle = titleForStreak(profile.best_streak) ?? profile.current_title;
+  const activeTitle = profile.equipped_title_code
+    ? (getAchievement(profile.equipped_title_code)?.title ?? "")
+    : "";
+  const unlockedAchievementCount = (unlockedAchievements ?? []).length;
 
   // État Empty (règle projet n°3) : aucun combat au palmarès.
   if (results.length === 0) {
@@ -166,30 +161,16 @@ export default async function PantheonPage() {
         </div>
       </section>
 
-      {/* Bloc Titres */}
+      {/* Bloc Titres & Succès */}
       <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
-        <p className="font-display text-xs uppercase tracking-wide text-muted">Titres</p>
-        <ul className="flex flex-col gap-1 text-xs">
-          {TITLE_TIERS.map((tier) => {
-            const unlocked = profile.best_streak >= tier.streak;
-            return (
-              <li
-                key={tier.streak}
-                className={`flex justify-between ${unlocked ? "text-gold" : "text-faint"}`}
-              >
-                <span>
-                  {unlocked ? "🏅" : "🔒"} {tier.name}
-                </span>
-                <span>série {tier.streak}</span>
-              </li>
-            );
-          })}
-        </ul>
-        {nextLocked && (
-          <p className="text-[11px] text-muted">
-            Prochain palier : {nextLocked.name} à {nextLocked.streak} jours de série.
-          </p>
-        )}
+        <p className="font-display text-xs uppercase tracking-wide text-muted">Titres & Succès</p>
+        <p className="text-xs text-muted">{unlockedAchievementCount} / 26 succès débloqués.</p>
+        <Link
+          href="/tableau-de-chasse/succes"
+          className="text-xs text-xp-text underline underline-offset-4"
+        >
+          Voir le catalogue complet
+        </Link>
       </section>
 
       {/* Bloc Journal de combat */}

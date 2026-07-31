@@ -81,6 +81,7 @@ import FloatingText from "./FloatingText";
 import PerfectOverlay from "./PerfectOverlay";
 import LevelUpOverlay from "./LevelUpOverlay";
 import AchievementToast from "./AchievementToast";
+import { getAchievement } from "@/lib/achievements";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
 import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
@@ -141,6 +142,9 @@ export default function Arena({
   const bossName = boss.name;
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const level = resolveAggressivityLevel(profile.aggressivity_level);
+  const activeTitleText = profile.equipped_title_code
+    ? (getAchievement(profile.equipped_title_code)?.title ?? "")
+    : "";
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
@@ -1076,7 +1080,7 @@ export default function Arena({
             heroId: profile.equipped_hero_id,
             bossId: boss.id,
             level: profile.level,
-            title: profile.current_title,
+            title: activeTitleText,
             streak: currentStreak(dayResults, today).length,
             dayDate: today,
           })}
@@ -1181,7 +1185,7 @@ export default function Arena({
                 heroId: profile.equipped_hero_id,
                 bossId: boss.id,
                 level: profile.level,
-                title: profile.current_title,
+                title: activeTitleText,
                 streak: currentStreak(
                   [
                     ...dayResults.filter((r) => r.day_date !== today),
