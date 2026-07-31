@@ -2,10 +2,10 @@ import type { Hero } from "../types";
 
 // US-18 : catalogue statique des combattants (héros). Source unique — la base
 // ne stocke que la possession (unlocked_heroes) et l'équipé (profiles).
-// Rendu idle via components/combat/IdleSprite (frames PNG individuelles).
+// Rendu via components/combat/CharacterSprite (spritesheets, issue #48).
 export const DEFAULT_HERO_ID = "fire_knight";
 
-const idlePrefix = (slug: string) => `/sprites/mc/${slug}/idle/frame`;
+const spriteBase = (slug: string) => `/sprites/mc/${slug}`;
 
 export const HEROES: Hero[] = [
   {
@@ -13,8 +13,7 @@ export const HEROES: Hero[] = [
     name: "Chevalier de Feu",
     element: "Feu",
     slug: "fire-knight",
-    idleFramePrefix: idlePrefix("fire-knight"),
-    idleFrameCount: 8,
+    spriteBase: spriteBase("fire-knight"),
     price: 150,
     isDefault: true,
   },
@@ -23,8 +22,7 @@ export const HEROES: Hero[] = [
     name: "Prêtresse de l'Eau",
     element: "Eau",
     slug: "water-priestess",
-    idleFramePrefix: idlePrefix("water-priestess"),
-    idleFrameCount: 8,
+    spriteBase: spriteBase("water-priestess"),
     price: 200,
     isDefault: false,
   },
@@ -33,8 +31,7 @@ export const HEROES: Hero[] = [
     name: "Moine de la Terre",
     element: "Terre",
     slug: "ground-monk",
-    idleFramePrefix: idlePrefix("ground-monk"),
-    idleFrameCount: 6,
+    spriteBase: spriteBase("ground-monk"),
     price: 200,
     isDefault: false,
   },
@@ -43,8 +40,7 @@ export const HEROES: Hero[] = [
     name: "Assassin du Vent",
     element: "Vent",
     slug: "wind-hashashin",
-    idleFramePrefix: idlePrefix("wind-hashashin"),
-    idleFrameCount: 8,
+    spriteBase: spriteBase("wind-hashashin"),
     price: 300,
     isDefault: false,
   },
@@ -53,8 +49,7 @@ export const HEROES: Hero[] = [
     name: "Rôdeur des Feuilles",
     element: "Feuille",
     slug: "leaf-ranger",
-    idleFramePrefix: idlePrefix("leaf-ranger"),
-    idleFrameCount: 12,
+    spriteBase: spriteBase("leaf-ranger"),
     price: 300,
     isDefault: false,
   },
@@ -63,8 +58,7 @@ export const HEROES: Hero[] = [
     name: "Broyeur de Cristal",
     element: "Cristal",
     slug: "crystal-mauler",
-    idleFramePrefix: idlePrefix("crystal-mauler"),
-    idleFrameCount: 8,
+    spriteBase: spriteBase("crystal-mauler"),
     price: 350,
     isDefault: false,
   },
@@ -73,8 +67,7 @@ export const HEROES: Hero[] = [
     name: "Gardien des Lames",
     element: "Métal",
     slug: "metal-bladekeeper",
-    idleFramePrefix: idlePrefix("metal-bladekeeper"),
-    idleFrameCount: 8,
+    spriteBase: spriteBase("metal-bladekeeper"),
     price: 350,
     isDefault: false,
   },

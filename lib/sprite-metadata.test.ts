@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { HEROES } from "./heroes";
 import { BOSSES } from "./bosses";
-import raw from "./sprite-metadata.generated.json";
+import rawJson from "./sprite-metadata.generated.json";
+import type { CharacterSpriteMeta, VfxMeta } from "./sprite-metadata";
+
+// Le JSON importé infère un type littéral distinct par personnage (les clés
+// `anims` diffèrent entre héros et boss, et minotaur n'a pas hurt/death) :
+// Object.entries sur cette union ferait perdre le typage. On recadre donc sur
+// les mêmes types que lib/sprite-metadata.ts, qui sert déjà d'accesseur runtime.
+const raw = rawJson as {
+  heroes: Record<string, CharacterSpriteMeta>;
+  bosses: Record<string, CharacterSpriteMeta>;
+  vfx: Record<string, Record<string, VfxMeta>>;
+};
 
 // Référence figée par scripts/build-sprite-sheets.mjs (issue #74). Dupliquée
 // ici volontairement : un test qui lirait la même source que le code testé ne
