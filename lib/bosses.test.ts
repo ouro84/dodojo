@@ -25,8 +25,8 @@ describe("catalogue boss (intégrité)", () => {
     expect(getBoss(DEFAULT_BOSS_ID)).toBeDefined();
   });
 
-  test("frame counts positifs", () => {
-    for (const boss of BOSSES) expect(boss.idleFrameCount).toBeGreaterThan(0);
+  test("spriteBase cohérent avec le slug", () => {
+    for (const boss of BOSSES) expect(boss.spriteBase).toBe(`/sprites/bosses/${boss.slug}`);
   });
 
   test("aucun nom de boss ne commence par un article (issue #119)", () => {

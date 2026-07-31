@@ -5,29 +5,31 @@ import {
   type BackgroundTheme,
 } from "./backgrounds";
 
-// Roster des Boss quotidiens. Sprites idle extraits vers
-// public/sprites/bosses/<slug>/idle/frameNNNN.png (base 0, 4 chiffres) par
-// scripts/copy-boss-sprites.mjs. `backgroundThemes` = thèmes de décor cohérents
-// avec le lore du boss ; toutes les variantes de ces thèmes entrent dans son pool
-// (on n'envoie pas un monstre marin dans un ciel de montagne).
+// Roster des Boss quotidiens. Spritesheets extraites vers
+// public/sprites/bosses/<slug>/anim/<nom>.png par scripts/build-sprite-sheets.mjs
+// (issue #48). `backgroundThemes` = thèmes de décor cohérents avec le lore du
+// boss ; toutes les variantes de ces thèmes entrent dans son pool (on n'envoie
+// pas un monstre marin dans un ciel de montagne).
 // Licences : cf. ASSETS.md — à vérifier avant prod monétisée.
 export interface Boss {
   id: string;
   name: string;
   slug: string;
-  idleFramePrefix: string;
-  idleFrameCount: number;
+  spriteBase: string;
   lore: string;
   backgroundThemes: BackgroundTheme[];
   // Miroir horizontal du sprite : le boss est à droite de l'Arène et doit
   // regarder le héros (à gauche). Vrai pour les sprites qui regardent à droite.
   flip: boolean;
+  // mino_v1.1_free n'a ni hurt ni death dans son pack : CharacterSprite
+  // retombe sur l'idle + effet CSS plutôt que de planter (issue #48).
+  fallbackHurtDeath?: boolean;
 }
 
 function boss(
   id: string,
   name: string,
-  idleFrameCount: number,
+  _idleFrameCount: number,
   lore: string,
   backgroundThemes: BackgroundTheme[],
   flip = false,
@@ -36,11 +38,11 @@ function boss(
     id,
     name,
     slug: id,
-    idleFramePrefix: `/sprites/bosses/${id}/idle/frame`,
-    idleFrameCount,
+    spriteBase: `/sprites/bosses/${id}`,
     lore,
     backgroundThemes,
     flip,
+    ...(id === "minotaur" ? { fallbackHurtDeath: true } : {}),
   };
 }
 

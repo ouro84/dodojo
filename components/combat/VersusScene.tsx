@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import type { CSSProperties } from "react";
 import Image from "next/image";
-import IdleSprite from "./IdleSprite";
+import CharacterSprite, { type CharacterAnimState } from "./CharacterSprite";
 import HeroBar from "./HeroBar";
 import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
-import { IMPACT_VARIANTS } from "./ImpactVfx";
+import HeroVfx from "./HeroVfx";
+import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
+import { isBossInDanger } from "@/lib/game-engine";
 
 // A2 (issue #101) : breakdown des pénalités Héros propagé depuis Arena
 // jusqu'à HeroBar. Type en miroir de HeroBar.tsx (garder les deux alignés).
@@ -20,21 +22,37 @@ interface HeroPenaltiesBreakdown {
 interface VersusSceneProps {
   heroName: string;
   heroLabel?: string;
-  heroFramePrefix: string;
-  heroFrameCount: number;
+  heroSpriteBase: string;
+  heroSlug: string;
   heroHp: number;
   heroMaxHp: number;
   heroAlarm?: boolean;
   heroPenaltiesBreakdown?: HeroPenaltiesBreakdown | null;
   bossName: string;
-  bossFramePrefix: string;
-  bossFrameCount: number;
+  bossSpriteBase: string;
+  bossSlug: string;
   bossFlip: boolean;
   backgroundPath: string;
   currentHp: number;
   maxHp: number;
   upcomingDeadlineCount?: number;
   dimmed?: boolean;
+  /** VFX d'impact du héros équipé, joué sur le Boss (issue #48). */
+  vfxVariant?: string | null;
+  reducedMotion?: boolean;
+  heroState?: CharacterAnimState;
+  heroAttackAnim?: string;
+  heroStateKey?: number;
+  bossState?: CharacterAnimState;
+  bossStateKey?: number;
+  /** Hit-stop : gèle les deux sprites sans réinitialiser l'anim CSS. */
+  frozen?: boolean;
+  /** minotaur : pack sans hurt ni death (cf. lib/bosses.ts). */
+  bossFallbackHurtDeath?: boolean;
+  /** Frame de contact de l'attaque du Boss (deadline ratée / rage quit). */
+  onBossImpact?: () => void;
+  /** Fin de l'anim d'attaque du Héros : rejoue une attaque Boss en attente. */
+  onHeroAttackEnd?: () => void;
 }
 
 // Décor + Boss dynamiques : le boss du jour et son décor cohérent sont tirés par
@@ -43,35 +61,36 @@ interface VersusSceneProps {
 export default function VersusScene({
   heroName,
   heroLabel,
-  heroFramePrefix,
-  heroFrameCount,
+  heroSpriteBase,
+  heroSlug,
   heroHp,
   heroMaxHp,
   heroAlarm = false,
   heroPenaltiesBreakdown = undefined,
   bossName,
-  bossFramePrefix,
-  bossFrameCount,
+  bossSpriteBase,
+  bossSlug,
   bossFlip,
   backgroundPath,
   currentHp,
   maxHp,
   upcomingDeadlineCount = 0,
   dimmed = false,
+  vfxVariant = null,
+  reducedMotion = false,
+  heroState = "idle",
+  heroAttackAnim,
+  heroStateKey = 0,
+  bossState = "idle",
+  bossStateKey = 0,
+  frozen = false,
+  bossFallbackHurtDeath = false,
+  onBossImpact,
+  onHeroAttackEnd,
 }: VersusSceneProps) {
-  // Audit #67, PR4 : les 4 variantes d'impact sont tirées au hasard à chaque
-  // coup (ImpactVfx monte/démonte à chaque hit, cadence 45ms/frame) — sans
-  // préchargement, la toute première apparition d'une variante peut manquer
-  // une frame sur un réseau lent. Préchargé une fois ici plutôt qu'à chaque
-  // coup, puisque VersusScene reste monté toute la session de combat.
-  useEffect(() => {
-    for (const variant of IMPACT_VARIANTS) {
-      for (let i = 0; i < variant.frameCount; i++) {
-        const img = new window.Image();
-        img.src = `/vfx/impact/${variant.id}/frame${String(i).padStart(4, "0")}.png`;
-      }
-    }
-  }, []);
+  const heroMeta = heroSpriteMeta(heroSlug);
+  const bossMeta = bossSpriteMeta(bossSlug);
+  const bossDanger = isBossInDanger(currentHp, maxHp);
 
   return (
     <div
@@ -107,7 +126,7 @@ export default function VersusScene({
           <MidnightTimer />
         </div>
         <div className="flex-1">
-          <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} />
+          <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} danger={bossDanger} />
           {upcomingDeadlineCount > 0 && (
             <p
               className="mt-0.5 text-right text-[0.65rem] uppercase tracking-wide text-alert drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
@@ -118,19 +137,58 @@ export default function VersusScene({
           )}
         </div>
       </div>
-      <IdleSprite
-        framePrefix={heroFramePrefix}
-        frameCount={heroFrameCount}
-        alt={`Ton héros : ${heroName}`}
-        className="absolute bottom-2 left-4 h-[88px] w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-      />
-      <IdleSprite
-        framePrefix={bossFramePrefix}
-        frameCount={bossFrameCount}
-        flip={bossFlip}
-        alt={`Le Boss du jour : ${bossName}`}
-        className="absolute bottom-2 right-4 h-24 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-      />
+      {/* Recul à l'impact : `key` sur le stateKey pour rejouer l'animation à
+          chaque coup encaissé. Le recul est sur ce wrapper, distinct du
+          `transform: translateY(...)` propre à CharacterSprite (sinon les
+          deux transforms se remplaceraient). */}
+      <div
+        key={`hero-wrap-${heroStateKey}`}
+        className={`absolute bottom-2 left-4 ${heroState === "hurt" ? "is-knockback" : ""}`}
+        style={heroState === "hurt" ? ({ "--knockback-x": "-6px" } as CSSProperties) : undefined}
+      >
+        <CharacterSprite
+          spriteBase={heroSpriteBase}
+          meta={heroMeta}
+          baseHeight={88}
+          state={heroState}
+          attackAnim={heroAttackAnim}
+          stateKey={heroStateKey}
+          frozen={frozen}
+          reducedMotion={reducedMotion}
+          onStateEnd={onHeroAttackEnd}
+          alt={`Ton héros : ${heroName}`}
+          className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        />
+      </div>
+      <div
+        key={`boss-wrap-${bossStateKey}`}
+        className={`absolute bottom-2 right-4 ${bossState === "hurt" ? "is-knockback" : ""}`}
+        style={bossState === "hurt" ? ({ "--knockback-x": "6px" } as CSSProperties) : undefined}
+      >
+        <CharacterSprite
+          spriteBase={bossSpriteBase}
+          meta={bossMeta}
+          baseHeight={96}
+          state={bossState}
+          stateKey={bossStateKey}
+          frozen={frozen}
+          fallbackHurtDeath={bossFallbackHurtDeath}
+          reducedMotion={reducedMotion}
+          danger={bossDanger}
+          flip={bossFlip}
+          onImpact={onBossImpact}
+          alt={`Le Boss du jour : ${bossName}`}
+          className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        />
+        {vfxVariant && (
+          <HeroVfx
+            heroSlug={heroSlug}
+            variant={vfxVariant}
+            bossHeight={96 * bossMeta.renderScale}
+            reducedMotion={reducedMotion}
+          />
+        )}
+      </div>
     </div>
   );
 }

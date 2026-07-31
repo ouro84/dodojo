@@ -16,7 +16,7 @@ export default function OnboardingAvatarPicker({
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-black/40 p-4">
-        <HeroIdle hero={selected} className="h-28" />
+        <HeroIdle hero={selected} />
         <div className="font-display text-sm uppercase tracking-wide text-ink">
           {selected.name}
         </div>

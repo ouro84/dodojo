@@ -12,7 +12,8 @@
     "e2e": "playwright test",
     "prebuild": "node scripts/pull-guide.mjs --prebuild",
     "pull:guide": "node scripts/pull-guide.mjs",
-    "generate:icons": "node scripts/generate-pwa-icons.mjs"
+    "generate:icons": "node scripts/generate-pwa-icons.mjs",
+    "generate:sprites": "node scripts/build-sprite-sheets.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

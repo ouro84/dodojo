@@ -6,7 +6,7 @@ import {
   defaultSkinIdFor,
   skinPrice,
   isSkinOwned,
-  getHeroSpritePrefix,
+  getHeroSpriteBase,
 } from "./hero-skins";
 import { HEROES } from "./heroes";
 
@@ -73,15 +73,14 @@ describe("hero-skins catalogue", () => {
     ).toBe(true);
   });
 
-  it("getHeroSpritePrefix : null/default -> chemin idle existant, sinon chemin skins/", () => {
-    expect(getHeroSpritePrefix("fire_knight", null)).toBe(
-      "/sprites/mc/fire-knight/idle/frame",
-    );
-    expect(getHeroSpritePrefix("fire_knight", "fire_knight_default")).toBe(
-      "/sprites/mc/fire-knight/idle/frame",
-    );
-    expect(getHeroSpritePrefix("fire_knight", "fire_knight_shadow_purple")).toBe(
-      "/sprites/mc/fire-knight/skins/fire_knight_shadow_purple/idle/frame",
+  it("renvoie le dossier du héros pour la tenue par défaut", () => {
+    expect(getHeroSpriteBase("fire_knight", null)).toBe("/sprites/mc/fire-knight");
+    expect(getHeroSpriteBase("fire_knight", "fire_knight_default")).toBe("/sprites/mc/fire-knight");
+  });
+
+  it("renvoie le dossier de la tenue pour une tenue non-défaut", () => {
+    expect(getHeroSpriteBase("fire_knight", "fire_knight_shadow_purple")).toBe(
+      "/sprites/mc/fire-knight/skins/fire_knight_shadow_purple",
     );
   });
 });

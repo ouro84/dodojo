@@ -8,12 +8,12 @@ describe("heroes catalogue", () => {
     expect(defaults[0].id).toBe(DEFAULT_HERO_ID);
   });
 
-  it("ids et slugs uniques ; tous les héros ont price === 500 et frames > 0 (issue #122)", () => {
+  it("ids et slugs uniques ; tous les héros ont price === 500 (issue #122) et spriteBase cohérent", () => {
     expect(new Set(HEROES.map((h) => h.id)).size).toBe(HEROES.length);
     expect(new Set(HEROES.map((h) => h.slug)).size).toBe(HEROES.length);
     for (const h of HEROES) {
       expect(h.price).toBe(500);
-      expect(h.idleFrameCount).toBeGreaterThan(0);
+      expect(h.spriteBase).toBe(`/sprites/mc/${h.slug}`);
     }
   });
 

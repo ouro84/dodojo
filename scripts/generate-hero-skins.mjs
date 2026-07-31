@@ -1,5 +1,5 @@
-// US-53 : génère les frames idle de chaque tenue (recolor) à partir des
-// frames idle déjà extraites par copy-hero-sprites.sh. Jamais exécuté au
+// US-53 : génère les spritesheets de chaque tenue (recolor) à partir des
+// spritesheets déjà extraites par build-sprite-sheets.mjs. Jamais exécuté au
 // runtime — offline uniquement. Usage : node scripts/generate-hero-skins.mjs
 import sharp from "sharp";
 import { promises as fs } from "node:fs";
@@ -132,20 +132,37 @@ const PLAN = [
   },
 ];
 
+// Le recolor est une transformation par pixel : appliqué à une spritesheet il
+// produit exactement le même résultat que frame par frame, et le canal alpha
+// est intact — les tenues réutilisent donc les métadonnées de leur héros.
+const SHEETS = ["idle", "atk1", "atk2", "atk3", "sp_atk", "take_hit"];
+
+async function recolor(src, out, hero, skin) {
+  if (hero.tint) {
+    await tintRecolor(src, out, { maxSat: hero.tint.maxSat, tint: skin.color });
+  } else {
+    await maskedRecolor(src, out, { ...hero.band, hueShift: skin.hueShift });
+  }
+}
+
 for (const hero of PLAN) {
   for (const skin of hero.skins) {
-    const outDir = `public/sprites/mc/${hero.slug}/skins/${skin.id}/idle`;
+    const outDir = `public/sprites/mc/${hero.slug}/skins/${skin.id}/anim`;
     await fs.mkdir(outDir, { recursive: true });
-    for (let i = 0; i < hero.frameCount; i++) {
-      const frame = String(i).padStart(4, "0");
-      const src = `public/sprites/mc/${hero.slug}/idle/frame${frame}.png`;
-      const out = path.join(outDir, `frame${frame}.png`);
-      if (hero.tint) {
-        await tintRecolor(src, out, { maxSat: hero.tint.maxSat, tint: skin.color });
-      } else {
-        await maskedRecolor(src, out, { ...hero.band, hueShift: skin.hueShift });
-      }
+    for (const name of SHEETS) {
+      await recolor(
+        `public/sprites/mc/${hero.slug}/anim/${name}.png`,
+        path.join(outDir, `${name}.png`),
+        hero,
+        skin,
+      );
     }
-    console.log(`${hero.slug} -> ${skin.id} : ${hero.frameCount} frames`);
+    await recolor(
+      `public/sprites/mc/${hero.slug}/still.png`,
+      `public/sprites/mc/${hero.slug}/skins/${skin.id}/still.png`,
+      hero,
+      skin,
+    );
+    console.log(`${hero.slug} -> ${skin.id} : anim + still`);
   }
 }

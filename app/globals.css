@@ -163,6 +163,53 @@ body {
   }
 }
 
+/* Flipbook de spritesheet (issue #48) : la bande défile d'une tuile par step.
+   --sprite-end est posé en style inline par SpriteAnimator (px, pas de %,
+   car un background-position en pourcentage est relatif à l'écart
+   conteneur/image et donnerait un décalage sur les tuiles non carrées). */
+@keyframes sprite-run {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: var(--sprite-end);
+  }
+}
+
+/* Recul à l'impact (issue #48) : le personnage touché est repoussé puis revient.
+   --knockback-x vaut +6px pour le Boss (poussé vers la droite) et -6px pour
+   le Héros. Complète le hit-stop : le gel donne la frappe, le recul le poids. */
+@keyframes knockback {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(var(--knockback-x));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.is-knockback {
+  animation: knockback 220ms ease-out;
+}
+
+/* Jauge du Boss en danger (issue #48) : le clignotement annonce le dernier coup. */
+@keyframes boss-danger-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.boss-danger-blink {
+  animation: boss-danger-blink 900ms ease-in-out infinite;
+}
+
 /* ---- Flash de combat (US-21) ---- */
 @keyframes hit-shake {
   10%,
@@ -355,5 +402,14 @@ body {
   .hero-alarm {
     animation: none;
     box-shadow: 0 0 0 2px var(--color-alert);
+  }
+  .sprite-run {
+    animation: none !important;
+  }
+  .is-knockback {
+    animation: none;
+  }
+  .boss-danger-blink {
+    animation: none;
   }
 }

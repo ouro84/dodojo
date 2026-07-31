@@ -14,7 +14,7 @@ const slugs = [
 ];
 
 for (const slug of slugs) {
-  const src = `public/sprites/mc/${slug}/idle/frame0000.png`;
+  const src = `public/sprites/mc/${slug}/still.png`;
   const out = `public/sprites/mc/${slug}/portrait.png`;
   const info = await sharp(src).trim().toFile(out);
   console.log(`${slug}: ${info.width}x${info.height} -> ${out}`);

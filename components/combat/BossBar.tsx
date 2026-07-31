@@ -2,9 +2,11 @@ interface BossBarProps {
   bossName: string;
   currentHp: number;
   maxHp: number;
+  /** Sous 25% des HP (cf. isBossInDanger) : jauge clignotante, tension de fin de combat. */
+  danger?: boolean;
 }
 
-export default function BossBar({ bossName, currentHp, maxHp }: BossBarProps) {
+export default function BossBar({ bossName, currentHp, maxHp, danger = false }: BossBarProps) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
 
   return (
@@ -15,10 +17,18 @@ export default function BossBar({ bossName, currentHp, maxHp }: BossBarProps) {
         aria-valuemin={0}
         aria-valuemax={maxHp}
         aria-label={`Vie du Boss : ${currentHp} sur ${maxHp}`}
-        className="h-3.5 overflow-hidden rounded-sm bg-hp-dim"
+        className={`relative h-3.5 overflow-hidden rounded-sm bg-hp-dim ${danger ? "boss-danger-blink" : ""}`}
       >
+        {/* Chip damage : la couche fantôme descend en retard sur la barre réelle.
+            L'écart entre les deux donne l'ampleur du coup — signature visuelle des
+            jeux de combat. Décorative : aria-hidden, la valeur reste sur le parent. */}
         <div
-          className="h-full bg-hp transition-[width] duration-300 ease-out motion-reduce:transition-none"
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 bg-white/40 transition-[width] delay-200 duration-500 ease-out motion-reduce:transition-none"
+          style={{ width: `${pct}%` }}
+        />
+        <div
+          className="absolute inset-y-0 left-0 bg-hp transition-[width] duration-100 ease-out motion-reduce:transition-none"
           style={{ width: `${pct}%` }}
         />
       </div>

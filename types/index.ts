@@ -87,8 +87,7 @@ export interface Hero {
   name: string;
   element: string;
   slug: string; // segment de chemin public, ex. "fire-knight"
-  idleFramePrefix: string; // ex. "/sprites/mc/fire-knight/idle/frame"
-  idleFrameCount: number;
+  spriteBase: string; // ex. "/sprites/mc/fire-knight" (anim/<nom>.png + still.png)
   price: number; // 0 pour le héros par défaut
   isDefault: boolean;
 }

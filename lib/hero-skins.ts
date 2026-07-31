@@ -74,12 +74,9 @@ export function isSkinOwned(
   return ownedSkinIds.includes(skinId);
 }
 
-export function getHeroSpritePrefix(
-  heroId: string,
-  skinId: string | null,
-): string {
+export function getHeroSpriteBase(heroId: string, skinId: string | null): string {
   const hero = getHero(heroId);
   if (!hero) throw new Error(`Héros inconnu : ${heroId}`);
-  if (!skinId || skinId === defaultSkinIdFor(heroId)) return hero.idleFramePrefix;
-  return `/sprites/mc/${hero.slug}/skins/${skinId}/idle/frame`;
+  if (!skinId || skinId === defaultSkinIdFor(heroId)) return hero.spriteBase;
+  return `${hero.spriteBase}/skins/${skinId}`;
 }

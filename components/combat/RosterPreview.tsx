@@ -5,7 +5,8 @@ import Image from "next/image";
 import type { Boss } from "@/lib/bosses";
 import type { Background } from "@/lib/backgrounds";
 import type { Hero } from "@/types";
-import IdleSprite from "./IdleSprite";
+import CharacterSprite, { type CharacterAnimState } from "./CharacterSprite";
+import { heroSpriteMeta, bossSpriteMeta, type CharacterSpriteMeta } from "@/lib/sprite-metadata";
 
 interface RosterPreviewProps {
   bosses: Boss[];
@@ -13,13 +14,139 @@ interface RosterPreviewProps {
   heroes: Hero[];
 }
 
+const SPEEDS = [1, 0.25] as const;
+
+// Cale l'attaque testée pour un personnage : boss -> "attack" unique,
+// héros -> une des 4 attaques (atk1/atk2/atk3/sp_atk).
+function attackAnimsFor(anims: Record<string, unknown>): string[] {
+  const candidates = ["attack", "atk1", "atk2", "atk3", "sp_atk"];
+  return candidates.filter((name) => anims[name] !== undefined);
+}
+
+// Panneau de calage réutilisé pour chaque héros et chaque boss (Task 3.6,
+// issue #48) : force un état, une anim d'attaque et une vitesse, affiche
+// l'impactFrame courante et flashe une bordure au moment exact de l'impact
+// (onImpact de CharacterSprite) — sert à caler IMPACT_FRAME_OVERRIDES à l'œil.
+function CalibrationStage({
+  spriteBase,
+  meta,
+  baseHeight,
+  flip,
+  alt,
+}: {
+  spriteBase: string;
+  meta: CharacterSpriteMeta;
+  baseHeight: number;
+  flip?: boolean;
+  alt: string;
+}) {
+  const attackAnims = attackAnimsFor(meta.anims);
+  const [state, setState] = useState<CharacterAnimState>("idle");
+  const [attackAnim, setAttackAnim] = useState(attackAnims[0]);
+  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
+  const [stateKey, setStateKey] = useState(0);
+  const [flashing, setFlashing] = useState(false);
+
+  const currentAnimName = state === "attack" ? attackAnim : state;
+  const currentAnim = meta.anims[currentAnimName];
+
+  function play(next: CharacterAnimState, anim?: string) {
+    if (anim) setAttackAnim(anim);
+    setState(next);
+    setStateKey((k) => k + 1);
+  }
+
+  return (
+    <div className="flex flex-col gap-1 rounded border border-border bg-black/30 p-2">
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          onClick={() => play("idle")}
+          className="rounded border border-border px-1.5 py-0.5 text-[10px] text-faint"
+        >
+          idle
+        </button>
+        {attackAnims.map((anim) => (
+          <button
+            key={anim}
+            type="button"
+            onClick={() => play("attack", anim)}
+            className="rounded border border-border px-1.5 py-0.5 text-[10px] text-faint"
+          >
+            {anim}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => play("hurt")}
+          className="rounded border border-border px-1.5 py-0.5 text-[10px] text-faint"
+        >
+          hurt
+        </button>
+        <button
+          type="button"
+          onClick={() => play("death")}
+          className="rounded border border-border px-1.5 py-0.5 text-[10px] text-faint"
+        >
+          death
+        </button>
+        <div className="ml-auto flex items-center gap-1">
+          {SPEEDS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSpeed(s)}
+              className={`rounded px-1.5 py-0.5 text-[10px] ${
+                speed === s ? "bg-hp text-bg" : "border border-border text-faint"
+              }`}
+            >
+              ×{s}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div
+        className={`relative h-56 w-full overflow-hidden rounded border ${
+          flashing ? "border-gold" : "border-transparent"
+        }`}
+      >
+        {/* Ancrage identique à VersusScene (absolute bottom-2, centré) : le
+            translateY interne de CharacterSprite pousse le sprite vers le bas
+            depuis cette ligne de base, jamais depuis le haut d'un flex
+            items-end (qui le ferait glisser hors de la boîte). */}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
+          <CharacterSprite
+            spriteBase={spriteBase}
+            meta={meta}
+            baseHeight={baseHeight}
+            state={state}
+            attackAnim={attackAnim}
+            stateKey={stateKey}
+            flip={flip}
+            alt={alt}
+            speedMultiplier={speed}
+            onImpact={() => {
+              setFlashing(true);
+              setTimeout(() => setFlashing(false), 150);
+            }}
+            className="[image-rendering:pixelated]"
+          />
+        </div>
+      </div>
+      <p className="text-[10px] text-faint">
+        anim : {currentAnimName} · frames : {currentAnim?.frames ?? "—"} · impactFrame :{" "}
+        {currentAnim?.impactFrame ?? "aucune"} · vitesse ×{speed}
+      </p>
+    </div>
+  );
+}
+
 // Écran de test interne (chemin obscur, login requis, non listé). Permet de
 // vérifier visuellement, boss par boss : (1) que le sprite idle s'extrait/rend
 // correctement à la même hauteur que dans l'Arène réelle (h-24 boss / h-[88px]
-// héros, cf. VersusScene), (2) la cohérence lore ↔ décors. Chaque boss peut
-// être posé sur n'importe quel décor ; les décors cohérents (catalogue) sont
-// surlignés. Un héros au choix (global à toute la page) est posé à côté de
-// chaque boss pour comparer les tailles côte à côte.
+// héros, cf. VersusScene), (2) la cohérence lore ↔ décors, (3) le calage des
+// frames d'impact (Task 3.6, issue #48). Un héros au choix (global à toute la
+// page) est posé à côté de chaque boss pour comparer les tailles côte à côte.
 export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPreviewProps) {
   const [selected, setSelected] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -44,6 +171,9 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
       <p className="text-xs text-muted">
         {bosses.length} boss · {backgrounds.length} décors. Décors cohérents en
         surbrillance ; clique n&apos;importe quel décor pour tester la combinaison.
+        Chaque panneau de calage permet de rejouer une anim et de repérer le
+        moment exact de l&apos;impact (bordure dorée) pour caler
+        IMPACT_FRAME_OVERRIDES.
       </p>
       <div className="flex flex-col gap-1">
         <span className="text-[10px] uppercase tracking-wide text-faint">Héros affiché</span>
@@ -64,15 +194,29 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
           ))}
         </div>
       </div>
+
+      {hero && (
+        <section className="flex flex-col gap-2">
+          <span className="font-display text-sm text-ink">{hero.name} — calage</span>
+          <CalibrationStage
+            spriteBase={hero.spriteBase}
+            meta={heroSpriteMeta(hero.slug)}
+            baseHeight={88}
+            alt={hero.name}
+          />
+        </section>
+      )}
+
       {bosses.map((boss) => {
         const bgId = selected[boss.id];
         const bg = bgById.get(bgId);
+        const bossMeta = bossSpriteMeta(boss.slug);
         return (
           <section key={boss.id} className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
               <span className="font-display text-sm text-ink">{boss.name}</span>
               <span className="text-[10px] text-faint">
-                {boss.id} · {boss.idleFrameCount} frames
+                {boss.id} · {bossMeta.anims.idle.frames} frames
               </span>
             </div>
             <p className="text-[11px] text-muted">{boss.lore}</p>
@@ -87,19 +231,23 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
                 />
               )}
               {hero && (
-                <IdleSprite
-                  framePrefix={hero.idleFramePrefix}
-                  frameCount={hero.idleFrameCount}
+                <CharacterSprite
+                  spriteBase={hero.spriteBase}
+                  meta={heroSpriteMeta(hero.slug)}
+                  baseHeight={88}
+                  state="idle"
                   alt={hero.name}
-                  className="absolute bottom-2 left-4 h-[88px] w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+                  className="absolute bottom-2 left-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
                 />
               )}
-              <IdleSprite
-                framePrefix={boss.idleFramePrefix}
-                frameCount={boss.idleFrameCount}
+              <CharacterSprite
+                spriteBase={boss.spriteBase}
+                meta={bossMeta}
+                baseHeight={96}
+                state="idle"
                 flip={flips[boss.id]}
                 alt={boss.name}
-                className="absolute bottom-2 right-6 h-24 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+                className="absolute bottom-2 right-6 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
               />
               <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-ink">
                 {bg?.name ?? bgId}
@@ -139,6 +287,13 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
                 );
               })}
             </div>
+            <CalibrationStage
+              spriteBase={boss.spriteBase}
+              meta={bossMeta}
+              baseHeight={96}
+              flip={flips[boss.id]}
+              alt={boss.name}
+            />
           </section>
         );
       })}

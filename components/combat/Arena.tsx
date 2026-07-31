@@ -50,9 +50,23 @@ import {
   type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
-import { getHeroSpritePrefix } from "@/lib/hero-skins";
+import { getHeroSpriteBase } from "@/lib/hero-skins";
 import { DEFAULT_BOSS_ID, getBoss } from "@/lib/bosses";
 import { DEFAULT_BACKGROUND_ID, getBackground } from "@/lib/backgrounds";
+import { heroSpriteMeta } from "@/lib/sprite-metadata";
+import {
+  ATTACK_DURATION_MS,
+  DEATH_DURATION_MS,
+  KO_FADE_MS,
+  SP_ATTACK_DURATION_MS,
+  addPendingHit,
+  hitStopMs,
+  impactDelayMs,
+  pickAttackAnim,
+  shouldForceFlush,
+  type HeroAttackAnim,
+  type PendingHits,
+} from "@/lib/combat-animation";
 import { buildShareCardParams } from "@/lib/share-card";
 import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
 import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
@@ -84,7 +98,8 @@ import AchievementToast from "./AchievementToast";
 import { getAchievement } from "@/lib/achievements";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
-import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
+import { pickVfxVariant } from "./HeroVfx";
+import KoSlam from "./KoSlam";
 
 interface ArenaProps {
   initialProfile: Profile;
@@ -102,7 +117,6 @@ interface Pulse {
   key: number;
   amount: number;
   kind: "damage" | "heal";
-  impactVariant?: ImpactVariantId;
 }
 
 interface XpPulse {
@@ -155,6 +169,10 @@ export default function Arena({
     monstersDefeated: number;
     firstVictory: boolean;
   } | null>(null);
+  // Issue #48 : séquence de mort du Boss avant l'overlay (death -> slam K.O.
+  // -> fondu -> PerfectOverlay), cf. startKoSequence.
+  const koSequenceRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [koSlam, setKoSlam] = useState(false);
   // US-29 : coach du 1er combat.
   const [tutorialActive, setTutorialActive] = useState(!hasSeenTutorial);
   const tutorialSeenRef = useRef(false);
@@ -186,6 +204,47 @@ export default function Arena({
     intensity: number;
   } | null>(null);
   const comboTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Issue #48 : animations de combat. Reprend exactement le patron déjà
+  // utilisé par IdleSprite/ImpactVfx pour détecter prefers-reduced-motion.
+  const [reducedMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [heroAnim, setHeroAnim] = useState<{
+    state: "idle" | "attack" | "hurt";
+    anim?: HeroAttackAnim;
+    key: number;
+  } | null>(null);
+  // Boss déjà K.O. au chargement (reste d'une session précédente) : on fige
+  // sur death sans jouer la séquence (pas de slam, pas d'overlay).
+  const [bossAnim, setBossAnim] = useState<{
+    state: "idle" | "attack" | "hurt" | "death";
+    key: number;
+  }>(() => ({
+    state: calculateBossCurrentHp(initialTasks) === 0 ? "death" : "idle",
+    key: 0,
+  }));
+  const [frozen, setFrozen] = useState(false);
+  const [vfxVariant, setVfxVariant] = useState<string | null>(null);
+  const pendingHitRef = useRef<PendingHits | null>(null);
+  const animKeyRef = useRef(0);
+  const impactTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const freezeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Issue #48 (Task 4.1) : attaque du Boss sur deadline ratée / Rage Quit.
+  const [bossAttackReason, setBossAttackReason] = useState<
+    "deadline" | "rage_quit" | "recap" | null
+  >(null);
+  const bossAttackPendingRef = useRef<null | "deadline" | "rage_quit" | "recap">(null);
+  // Miroir de heroAnim (même patron que tasksRef) : triggerBossAttack est
+  // appelée depuis le polling deadline, un effet à deps `[]` (fermeture figée
+  // au montage) — lire heroAnim directement y renverrait toujours sa valeur
+  // initiale (null) et désactiverait la garde anti-chevauchement des animes.
+  const heroAnimRef = useRef(heroAnim);
+  // Task 4.2 : une seule attaque récapitulative par montage de l'Arène.
+  const recapPlayedRef = useRef(false);
+
   const [showWakeUp, setShowWakeUp] = useState(overdueTasks.length > 0);
   const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
   const [closing, setClosing] = useState(false);
@@ -304,7 +363,7 @@ export default function Arena({
   const equippedHero =
     getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;
   // US-53 : tenue équipée (null = tenue par défaut du héros).
-  const equippedHeroFramePrefix = getHeroSpritePrefix(
+  const equippedHeroSpriteBase = getHeroSpriteBase(
     equippedHero.id,
     profile.equipped_skin_id,
   );
@@ -355,12 +414,47 @@ export default function Arena({
       // A3 : cleanup du timeout heal pulse (sinon fuite + setHeroHealPulse
       // sur un composant démonté = warning React).
       if (heroHealPulseTimeoutRef.current) clearTimeout(heroHealPulseTimeoutRef.current);
+      // Issue #48 : timers d'impact/hit-stop des animations de combat.
+      if (impactTimerRef.current) clearTimeout(impactTimerRef.current);
+      if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
+      koSequenceRef.current.forEach(clearTimeout);
     };
   }, []);
 
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
+
+  useEffect(() => {
+    heroAnimRef.current = heroAnim;
+  }, [heroAnim]);
+
+  // Task 4.2 : ce qui était déjà raté avant l'ouverture de l'Arène (deadlines
+  // dépassées, restes reportés au Réveil) se solde par une seule attaque du
+  // Boss, jamais une par élément. Ce comportement revient sur l'entrée
+  // « pas de replay au chargement » de CLAUDE.md (US-05) — voir Task 5.1.
+  useEffect(() => {
+    if (recapPlayedRef.current || reducedMotion) return;
+    if (showWakeUp) return; // Le Réveil bloque : on attend sa fermeture.
+    const hadPenalties = missedDeadlines.length > 0 || overdueTasks.length > 0;
+    if (!hadPenalties) return;
+    recapPlayedRef.current = true;
+    triggerBossAttack("recap");
+  }, [missedDeadlines.length, overdueTasks.length, reducedMotion, showWakeUp]);
+
+  // Renaissance : une tâche ajoutée après le K.O. re-soigne le Boss (cf.
+  // koOutcome, garde prevBossHp===0). La séquence de mort en cours est
+  // annulée — pas de slam, pas d'overlay. Ajustement pendant le rendu (même
+  // patron que wasEmpty/CharacterSprite) plutôt qu'un effet : évite le
+  // re-rendu en cascade signalé par react-hooks/set-state-in-effect.
+  const [prevCurrentHpForRenaissance, setPrevCurrentHpForRenaissance] = useState(currentHp);
+  if (currentHp !== prevCurrentHpForRenaissance) {
+    setPrevCurrentHpForRenaissance(currentHp);
+    if (currentHp > 0) {
+      cancelKoSequence();
+      setBossAnim((prev) => (prev.state === "death" ? { state: "idle", key: prev.key + 1 } : prev));
+    }
+  }
 
   // US-05 : polling léger (~45s) pendant que l'Arène est montée. Ne se
   // déclenche jamais rétroactivement pour une deadline déjà ratée avant le
@@ -381,6 +475,7 @@ export default function Arena({
         heroPulseCounterRef.current += 1;
         const key = heroPulseCounterRef.current;
         setHeroPulse({ key });
+        triggerBossAttack("deadline");
         setDeadlineAlert({
           taskId: freshlyMissed[0].id,
           taskTitle: freshlyMissed[0].title,
@@ -469,12 +564,7 @@ export default function Arena({
   function triggerPulse(amount: number, kind: Pulse["kind"]) {
     pulseCounterRef.current += 1;
     const key = pulseCounterRef.current;
-    setPulse({
-      key,
-      amount,
-      kind,
-      impactVariant: kind === "damage" ? pickImpactVariant() : undefined,
-    });
+    setPulse({ key, amount, kind });
 
     if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
     pulseTimeoutRef.current = setTimeout(() => {
@@ -491,6 +581,125 @@ export default function Arena({
     xpPulseTimeoutRef.current = setTimeout(() => {
       setXpPulse((current) => (current?.key === key ? null : current));
     }, 1400);
+  }
+
+  // Issue #48 : dégâts calés sur la frame d'impact du coup de héros. Sous
+  // reduced-motion, aucun gating : le feedback reste instantané (spec §9).
+  function triggerHeroAttack(hpDelta: number, xpDelta: number, isFatal: boolean) {
+    if (reducedMotion) {
+      triggerPulse(hpDelta, "damage");
+      triggerXpPulse(Math.abs(xpDelta), xpDelta >= 0 ? "heal" : "damage");
+      return;
+    }
+
+    const now = Date.now();
+    pendingHitRef.current = addPendingHit(pendingHitRef.current, hpDelta, xpDelta, now);
+    const hits = pendingHitRef.current.hits;
+
+    animKeyRef.current += 1;
+    const key = animKeyRef.current;
+    const anim = pickAttackAnim(comboCount, isFatal, Math.random);
+    setHeroAnim({ state: "attack", anim, key });
+    setVfxVariant(pickVfxVariant(equippedHero.slug));
+
+    const meta = heroSpriteMeta(equippedHero.slug).anims[anim];
+    const delay = impactDelayMs(
+      meta.frames,
+      meta.impactFrame,
+      anim === "sp_atk" ? SP_ATTACK_DURATION_MS : ATTACK_DURATION_MS,
+    );
+
+    if (impactTimerRef.current) clearTimeout(impactTimerRef.current);
+    impactTimerRef.current = setTimeout(
+      () => flushImpact(isFatal, hits),
+      shouldForceFlush(pendingHitRef.current, now) ? 0 : delay,
+    );
+  }
+
+  // Flush du/des coup(s) en attente : applique les dégâts+XP cumulés au
+  // moment de l'impact visuel, joue le hurt/death du Boss, puis le hit-stop.
+  function flushImpact(isFatal: boolean, hits: number) {
+    const pending = pendingHitRef.current;
+    pendingHitRef.current = null;
+    if (!pending) return;
+
+    triggerPulse(pending.damage, "damage");
+    triggerXpPulse(Math.abs(pending.xp), pending.xp >= 0 ? "heal" : "damage");
+    setBossAnim((prev) => ({
+      state: isFatal ? "death" : "hurt",
+      key: prev.key + 1,
+    }));
+
+    const stop = hitStopMs({ isFatal, comboCount, hits });
+    setFrozen(true);
+    if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
+    freezeTimerRef.current = setTimeout(() => setFrozen(false), stop);
+  }
+
+  // Issue #48 (Task 4.1) : contre-attaque du Boss (deadline ratée, Rage Quit,
+  // récapitulatif au chargement — Task 4.2). Héros et Boss n'animent jamais en
+  // même temps : si le héros est en train de frapper, l'attaque attend la fin
+  // de son anim (rejouée depuis onHeroAttackEnd, cf. plus bas).
+  function triggerBossAttack(reason: "deadline" | "rage_quit" | "recap") {
+    if (reducedMotion) return;
+    if (heroAnimRef.current?.state === "attack") {
+      bossAttackPendingRef.current = reason;
+      return;
+    }
+    animKeyRef.current += 1;
+    setBossAnim({ state: "attack", key: animKeyRef.current });
+    setBossAttackReason(reason);
+  }
+
+  function onBossImpact() {
+    animKeyRef.current += 1;
+    setHeroAnim({ state: "hurt", key: animKeyRef.current });
+    const stop = hitStopMs({ isFatal: false, comboCount: 0, hits: 1 });
+    setFrozen(true);
+    if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
+    freezeTimerRef.current = setTimeout(() => setFrozen(false), stop);
+
+    if (bossAttackReason === "rage_quit") {
+      // Rage Quit : -5 XP, aucun HP. L'anim est narrative, la jauge ne bouge pas.
+      triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    }
+    // deadline / recap : les HP sont déjà décomptés par le calcul de heroHp,
+    // le FloatingText et le clignotement de jauge existants restent en place.
+  }
+
+  // Rejoue une attaque du Boss mise en attente pendant que le héros frappait.
+  function onHeroAttackEnd() {
+    if (bossAttackPendingRef.current) {
+      const reason = bossAttackPendingRef.current;
+      bossAttackPendingRef.current = null;
+      triggerBossAttack(reason);
+    }
+  }
+
+  type KoPayload = NonNullable<Parameters<typeof setKoState>[0]>;
+
+  // Décale l'ouverture de PerfectOverlay pour laisser la mort du Boss et le
+  // slam « K.O. » se jouer : death (DEATH_DURATION_MS) -> slam + fondu
+  // (KO_FADE_MS) -> setKoState (ouvre l'overlay). Sous reduced-motion, aucun
+  // délai : l'overlay s'ouvre immédiatement (comportement pré-#48).
+  function startKoSequence(payload: KoPayload) {
+    if (reducedMotion) {
+      setKoState(payload);
+      return;
+    }
+    koSequenceRef.current.push(
+      setTimeout(() => setKoSlam(true), DEATH_DURATION_MS),
+      setTimeout(() => {
+        setKoSlam(false);
+        setKoState(payload);
+      }, DEATH_DURATION_MS + KO_FADE_MS),
+    );
+  }
+
+  function cancelKoSequence() {
+    koSequenceRef.current.forEach(clearTimeout);
+    koSequenceRef.current = [];
+    setKoSlam(false);
   }
 
   function handleAdd(title: string) {
@@ -721,12 +930,20 @@ export default function Arena({
 
     const nextHp = calculateBossCurrentHp(nextTasks);
     const hpDelta = previousHp - nextHp;
+    // Calculé ici (avant le branchement hpDelta) pour alimenter le gating
+    // d'animation ci-dessous, qui a besoin du montant d'XP au moment du coup.
+    const xpDelta = cascade.reduce((total, change) => {
+      const task = tasks.find((t) => t.id === change.taskId);
+      if (!task || task.is_abandoned) return total;
+      return total + (change.isCompleted ? XP_PER_TASK : -XP_PER_TASK);
+    }, 0);
 
     if (hpDelta > 0) {
-      triggerPulse(hpDelta, "damage");
       // US-16 : transition→0 = célébration. previousHp est le HP du Boss avant
       // ce coup (garde de transition), heroHp l'état du Héro (palier PERFECT).
       const nextMaxHp = calculateBossMaxHp(nextTasks);
+      const isFatal = nextHp === 0;
+      triggerHeroAttack(hpDelta, xpDelta, isFatal);
       const tier = koOutcome(previousHp, nextHp, nextMaxHp, heroHp);
       if (tier) {
         // Ce KO scelle une victoire aujourd'hui : la série intégrant le jour
@@ -741,7 +958,7 @@ export default function Arena({
         const milestone = [7, 30, 100].includes(streakIfVictory)
           ? streakIfVictory
           : null;
-        setKoState({
+        startKoSequence({
           tier,
           milestone,
           damageDealt: nextMaxHp,
@@ -764,18 +981,17 @@ export default function Arena({
       resetCombo();
     }
 
-    const xpDelta = cascade.reduce((total, change) => {
-      const task = tasks.find((t) => t.id === change.taskId);
-      if (!task || task.is_abandoned) return total;
-      return total + (change.isCompleted ? XP_PER_TASK : -XP_PER_TASK);
-    }, 0);
-
     if (xpDelta !== 0) {
       const nextProfile = applyXpDelta(profile, xpDelta);
       const didLevelUp = nextProfile.level > profile.level;
 
       setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
-      triggerXpPulse(Math.abs(xpDelta), xpDelta > 0 ? "heal" : "damage");
+      // Dégâts (hpDelta > 0) hors reduced-motion : le pulse XP est déjà pris
+      // en charge par flushImpact (coalescé avec les dégâts au moment de
+      // l'impact) — le déclencher aussi ici doublerait le montant affiché.
+      if (!(hpDelta > 0 && !reducedMotion)) {
+        triggerXpPulse(Math.abs(xpDelta), xpDelta > 0 ? "heal" : "damage");
+      }
       if (didLevelUp) {
         setLevelUpValue(nextProfile.level);
       }
@@ -800,7 +1016,10 @@ export default function Arena({
       setTasks(previousTasksSnapshot);
       setProfile(previousProfileSnapshot);
       setLevelUpValue(null);
-      if (hpDelta > 0) setKoState(null);
+      if (hpDelta > 0) {
+        cancelKoSequence();
+        setKoState(null);
+      }
       resetCombo();
       setBanner(lastResult.error);
       return;
@@ -934,7 +1153,14 @@ export default function Arena({
 
     setTasks(nextTasks);
     setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
-    triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    // Issue #48 : la contre-attaque du Boss porte le pulse -XP à l'impact
+    // (onBossImpact) ; sous reduced-motion, aucune anim ne se joue, le pulse
+    // reste donc immédiat pour ne jamais perdre le feedback.
+    if (reducedMotion) {
+      triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
+    } else {
+      triggerBossAttack("rage_quit");
+    }
     resetCombo(); // abandonner brise la série
     setUndoState({
       id,
@@ -1100,8 +1326,8 @@ export default function Arena({
           <VersusScene
             heroName={equippedHero.name}
             heroLabel={profile.username}
-            heroFramePrefix={equippedHeroFramePrefix}
-            heroFrameCount={equippedHero.idleFrameCount}
+            heroSpriteBase={equippedHeroSpriteBase}
+            heroSlug={equippedHero.slug}
             heroHp={heroHp}
             heroMaxHp={HERO_MAX_HP}
             heroAlarm={heroPulse !== null}
@@ -1125,18 +1351,27 @@ export default function Arena({
               missedHpPerItem: HERO_DAMAGE_PER_MISSED_DEADLINE,
             }}
             bossName={bossName}
-            bossFramePrefix={boss.idleFramePrefix}
-            bossFrameCount={boss.idleFrameCount}
+            bossSpriteBase={boss.spriteBase}
+            bossSlug={boss.slug}
             bossFlip={boss.flip}
+            bossFallbackHurtDeath={boss.fallbackHurtDeath}
             backgroundPath={background.publicPath}
             currentHp={currentHp}
             maxHp={maxHp}
             upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
             dimmed={isEmpty}
+            vfxVariant={vfxVariant}
+            reducedMotion={reducedMotion}
+            heroState={heroAnim?.state ?? "idle"}
+            heroAttackAnim={heroAnim?.anim}
+            heroStateKey={heroAnim?.key ?? 0}
+            bossState={bossAnim.state}
+            bossStateKey={bossAnim.key}
+            frozen={frozen}
+            onBossImpact={onBossImpact}
+            onHeroAttackEnd={onHeroAttackEnd}
           />
-          {pulse?.kind === "damage" && pulse.impactVariant && (
-            <ImpactVfx key={pulse.key} variant={pulse.impactVariant} />
-          )}
+          {koSlam && <KoSlam />}
           {comboFlash && (
             <ComboBanner
               key={comboFlash.key}

@@ -1,18 +1,21 @@
-import IdleSprite from "./IdleSprite";
+import CharacterSprite from "./CharacterSprite";
 import type { Hero } from "@/types";
-import { getHeroSpritePrefix } from "@/lib/hero-skins";
+import { getHeroSpriteBase } from "@/lib/hero-skins";
+import { heroSpriteMeta } from "@/lib/sprite-metadata";
 
-// US-18/US-53 : rend l'idle d'un héros (et éventuellement d'une tenue) en
-// réutilisant IdleSprite. Verrouillé = filtre grayscale sur le wrapper.
+// US-18/US-53 : rend l'idle d'un héros (et éventuellement d'une tenue) via
+// CharacterSprite (issue #48). Verrouillé = filtre grayscale sur le wrapper.
 export default function HeroIdle({
   hero,
   skinId = null,
   locked = false,
+  baseHeight = 112,
   className,
 }: {
   hero: Hero;
   skinId?: string | null;
   locked?: boolean;
+  baseHeight?: number;
   className?: string;
 }) {
   return (
@@ -22,11 +25,13 @@ export default function HeroIdle({
       data-hero={hero.id}
       data-locked={locked}
     >
-      <IdleSprite
-        framePrefix={getHeroSpritePrefix(hero.id, skinId)}
-        frameCount={hero.idleFrameCount}
+      <CharacterSprite
+        spriteBase={getHeroSpriteBase(hero.id, skinId)}
+        meta={heroSpriteMeta(hero.slug)}
+        baseHeight={baseHeight}
+        state="idle"
         alt={locked ? `${hero.name} (verrouillé)` : hero.name}
-        className="h-full w-auto [image-rendering:pixelated]"
+        className="[image-rendering:pixelated]"
       />
     </div>
   );
