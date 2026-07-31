@@ -53,6 +53,18 @@ import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
 import { getHeroSpriteBase } from "@/lib/hero-skins";
 import { DEFAULT_BOSS_ID, getBoss } from "@/lib/bosses";
 import { DEFAULT_BACKGROUND_ID, getBackground } from "@/lib/backgrounds";
+import { heroSpriteMeta } from "@/lib/sprite-metadata";
+import {
+  ATTACK_DURATION_MS,
+  SP_ATTACK_DURATION_MS,
+  addPendingHit,
+  hitStopMs,
+  impactDelayMs,
+  pickAttackAnim,
+  shouldForceFlush,
+  type HeroAttackAnim,
+  type PendingHits,
+} from "@/lib/combat-animation";
 import { buildShareCardParams } from "@/lib/share-card";
 import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
 import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
@@ -84,6 +96,7 @@ import AchievementToast from "./AchievementToast";
 import { getAchievement } from "@/lib/achievements";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
+import { pickVfxVariant } from "./HeroVfx";
 
 interface ArenaProps {
   initialProfile: Profile;
@@ -184,6 +197,30 @@ export default function Arena({
     intensity: number;
   } | null>(null);
   const comboTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Issue #48 : animations de combat. Reprend exactement le patron déjà
+  // utilisé par IdleSprite/ImpactVfx pour détecter prefers-reduced-motion.
+  const [reducedMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [heroAnim, setHeroAnim] = useState<{
+    state: "idle" | "attack";
+    anim: HeroAttackAnim;
+    key: number;
+  } | null>(null);
+  const [bossAnim, setBossAnim] = useState<{
+    state: "idle" | "hurt" | "death";
+    key: number;
+  }>({ state: "idle", key: 0 });
+  const [frozen, setFrozen] = useState(false);
+  const [vfxVariant, setVfxVariant] = useState<string | null>(null);
+  const pendingHitRef = useRef<PendingHits | null>(null);
+  const animKeyRef = useRef(0);
+  const impactTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const freezeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [showWakeUp, setShowWakeUp] = useState(overdueTasks.length > 0);
   const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
   const [closing, setClosing] = useState(false);
@@ -353,6 +390,9 @@ export default function Arena({
       // A3 : cleanup du timeout heal pulse (sinon fuite + setHeroHealPulse
       // sur un composant démonté = warning React).
       if (heroHealPulseTimeoutRef.current) clearTimeout(heroHealPulseTimeoutRef.current);
+      // Issue #48 : timers d'impact/hit-stop des animations de combat.
+      if (impactTimerRef.current) clearTimeout(impactTimerRef.current);
+      if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
     };
   }, []);
 
@@ -484,6 +524,59 @@ export default function Arena({
     xpPulseTimeoutRef.current = setTimeout(() => {
       setXpPulse((current) => (current?.key === key ? null : current));
     }, 1400);
+  }
+
+  // Issue #48 : dégâts calés sur la frame d'impact du coup de héros. Sous
+  // reduced-motion, aucun gating : le feedback reste instantané (spec §9).
+  function triggerHeroAttack(hpDelta: number, xpDelta: number, isFatal: boolean) {
+    if (reducedMotion) {
+      triggerPulse(hpDelta, "damage");
+      triggerXpPulse(Math.abs(xpDelta), xpDelta >= 0 ? "heal" : "damage");
+      return;
+    }
+
+    const now = Date.now();
+    pendingHitRef.current = addPendingHit(pendingHitRef.current, hpDelta, xpDelta, now);
+    const hits = pendingHitRef.current.hits;
+
+    animKeyRef.current += 1;
+    const key = animKeyRef.current;
+    const anim = pickAttackAnim(comboCount, isFatal, Math.random);
+    setHeroAnim({ state: "attack", anim, key });
+    setVfxVariant(pickVfxVariant(equippedHero.slug));
+
+    const meta = heroSpriteMeta(equippedHero.slug).anims[anim];
+    const delay = impactDelayMs(
+      meta.frames,
+      meta.impactFrame,
+      anim === "sp_atk" ? SP_ATTACK_DURATION_MS : ATTACK_DURATION_MS,
+    );
+
+    if (impactTimerRef.current) clearTimeout(impactTimerRef.current);
+    impactTimerRef.current = setTimeout(
+      () => flushImpact(isFatal, hits),
+      shouldForceFlush(pendingHitRef.current, now) ? 0 : delay,
+    );
+  }
+
+  // Flush du/des coup(s) en attente : applique les dégâts+XP cumulés au
+  // moment de l'impact visuel, joue le hurt/death du Boss, puis le hit-stop.
+  function flushImpact(isFatal: boolean, hits: number) {
+    const pending = pendingHitRef.current;
+    pendingHitRef.current = null;
+    if (!pending) return;
+
+    triggerPulse(pending.damage, "damage");
+    triggerXpPulse(Math.abs(pending.xp), pending.xp >= 0 ? "heal" : "damage");
+    setBossAnim((prev) => ({
+      state: isFatal ? "death" : "hurt",
+      key: prev.key + 1,
+    }));
+
+    const stop = hitStopMs({ isFatal, comboCount, hits });
+    setFrozen(true);
+    if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
+    freezeTimerRef.current = setTimeout(() => setFrozen(false), stop);
   }
 
   function handleAdd(title: string) {
@@ -714,12 +807,20 @@ export default function Arena({
 
     const nextHp = calculateBossCurrentHp(nextTasks);
     const hpDelta = previousHp - nextHp;
+    // Calculé ici (avant le branchement hpDelta) pour alimenter le gating
+    // d'animation ci-dessous, qui a besoin du montant d'XP au moment du coup.
+    const xpDelta = cascade.reduce((total, change) => {
+      const task = tasks.find((t) => t.id === change.taskId);
+      if (!task || task.is_abandoned) return total;
+      return total + (change.isCompleted ? XP_PER_TASK : -XP_PER_TASK);
+    }, 0);
 
     if (hpDelta > 0) {
-      triggerPulse(hpDelta, "damage");
       // US-16 : transition→0 = célébration. previousHp est le HP du Boss avant
       // ce coup (garde de transition), heroHp l'état du Héro (palier PERFECT).
       const nextMaxHp = calculateBossMaxHp(nextTasks);
+      const isFatal = nextHp === 0;
+      triggerHeroAttack(hpDelta, xpDelta, isFatal);
       const tier = koOutcome(previousHp, nextHp, nextMaxHp, heroHp);
       if (tier) {
         // Ce KO scelle une victoire aujourd'hui : la série intégrant le jour
@@ -757,18 +858,17 @@ export default function Arena({
       resetCombo();
     }
 
-    const xpDelta = cascade.reduce((total, change) => {
-      const task = tasks.find((t) => t.id === change.taskId);
-      if (!task || task.is_abandoned) return total;
-      return total + (change.isCompleted ? XP_PER_TASK : -XP_PER_TASK);
-    }, 0);
-
     if (xpDelta !== 0) {
       const nextProfile = applyXpDelta(profile, xpDelta);
       const didLevelUp = nextProfile.level > profile.level;
 
       setProfile((current) => ({ ...current, level: nextProfile.level, xp: nextProfile.xp }));
-      triggerXpPulse(Math.abs(xpDelta), xpDelta > 0 ? "heal" : "damage");
+      // Dégâts (hpDelta > 0) hors reduced-motion : le pulse XP est déjà pris
+      // en charge par flushImpact (coalescé avec les dégâts au moment de
+      // l'impact) — le déclencher aussi ici doublerait le montant affiché.
+      if (!(hpDelta > 0 && !reducedMotion)) {
+        triggerXpPulse(Math.abs(xpDelta), xpDelta > 0 ? "heal" : "damage");
+      }
       if (didLevelUp) {
         setLevelUpValue(nextProfile.level);
       }
@@ -1121,11 +1221,20 @@ export default function Arena({
             bossSpriteBase={boss.spriteBase}
             bossSlug={boss.slug}
             bossFlip={boss.flip}
+            bossFallbackHurtDeath={boss.fallbackHurtDeath}
             backgroundPath={background.publicPath}
             currentHp={currentHp}
             maxHp={maxHp}
             upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
             dimmed={isEmpty}
+            vfxVariant={vfxVariant}
+            reducedMotion={reducedMotion}
+            heroState={heroAnim?.state ?? "idle"}
+            heroAttackAnim={heroAnim?.anim}
+            heroStateKey={heroAnim?.key ?? 0}
+            bossState={bossAnim.state}
+            bossStateKey={bossAnim.key}
+            frozen={frozen}
           />
           {comboFlash && (
             <ComboBanner

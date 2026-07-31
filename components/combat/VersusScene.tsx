@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import CharacterSprite from "./CharacterSprite";
+import CharacterSprite, { type CharacterAnimState } from "./CharacterSprite";
 import HeroBar from "./HeroBar";
 import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
@@ -38,6 +38,15 @@ interface VersusSceneProps {
   /** VFX d'impact du héros équipé, joué sur le Boss (issue #48). */
   vfxVariant?: string | null;
   reducedMotion?: boolean;
+  heroState?: CharacterAnimState;
+  heroAttackAnim?: string;
+  heroStateKey?: number;
+  bossState?: CharacterAnimState;
+  bossStateKey?: number;
+  /** Hit-stop : gèle les deux sprites sans réinitialiser l'anim CSS. */
+  frozen?: boolean;
+  /** minotaur : pack sans hurt ni death (cf. lib/bosses.ts). */
+  bossFallbackHurtDeath?: boolean;
 }
 
 // Décor + Boss dynamiques : le boss du jour et son décor cohérent sont tirés par
@@ -63,6 +72,13 @@ export default function VersusScene({
   dimmed = false,
   vfxVariant = null,
   reducedMotion = false,
+  heroState = "idle",
+  heroAttackAnim,
+  heroStateKey = 0,
+  bossState = "idle",
+  bossStateKey = 0,
+  frozen = false,
+  bossFallbackHurtDeath = false,
 }: VersusSceneProps) {
   const heroMeta = heroSpriteMeta(heroSlug);
   const bossMeta = bossSpriteMeta(bossSlug);
@@ -116,7 +132,11 @@ export default function VersusScene({
         spriteBase={heroSpriteBase}
         meta={heroMeta}
         baseHeight={88}
-        state="idle"
+        state={heroState}
+        attackAnim={heroAttackAnim}
+        stateKey={heroStateKey}
+        frozen={frozen}
+        reducedMotion={reducedMotion}
         alt={`Ton héros : ${heroName}`}
         className="absolute bottom-2 left-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
@@ -125,7 +145,11 @@ export default function VersusScene({
           spriteBase={bossSpriteBase}
           meta={bossMeta}
           baseHeight={96}
-          state="idle"
+          state={bossState}
+          stateKey={bossStateKey}
+          frozen={frozen}
+          fallbackHurtDeath={bossFallbackHurtDeath}
+          reducedMotion={reducedMotion}
           flip={bossFlip}
           alt={`Le Boss du jour : ${bossName}`}
           className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
