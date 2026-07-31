@@ -14,7 +14,7 @@ export const HEROES: Hero[] = [
     element: "Feu",
     slug: "fire-knight",
     spriteBase: spriteBase("fire-knight"),
-    price: 150,
+    price: 500,
     isDefault: true,
   },
   {
@@ -23,7 +23,7 @@ export const HEROES: Hero[] = [
     element: "Eau",
     slug: "water-priestess",
     spriteBase: spriteBase("water-priestess"),
-    price: 200,
+    price: 500,
     isDefault: false,
   },
   {
@@ -32,7 +32,7 @@ export const HEROES: Hero[] = [
     element: "Terre",
     slug: "ground-monk",
     spriteBase: spriteBase("ground-monk"),
-    price: 200,
+    price: 500,
     isDefault: false,
   },
   {
@@ -41,7 +41,7 @@ export const HEROES: Hero[] = [
     element: "Vent",
     slug: "wind-hashashin",
     spriteBase: spriteBase("wind-hashashin"),
-    price: 300,
+    price: 500,
     isDefault: false,
   },
   {
@@ -50,7 +50,7 @@ export const HEROES: Hero[] = [
     element: "Feuille",
     slug: "leaf-ranger",
     spriteBase: spriteBase("leaf-ranger"),
-    price: 300,
+    price: 500,
     isDefault: false,
   },
   {
@@ -59,7 +59,7 @@ export const HEROES: Hero[] = [
     element: "Cristal",
     slug: "crystal-mauler",
     spriteBase: spriteBase("crystal-mauler"),
-    price: 350,
+    price: 500,
     isDefault: false,
   },
   {
@@ -68,7 +68,7 @@ export const HEROES: Hero[] = [
     element: "Métal",
     slug: "metal-bladekeeper",
     spriteBase: spriteBase("metal-bladekeeper"),
-    price: 350,
+    price: 500,
     isDefault: false,
   },
 ];

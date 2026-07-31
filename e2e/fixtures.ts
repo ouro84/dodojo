@@ -128,7 +128,12 @@ export async function resetShopState(): Promise<void> {
       tasks_completed: 10,
       tasks_abandoned: 0,
       xp_earned: 300,
-      gold_earned: 500,
+      // Issue #122 : 1500 or (1 hero à 500 + 2 tenues à 300 + reste 400).
+      // Avant le tarif plat, 500 or suffisait pour 1 hero à 350 + 2 tenues
+      // à 110 (=570) ; le seed à 500 was just fit. À 500/300, 500 ne couvre
+      // même plus l'achat hero + tenue (800) — on monte à 1500 pour garder
+      // les tests d'achat multiples déterministes.
+      gold_earned: 1500,
       closed_manually: true,
     },
     { onConflict: "user_id,day_date" },

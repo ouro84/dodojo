@@ -50,10 +50,19 @@ describe("hero-skins catalogue", () => {
     expect(getSkin("inconnu")).toBeUndefined();
   });
 
-  it("skinPrice = 30% du prix du héros, arrondi à la dizaine", () => {
-    expect(skinPrice(150)).toBe(50);
-    expect(skinPrice(200)).toBe(60);
-    expect(skinPrice(350)).toBe(110);
+  it("skinPrice : 0 pour le défaut, 300 pour une alternative (issue #122)", () => {
+    expect(skinPrice(true)).toBe(0);
+    expect(skinPrice(false)).toBe(300);
+  });
+
+  it("toutes les tenues alternatives du catalogue sont à 300 or (issue #122)", () => {
+    for (const skin of SKINS) {
+      if (skin.isDefault) {
+        expect(skin.price).toBe(0);
+      } else {
+        expect(skin.price).toBe(300);
+      }
+    }
   });
 
   it("isSkinOwned : default toujours possédé, alternative nécessite la liste", () => {
