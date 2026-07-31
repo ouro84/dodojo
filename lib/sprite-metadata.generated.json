@@ -1,0 +1,991 @@
+{
+  "heroes": {
+    "fire-knight": {
+      "tileW": 167,
+      "tileH": 106,
+      "renderScale": 2.409090909090909,
+      "groundOffset": 0.009433962264150943,
+      "anims": {
+        "idle": {
+          "frames": 8,
+          "impactFrame": null
+        },
+        "atk1": {
+          "frames": 11,
+          "impactFrame": 4
+        },
+        "atk2": {
+          "frames": 19,
+          "impactFrame": 8
+        },
+        "atk3": {
+          "frames": 28,
+          "impactFrame": 11
+        },
+        "sp_atk": {
+          "frames": 18,
+          "impactFrame": 7
+        },
+        "take_hit": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "water-priestess": {
+      "tileW": 138,
+      "tileH": 89,
+      "renderScale": 2.3421052631578947,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 8,
+          "impactFrame": null
+        },
+        "atk1": {
+          "frames": 7,
+          "impactFrame": 3
+        },
+        "atk2": {
+          "frames": 21,
+          "impactFrame": 8
+        },
+        "atk3": {
+          "frames": 27,
+          "impactFrame": 11
+        },
+        "sp_atk": {
+          "frames": 32,
+          "impactFrame": 13
+        },
+        "take_hit": {
+          "frames": 7,
+          "impactFrame": null
+        }
+      }
+    },
+    "ground-monk": {
+      "tileW": 109,
+      "tileH": 61,
+      "renderScale": 1.7428571428571429,
+      "groundOffset": 0.06557377049180328,
+      "anims": {
+        "idle": {
+          "frames": 6,
+          "impactFrame": null
+        },
+        "atk1": {
+          "frames": 6,
+          "impactFrame": 2
+        },
+        "atk2": {
+          "frames": 12,
+          "impactFrame": 5
+        },
+        "atk3": {
+          "frames": 23,
+          "impactFrame": 9
+        },
+        "sp_atk": {
+          "frames": 25,
+          "impactFrame": 10
+        },
+        "take_hit": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "wind-hashashin": {
+      "tileW": 209,
+      "tileH": 112,
+      "renderScale": 3.027027027027027,
+      "groundOffset": 0.008928571428571428,
+      "anims": {
+        "idle": {
+          "frames": 8,
+          "impactFrame": null
+        },
+        "atk1": {
+          "frames": 8,
+          "impactFrame": 3
+        },
+        "atk2": {
+          "frames": 18,
+          "impactFrame": 7
+        },
+        "atk3": {
+          "frames": 26,
+          "impactFrame": 10
+        },
+        "sp_atk": {
+          "frames": 30,
+          "impactFrame": 12
+        },
+        "take_hit": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "leaf-ranger": {
+      "tileW": 195,
+      "tileH": 101,
+      "renderScale": 2.2954545454545454,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 12,
+          "impactFrame": null
+        },
+        "atk1": {
+          "frames": 10,
+          "impactFrame": 4
+        },
+        "atk2": {
+          "frames": 15,
+          "impactFrame": 6
+        },
+        "atk3": {
+          "frames": 12,
+          "impactFrame": 5
+        },
+        "sp_atk": {
+          "frames": 17,
+          "impactFrame": 7
+        },
+        "take_hit": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "crystal-mauler": {
+      "tileW": 201,
+      "tileH": 92,
+      "renderScale": 2.358974358974359,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 8,
+          "impactFrame": null
+        },
+        "atk1": {
+          "frames": 7,
+          "impactFrame": 3
+        },
+        "atk2": {
+          "frames": 7,
+          "impactFrame": 3
+        },
+        "atk3": {
+          "frames": 17,
+          "impactFrame": 7
+        },
+        "sp_atk": {
+          "frames": 15,
+          "impactFrame": 6
+        },
+        "take_hit": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "metal-bladekeeper": {
+      "tileW": 189,
+      "tileH": 58,
+      "renderScale": 1.380952380952381,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 8,
+          "impactFrame": null
+        },
+        "atk1": {
+          "frames": 6,
+          "impactFrame": 2
+        },
+        "atk2": {
+          "frames": 8,
+          "impactFrame": 3
+        },
+        "atk3": {
+          "frames": 18,
+          "impactFrame": 7
+        },
+        "sp_atk": {
+          "frames": 11,
+          "impactFrame": 4
+        },
+        "take_hit": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    }
+  },
+  "bosses": {
+    "frost-guardian": {
+      "tileW": 184,
+      "tileH": 96,
+      "renderScale": 1.0434782608695652,
+      "groundOffset": 0.03125,
+      "anims": {
+        "idle": {
+          "frames": 6,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 14,
+          "impactFrame": 6
+        },
+        "hurt": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 16,
+          "impactFrame": null
+        }
+      }
+    },
+    "demon-slime": {
+      "tileW": 210,
+      "tileH": 124,
+      "renderScale": 1.158878504672897,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 6,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 15,
+          "impactFrame": 6
+        },
+        "hurt": {
+          "frames": 5,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 22,
+          "impactFrame": null
+        }
+      }
+    },
+    "cthulhu": {
+      "tileW": 134,
+      "tileH": 67,
+      "renderScale": 1.046875,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 15,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 7,
+          "impactFrame": 3
+        },
+        "hurt": {
+          "frames": 5,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 11,
+          "impactFrame": null
+        }
+      }
+    },
+    "minotaur": {
+      "tileW": 204,
+      "tileH": 122,
+      "renderScale": 1.1296296296296295,
+      "groundOffset": 0.02459016393442623,
+      "anims": {
+        "idle": {
+          "frames": 16,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 16,
+          "impactFrame": 6
+        }
+      }
+    },
+    "satyr": {
+      "tileW": 128,
+      "tileH": 89,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 8,
+          "impactFrame": 3
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 4,
+          "impactFrame": null
+        }
+      }
+    },
+    "urban-zombie": {
+      "tileW": 87,
+      "tileH": 67,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 6,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 5,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "mushroom": {
+      "tileW": 71,
+      "tileH": 37,
+      "renderScale": 1.121212121212121,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 10,
+          "impactFrame": 4
+        },
+        "hurt": {
+          "frames": 5,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 15,
+          "impactFrame": null
+        }
+      }
+    },
+    "gorgon": {
+      "tileW": 120,
+      "tileH": 93,
+      "renderScale": 1.0941176470588236,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 16,
+          "impactFrame": 6
+        },
+        "hurt": {
+          "frames": 3,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 3,
+          "impactFrame": null
+        }
+      }
+    },
+    "fire-wizard": {
+      "tileW": 85,
+      "tileH": 66,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 4,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 3,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "lightning-mage": {
+      "tileW": 115,
+      "tileH": 85,
+      "renderScale": 1.3492063492063493,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 10,
+          "impactFrame": 4
+        },
+        "hurt": {
+          "frames": 3,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "gangster": {
+      "tileW": 100,
+      "tileH": 76,
+      "renderScale": 1.0555555555555556,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 6,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 3,
+          "impactFrame": 1
+        },
+        "hurt": {
+          "frames": 5,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "knight": {
+      "tileW": 111,
+      "tileH": 74,
+      "renderScale": 1.15625,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 5,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 2,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "temptress": {
+      "tileW": 91,
+      "tileH": 75,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 4,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 4,
+          "impactFrame": null
+        }
+      }
+    },
+    "idler": {
+      "tileW": 86,
+      "tileH": 76,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 6,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 9,
+          "impactFrame": 4
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 4,
+          "impactFrame": null
+        }
+      }
+    },
+    "jaded": {
+      "tileW": 85,
+      "tileH": 74,
+      "renderScale": 1.0724637681159421,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 6,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 5,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "procrastinator": {
+      "tileW": 64,
+      "tileH": 66,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 6,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 4,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "dock-corpse": {
+      "tileW": 80,
+      "tileH": 77,
+      "renderScale": 1.1492537313432836,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 10,
+          "impactFrame": 4
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "gorgon-ivory": {
+      "tileW": 120,
+      "tileH": 93,
+      "renderScale": 1.0941176470588236,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 16,
+          "impactFrame": 6
+        },
+        "hurt": {
+          "frames": 3,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 3,
+          "impactFrame": null
+        }
+      }
+    },
+    "gorgon-scarlet": {
+      "tileW": 120,
+      "tileH": 93,
+      "renderScale": 1.0941176470588236,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 16,
+          "impactFrame": 6
+        },
+        "hurt": {
+          "frames": 3,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 3,
+          "impactFrame": null
+        }
+      }
+    },
+    "accomplice": {
+      "tileW": 93,
+      "tileH": 71,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 6,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "mob-baron": {
+      "tileW": 85,
+      "tileH": 71,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 7,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 5,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "knight-amethyst": {
+      "tileW": 111,
+      "tileH": 74,
+      "renderScale": 1.15625,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 5,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 2,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "knight-garnet": {
+      "tileW": 111,
+      "tileH": 74,
+      "renderScale": 1.15625,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 5,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 2,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 6,
+          "impactFrame": null
+        }
+      }
+    },
+    "wandering-mage": {
+      "tileW": 99,
+      "tileH": 99,
+      "renderScale": 1.5,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 8,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 7,
+          "impactFrame": 3
+        },
+        "hurt": {
+          "frames": 4,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 4,
+          "impactFrame": null
+        }
+      }
+    },
+    "minotaur-warrior": {
+      "tileW": 128,
+      "tileH": 94,
+      "renderScale": 1.010752688172043,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 10,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 5,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 3,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "minotaur-ardent": {
+      "tileW": 124,
+      "tileH": 95,
+      "renderScale": 1.1046511627906976,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 10,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 5,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 3,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    },
+    "minotaur-occult": {
+      "tileW": 120,
+      "tileH": 93,
+      "renderScale": 1,
+      "groundOffset": 0,
+      "anims": {
+        "idle": {
+          "frames": 10,
+          "impactFrame": null
+        },
+        "attack": {
+          "frames": 4,
+          "impactFrame": 2
+        },
+        "hurt": {
+          "frames": 3,
+          "impactFrame": null
+        },
+        "death": {
+          "frames": 5,
+          "impactFrame": null
+        }
+      }
+    }
+  },
+  "vfx": {
+    "fire-knight": {
+      "slash1": {
+        "frames": 9,
+        "tileW": 101,
+        "tileH": 87
+      },
+      "slash2": {
+        "frames": 7,
+        "tileW": 108,
+        "tileH": 122
+      },
+      "slash3": {
+        "frames": 9,
+        "tileW": 88,
+        "tileH": 87
+      }
+    },
+    "water-priestess": {
+      "frost1": {
+        "frames": 14,
+        "tileW": 238,
+        "tileH": 121
+      },
+      "frost2": {
+        "frames": 9,
+        "tileW": 102,
+        "tileH": 94
+      },
+      "frost3": {
+        "frames": 11,
+        "tileW": 175,
+        "tileH": 109
+      },
+      "burst": {
+        "frames": 10,
+        "tileW": 626,
+        "tileH": 400
+      }
+    },
+    "wind-hashashin": {
+      "warrior4": {
+        "frames": 7,
+        "tileW": 121,
+        "tileH": 102
+      },
+      "rogue1": {
+        "frames": 9,
+        "tileW": 109,
+        "tileH": 101
+      },
+      "rogue2": {
+        "frames": 6,
+        "tileW": 151,
+        "tileH": 68
+      },
+      "burst": {
+        "frames": 10,
+        "tileW": 759,
+        "tileH": 407
+      }
+    },
+    "metal-bladekeeper": {
+      "warrior1": {
+        "frames": 10,
+        "tileW": 91,
+        "tileH": 91
+      },
+      "lightning4": {
+        "frames": 5,
+        "tileW": 128,
+        "tileH": 234
+      }
+    },
+    "ground-monk": {
+      "quake1": {
+        "frames": 6,
+        "tileW": 289,
+        "tileH": 496
+      },
+      "quake2": {
+        "frames": 10,
+        "tileW": 675,
+        "tileH": 370
+      },
+      "quake3": {
+        "frames": 10,
+        "tileW": 517,
+        "tileH": 348
+      }
+    },
+    "leaf-ranger": {
+      "rogue3": {
+        "frames": 9,
+        "tileW": 88,
+        "tileH": 98
+      },
+      "rogue4": {
+        "frames": 8,
+        "tileW": 189,
+        "tileH": 90
+      },
+      "rogue5": {
+        "frames": 17,
+        "tileW": 192,
+        "tileH": 102
+      }
+    },
+    "crystal-mauler": {
+      "warrior5": {
+        "frames": 8,
+        "tileW": 114,
+        "tileH": 121
+      },
+      "lightning3": {
+        "frames": 5,
+        "tileW": 119,
+        "tileH": 247
+      }
+    }
+  }
+}
