@@ -11,6 +11,7 @@ import {
   purchaseSkin,
 } from "@/app/actions/shop";
 import HeroIdle from "@/components/combat/HeroIdle";
+import AchievementToast from "@/components/combat/AchievementToast";
 
 // US-18/US-53 : écran de sélection de combattant façon VS Fighting. Stage
 // (héros + idle + bande tenues) en haut, matrice compacte en bas.
@@ -36,6 +37,7 @@ export function CharacterSelect({
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [achievementQueue, setAchievementQueue] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
   const confirmHeroRef = useRef<HTMLDivElement>(null);
   const confirmSkinRef = useRef<HTMLDivElement>(null);
@@ -81,6 +83,10 @@ export function CharacterSelect({
     startTransition(async () => {
       const res = await purchaseHero(id);
       if (res.error) setError(res.error);
+      const newAchievements = res.newAchievements;
+      if (newAchievements?.length) {
+        setAchievementQueue((prev) => [...prev, ...newAchievements]);
+      }
     });
   }
 
@@ -292,6 +298,10 @@ export function CharacterSelect({
           </div>
         </div>
       )}
+      <AchievementToast
+        codes={achievementQueue}
+        onDismissAll={() => setAchievementQueue([])}
+      />
     </div>
   );
 }

@@ -852,15 +852,6 @@ export function tableauChasseStats(
   };
 }
 
-// US-12 : titre débloqué selon le record de série — progression de clarté
-// mentale croissante (issue #51, "Démon Intérieur").
-export function titleForStreak(bestStreak: number): string | null {
-  if (bestStreak >= 100) return "Esprit Vide";
-  if (bestStreak >= 30) return "Silence";
-  if (bestStreak >= 7) return "Calme";
-  return null;
-}
-
 // Combo / série de coups (juice arcade, esprit Street Fighter). Purement visuel :
 // n'affecte NI l'XP NI l'or (économie dérivée intacte). Le compteur monte à chaque
 // tâche terminée à la chaîne et retombe dès qu'on décoche ou qu'on abandonne.

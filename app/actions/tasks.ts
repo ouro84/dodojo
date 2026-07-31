@@ -17,6 +17,7 @@ import {
 import type { CascadeTask } from "@/lib/game-engine";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
+import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
 import type { Task } from "@/types";
 
 // Audit #67, PR5 : `id` alimente un filtre PostgREST `.or()` construit par
@@ -35,6 +36,7 @@ export interface TaskActionResult {
   leveledUp?: boolean;
   deferredTasks?: Task[];
   comboCount?: number;
+  newAchievements?: string[];
 }
 
 // Le "jour" du jeu est le jour local de l'utilisateur (RG-03), pas l'UTC.
@@ -219,6 +221,7 @@ export async function setTaskCompleted(
   let xp: number | undefined;
   let leveledUp = false;
   let comboCount: number | undefined;
+  let newAchievements: string[] = [];
 
   // Le profil n'est jamais absent en usage normal (onboarding le garantit) ;
   // si le fetch échoue quand même, on ne bloque pas la validation de la
@@ -263,6 +266,9 @@ export async function setTaskCompleted(
           .update({ xp_awarded: xpDelta })
           .eq("id", id)
           .eq("user_id", user.id);
+
+        const ctx = await assembleAchievementContext(supabase, user.id);
+        newAchievements = await applyNewAchievements(supabase, user.id, ctx);
       } else {
         // Décocher : rembourse exactement ce qui avait été accordé (fallback
         // flat XP_PER_TASK pour une tâche complétée avant cette migration,
@@ -294,7 +300,7 @@ export async function setTaskCompleted(
   }
 
   revalidatePath("/");
-  return { error: null, level, xp, leveledUp, comboCount };
+  return { error: null, level, xp, leveledUp, comboCount, newAchievements };
 }
 
 // US-15 : Rage Quit — abandonner une tâche active du jour en cours de combat.

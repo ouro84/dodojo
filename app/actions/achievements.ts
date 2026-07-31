@@ -1,0 +1,124 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import {
+  bestTitleCode,
+  evaluateAchievements,
+  type AchievementContext,
+} from "@/lib/achievements";
+
+type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
+
+// Assemble le contexte complet depuis les tables sources. Aucune logique de
+// condition ici (D2) — seulement de la lecture. Réutilisé par les 4
+// checkpoints (tâche, jour, boss, héros) pour ne jamais dupliquer ces
+// requêtes.
+export async function assembleAchievementContext(
+  supabase: SupabaseServer,
+  userId: string,
+): Promise<AchievementContext> {
+  const [
+    { data: prof },
+    { data: unlockedHeroes },
+    { data: dailyBoss },
+    { data: victoryRow },
+  ] = await Promise.all([
+    supabase.from("profiles").select("level, best_streak").eq("id", userId).maybeSingle(),
+    supabase.from("unlocked_heroes").select("hero_id").eq("user_id", userId),
+    supabase.from("daily_boss").select("boss_id, background_id").eq("user_id", userId),
+    supabase
+      .from("day_results")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("outcome", "victory")
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  return {
+    level: prof?.level ?? 1,
+    bestStreak: prof?.best_streak ?? 0,
+    hasVictory: victoryRow !== null,
+    unlockedHeroIds: (unlockedHeroes ?? []).map((r) => r.hero_id),
+    seenBossIds: [...new Set((dailyBoss ?? []).map((r) => r.boss_id))],
+    seenBackgroundIds: [...new Set((dailyBoss ?? []).map((r) => r.background_id))],
+  };
+}
+
+// Évalue, persiste (upsert idempotent) et ré-équipe le titre auto si le
+// joueur n'a jamais choisi manuellement (D8). Renvoie les codes nouvellement
+// débloqués — l'appelant les fait remonter au client pour AchievementToast.
+export async function applyNewAchievements(
+  supabase: SupabaseServer,
+  userId: string,
+  ctx: AchievementContext,
+): Promise<string[]> {
+  const { data: existing } = await supabase
+    .from("unlocked_achievements")
+    .select("code, unlocked_at")
+    .eq("user_id", userId);
+  const existingRows = existing ?? [];
+  const alreadyUnlocked = new Set(existingRows.map((r) => r.code));
+
+  const newCodes = evaluateAchievements(ctx, alreadyUnlocked);
+  if (newCodes.length === 0) return [];
+
+  const now = new Date().toISOString();
+  await supabase
+    .from("unlocked_achievements")
+    .upsert(
+      newCodes.map((code) => ({ user_id: userId, code, unlocked_at: now })),
+      { onConflict: "user_id,code" },
+    );
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("title_manually_set")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!prof?.title_manually_set) {
+    const allUnlocked = [
+      ...existingRows.map((r) => ({ code: r.code, unlockedAt: r.unlocked_at })),
+      ...newCodes.map((code) => ({ code, unlockedAt: now })),
+    ];
+    const best = bestTitleCode(allUnlocked);
+    if (best) {
+      await supabase.from("profiles").update({ equipped_title_code: best }).eq("id", userId);
+    }
+  }
+
+  return newCodes;
+}
+
+// Équipement manuel (D8) : dès le premier appel réussi, l'auto-écrasement
+// s'arrête définitivement pour ce profil (title_manually_set = true).
+export async function equipTitle(code: string | null): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  if (code !== null) {
+    const { data: owned } = await supabase
+      .from("unlocked_achievements")
+      .select("code")
+      .eq("user_id", user.id)
+      .eq("code", code)
+      .maybeSingle();
+    if (!owned) return { error: "Ce titre n'est pas encore débloqué." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ equipped_title_code: code, title_manually_set: true })
+    .eq("id", user.id);
+  if (error) return { error: "Impossible d'équiper ce titre. Réessaie." };
+
+  revalidatePath("/tableau-de-chasse/succes");
+  revalidatePath("/tableau-de-chasse");
+  revalidatePath("/");
+  return { error: null };
+}
