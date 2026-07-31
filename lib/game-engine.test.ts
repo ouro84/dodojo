@@ -29,7 +29,6 @@ import {
   planRecurringGeneration,
   comboLabel,
   comboIntensity,
-  titleForStreak,
   weekKey,
   dayKey,
   isNestableParent,
@@ -1224,17 +1223,5 @@ describe("currentStreak", () => {
     expect(currentStreak(rows, today).length).toBeGreaterThanOrEqual(100);
     // Avec seulement 60 jours fournis (le bug), le palier 100 est hors de portée.
     expect(currentStreak(rows.slice(0, 60), today).length).toBeLessThan(100);
-  });
-});
-
-describe("titleForStreak", () => {
-  it("renvoie null sous le premier palier", () => {
-    expect(titleForStreak(0)).toBeNull();
-    expect(titleForStreak(6)).toBeNull();
-  });
-  it("paliers 7 / 30 / 100", () => {
-    expect(titleForStreak(7)).toBe("Calme");
-    expect(titleForStreak(30)).toBe("Silence");
-    expect(titleForStreak(100)).toBe("Esprit Vide");
   });
 });
