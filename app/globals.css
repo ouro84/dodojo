@@ -305,7 +305,24 @@ body {
   text-shadow: 0 0 8px var(--color-gold);
 }
 
+@keyframes achievement-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.achievement-toast {
+  animation: achievement-pop 0.25s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .achievement-toast {
+    animation: none;
+  }
   .combo-pop {
     animation: none;
     text-shadow: none;

@@ -280,6 +280,16 @@ Transformer la liste de tâches quotidienne en un combat de boss d'arcade (style
     Then Le combattant affiché dans l'Arène porte la nouvelle palette de couleurs, sans impact sur les HP/XP/or
     ```
 
+#### Issue #72 : Système de Succès & Titres
+> Design détaillé : `docs/superpowers/specs/2026-07-31-issue72-succes-titres-design.md`. Catalogue statique de 26 succès (héros, collection, streak, exploration boss/décors, paliers de niveau, méta Platine), 4 raretés. Succès "mystère" masqués jusqu'au déblocage, succès à compteur affichés en barre de progression live. Titre équipé manuellement (`/tableau-de-chasse/succes`), auto-affiché tant que non personnalisé. Remplace l'ancien `titleForStreak` (US-12).
+*   **Standard :** En tant que joueur, je veux débloquer des succès et choisir le titre affiché sous mon nom, pour incarner ma progression.
+*   **BDD :**
+    ```gherkin
+    Given J'ai rempli la condition d'un succès verrouillé
+    When L'action correspondante est validée côté serveur
+    Then Le succès est débloqué, une notification apparaît, et je peux l'équiper comme titre depuis le catalogue
+    ```
+
 ---
 
 ## 4. Modèle de Données (Relationnel - Supabase / PostgreSQL)

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getHero } from "@/lib/heroes";
+import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
 import type { AggressivityLevel } from "@/types";
 
 export interface CreateProfileState {
@@ -57,6 +58,14 @@ export async function createProfile(
     hero_id: starterId,
     price_paid: 0,
   });
+
+  // Issue #72 : enregistre le succès du héros starter. Pas de toast possible
+  // ici (redirect() interrompt l'exécution, aucune valeur de retour lue par
+  // le client) — l'achievement est simplement persisté, il apparaîtra dans
+  // le catalogue et sera de toute façon re-catché par resolveDailyBoss au
+  // premier chargement de l'Arène juste après.
+  const ctx = await assembleAchievementContext(supabase, user.id);
+  await applyNewAchievements(supabase, user.id, ctx);
 
   redirect("/");
 }

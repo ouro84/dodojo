@@ -6,7 +6,8 @@ export interface Profile {
   level: number;
   xp: number;
   gold: number;
-  current_title: string;
+  equipped_title_code: string | null;
+  title_manually_set: boolean;
   streak_days: number;
   best_streak: number;
   timezone: string;

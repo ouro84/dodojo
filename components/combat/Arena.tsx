@@ -80,6 +80,8 @@ import AddTaskForm from "./AddTaskForm";
 import FloatingText from "./FloatingText";
 import PerfectOverlay from "./PerfectOverlay";
 import LevelUpOverlay from "./LevelUpOverlay";
+import AchievementToast from "./AchievementToast";
+import { getAchievement } from "@/lib/achievements";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
 import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
@@ -93,6 +95,7 @@ interface ArenaProps {
   bossId: string;
   backgroundId: string;
   hasSeenTutorial: boolean;
+  initialNewAchievements: string[];
 }
 
 interface Pulse {
@@ -131,6 +134,7 @@ export default function Arena({
   bossId,
   backgroundId,
   hasSeenTutorial,
+  initialNewAchievements,
 }: ArenaProps) {
   const boss = getBoss(bossId) ?? getBoss(DEFAULT_BOSS_ID)!;
   const background =
@@ -138,6 +142,9 @@ export default function Arena({
   const bossName = boss.name;
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const level = resolveAggressivityLevel(profile.aggressivity_level);
+  const activeTitleText = profile.equipped_title_code
+    ? (getAchievement(profile.equipped_title_code)?.title ?? "")
+    : "";
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
@@ -152,6 +159,7 @@ export default function Arena({
   const [tutorialActive, setTutorialActive] = useState(!hasSeenTutorial);
   const tutorialSeenRef = useRef(false);
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
+  const [achievementQueue, setAchievementQueue] = useState<string[]>(initialNewAchievements);
   const [banner, setBanner] = useState<string | null>(null);
   // US-15 : id en attente de confirmation de Rage Quit + toast d'annulation.
   const [rageQuitConfirmId, setRageQuitConfirmId] = useState<string | null>(null);
@@ -778,9 +786,14 @@ export default function Arena({
     // parallèle, chacun partirait du même profil pas encore à jour et
     // écraserait le gain d'XP des autres.
     let lastResult: Awaited<ReturnType<typeof setTaskCompletedAction>> | null = null;
+    const newAchievementCodes: string[] = [];
     for (const change of cascade) {
       lastResult = await setTaskCompletedAction(change.taskId, change.isCompleted);
+      if (lastResult.newAchievements?.length) newAchievementCodes.push(...lastResult.newAchievements);
       if (lastResult.error) break;
+    }
+    if (newAchievementCodes.length > 0) {
+      setAchievementQueue((prev) => [...prev, ...newAchievementCodes]);
     }
 
     if (lastResult?.error) {
@@ -1013,6 +1026,10 @@ export default function Arena({
       setBanner(result.error);
       return;
     }
+    const newAchievements = result.newAchievements;
+    if (newAchievements?.length) {
+      setAchievementQueue((prev) => [...prev, ...newAchievements]);
+    }
     setRecap(summarizeDay(tasks, "manual"));
   }
 
@@ -1063,7 +1080,7 @@ export default function Arena({
             heroId: profile.equipped_hero_id,
             bossId: boss.id,
             level: profile.level,
-            title: profile.current_title,
+            title: activeTitleText,
             streak: currentStreak(dayResults, today).length,
             dayDate: today,
           })}
@@ -1168,7 +1185,7 @@ export default function Arena({
                 heroId: profile.equipped_hero_id,
                 bossId: boss.id,
                 level: profile.level,
-                title: profile.current_title,
+                title: activeTitleText,
                 streak: currentStreak(
                   [
                     ...dayResults.filter((r) => r.day_date !== today),
@@ -1192,6 +1209,10 @@ export default function Arena({
               onDismiss={() => setLevelUpValue(null)}
             />
           )}
+          <AchievementToast
+            codes={achievementQueue}
+            onDismissAll={() => setAchievementQueue([])}
+          />
         </div>
       </div>
 
