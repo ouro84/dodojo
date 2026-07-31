@@ -230,6 +230,8 @@ export default function Arena({
   // au montage) — lire heroAnim directement y renverrait toujours sa valeur
   // initiale (null) et désactiverait la garde anti-chevauchement des animes.
   const heroAnimRef = useRef(heroAnim);
+  // Task 4.2 : une seule attaque récapitulative par montage de l'Arène.
+  const recapPlayedRef = useRef(false);
 
   const [showWakeUp, setShowWakeUp] = useState(overdueTasks.length > 0);
   const [recap, setRecap] = useState<ReturnType<typeof summarizeDay> | null>(null);
@@ -413,6 +415,19 @@ export default function Arena({
   useEffect(() => {
     heroAnimRef.current = heroAnim;
   }, [heroAnim]);
+
+  // Task 4.2 : ce qui était déjà raté avant l'ouverture de l'Arène (deadlines
+  // dépassées, restes reportés au Réveil) se solde par une seule attaque du
+  // Boss, jamais une par élément. Ce comportement revient sur l'entrée
+  // « pas de replay au chargement » de CLAUDE.md (US-05) — voir Task 5.1.
+  useEffect(() => {
+    if (recapPlayedRef.current || reducedMotion) return;
+    if (showWakeUp) return; // Le Réveil bloque : on attend sa fermeture.
+    const hadPenalties = missedDeadlines.length > 0 || overdueTasks.length > 0;
+    if (!hadPenalties) return;
+    recapPlayedRef.current = true;
+    triggerBossAttack("recap");
+  }, [missedDeadlines.length, overdueTasks.length, reducedMotion, showWakeUp]);
 
   // US-05 : polling léger (~45s) pendant que l'Arène est montée. Ne se
   // déclenche jamais rétroactivement pour une deadline déjà ratée avant le
