@@ -22,6 +22,8 @@ interface CrepusculeRecapProps {
   // US-20 : paramètres pré-calculés de la carte partageable pour ce récap.
   shareCardParams: ShareCardParams;
   onDismiss: () => void;
+  // Issue #116 : CTA contextuel vers la section "Demain" (cf. PerfectOverlay).
+  onPlanTomorrow?: () => void;
 }
 
 // US-07 : récap figé de la clôture du jour (« Terminer la journée »), dessiné comme une carte de score
@@ -40,6 +42,7 @@ export default function CrepusculeRecap({
   streak,
   shareCardParams,
   onDismiss,
+  onPlanTomorrow,
 }: CrepusculeRecapProps) {
   const victory = outcome === "victory";
   // Seed figé au montage : voir PerfectOverlay pour la raison.
@@ -96,6 +99,16 @@ export default function CrepusculeRecap({
       )}
 
       <ShareButton params={shareCardParams} source="crepuscule" />
+
+      {onPlanTomorrow && (
+        <button
+          type="button"
+          onClick={onPlanTomorrow}
+          className="text-xs text-muted underline underline-offset-2"
+        >
+          Planifier demain
+        </button>
+      )}
 
       <button
         type="button"

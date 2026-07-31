@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dayKey } from "@/lib/game-engine";
+import { dayKey, nextDayKey } from "@/lib/game-engine";
 import { generateRecurringInstances } from "@/app/actions/recurring";
 import { resolveDailyBoss } from "@/app/actions/boss";
 import Arena from "@/components/combat/Arena";
@@ -31,6 +31,7 @@ export default async function ArenePage() {
   }
 
   const today = dayKey(new Date(), profile.timezone ?? "UTC");
+  const tomorrow = nextDayKey(today);
 
   // US-17 : génère (idempotent) les instances de routines dues aujourd'hui avant
   // de lire la liste du jour — couvre les jours sans reste (le Réveil
@@ -46,6 +47,7 @@ export default async function ArenePage() {
     { data: tasks, error: tasksError },
     { data: overdueTasks, error: overdueError },
     { data: dayResults },
+    { data: tomorrowTasks },
   ] = await Promise.all([
     supabase
       .from("tasks")
@@ -69,6 +71,13 @@ export default async function ArenePage() {
       // à 60, le palier 100 (titre Esprit Vide) ne pouvait structurellement
       // jamais se déclencher depuis l'Arène (audit #67, PR4).
       .limit(120),
+    // Issue #116 : tâches déjà planifiées pour demain (section "Demain").
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("day_date", tomorrow)
+      .order("position", { ascending: true }),
   ]);
 
   if (tasksError || overdueError) {
@@ -79,6 +88,7 @@ export default async function ArenePage() {
     <Arena
       initialProfile={profile}
       initialTasks={tasks ?? []}
+      initialTomorrowTasks={tomorrowTasks ?? []}
       overdueTasks={overdueTasks ?? []}
       dayResults={dayResults ?? []}
       today={today}

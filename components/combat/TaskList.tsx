@@ -9,6 +9,8 @@ interface TaskListProps {
   onAbandon: (id: string) => void;
   onAddSubtask: (parentId: string, title: string) => void;
   onSetDeadline: (id: string, deadlineAt: string | null) => void;
+  onReportTomorrow: (id: string) => void;
+  showReportTomorrow?: boolean;
   addingSubtaskParentId?: string | null;
   // Fix #95/#96 (issues) : ids en cours de mutation (toggle, abandon,
   // deadline). Désactive le rendu interactif de la ligne correspondante tant
@@ -30,6 +32,8 @@ export default function TaskList({
   onAbandon,
   onAddSubtask,
   onSetDeadline,
+  onReportTomorrow,
+  showReportTomorrow = false,
   addingSubtaskParentId = null,
   pendingMutationIds,
   missedDeadlineIds,
@@ -49,6 +53,8 @@ export default function TaskList({
             onAbandon={onAbandon}
             onAddSubtask={onAddSubtask}
             onSetDeadline={onSetDeadline}
+            onReportTomorrow={onReportTomorrow}
+            showReportTomorrow={showReportTomorrow}
             isAddingSubtask={addingSubtaskParentId === task.id}
             isMutating={pendingMutationIds?.has(task.id) ?? false}
             isMissedDeadline={missedDeadlineIds?.has(task.id) ?? false}

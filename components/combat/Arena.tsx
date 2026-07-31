@@ -41,6 +41,8 @@ import {
   nextComboState,
   type ComboState,
   insertNewActiveTaskId,
+  nextDayKey,
+  isPlanningUnlocked,
   nextSiblingPosition,
   planCompletionReorder,
   planReorder,
@@ -71,12 +73,17 @@ import { buildShareCardParams } from "@/lib/share-card";
 import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
 import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
 import { deadlineAlertLine } from "@/lib/copy/deadline";
+import { planningUnlockedLine } from "@/lib/copy/planning";
 import { randomSeed } from "@/lib/copy/variant";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   addTask as addTaskAction,
   addSubtask as addSubtaskAction,
+  addTomorrowTask as addTomorrowTaskAction,
+  reportToTomorrow as reportToTomorrowAction,
+  bringToToday as bringToTodayAction,
+  annihilateOverdueTask as annihilateTaskAction,
   rageQuitTask as rageQuitTaskAction,
   undoRageQuit as undoRageQuitAction,
   reorderSiblings as reorderSiblingsAction,
@@ -98,12 +105,14 @@ import AchievementToast from "./AchievementToast";
 import { getAchievement } from "@/lib/achievements";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
+import TomorrowSection from "./TomorrowSection";
 import { pickVfxVariant } from "./HeroVfx";
 import KoSlam from "./KoSlam";
 
 interface ArenaProps {
   initialProfile: Profile;
   initialTasks: Task[];
+  initialTomorrowTasks: Task[];
   overdueTasks: Task[];
   dayResults: Array<Pick<DayResult, "day_date" | "outcome">>;
   today: string;
@@ -142,6 +151,7 @@ function isTopHalfDrop(activeRect: ClientRect | null, overRect: ClientRect): boo
 export default function Arena({
   initialProfile,
   initialTasks,
+  initialTomorrowTasks,
   overdueTasks,
   dayResults,
   today,
@@ -160,6 +170,17 @@ export default function Arena({
     ? (getAchievement(profile.equipped_title_code)?.title ?? "")
     : "";
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  // Issue #116 : section "Demain" — state client distinct de `tasks`, jamais
+  // fusionné (garantit que calculateBossMaxHp/calculateHeroHp, qui ne lisent
+  // que `tasks`, ne voient jamais une tâche de demain).
+  const [tomorrowTasks, setTomorrowTasks] = useState<Task[]>(initialTomorrowTasks);
+  const [isAddingTomorrow, setIsAddingTomorrow] = useState(false);
+  const [addingTomorrowSubtaskParentId, setAddingTomorrowSubtaskParentId] = useState<string | null>(null);
+  const [reportUndo, setReportUndo] = useState<{ id: string; taskTitle: string } | null>(null);
+  const tomorrowSectionRef = useRef<HTMLDivElement>(null);
+  const [wasPlanningUnlocked, setWasPlanningUnlocked] = useState(false);
+  const [planningVoiceSeed, setPlanningVoiceSeed] = useState(randomSeed);
+  const optimisticTomorrowIdCounterRef = useRef(0);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [xpPulse, setXpPulse] = useState<XpPulse | null>(null);
   const [koState, setKoState] = useState<{
@@ -359,6 +380,13 @@ export default function Arena({
       .filter((t) => t.deferred_at != null && !t.is_completed && !t.is_abandoned)
       .map((t) => t.id),
   ]);
+  // Issue #116 : jour de demain + gate heure seuil. `now`/`profile.timezone`
+  // sont déjà recalculés par le polling ~45s existant (US-05) — pas de timer
+  // dédié pour ce gate.
+  const tomorrowDayDate = nextDayKey(today);
+  const planningUnlocked = isPlanningUnlocked(now, profile.timezone, profile.plan_tomorrow_after_hour);
+  const activeTomorrowTasks = tomorrowTasks.filter((task) => !task.is_abandoned);
+
   // US-18 : héros affiché = celui équipé (fallback défaut si id inconnu).
   const equippedHero =
     getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;
@@ -376,6 +404,13 @@ export default function Arena({
   if (isEmpty !== wasEmpty) {
     setWasEmpty(isEmpty);
     if (isEmpty) setEmptyStateSeed(randomSeed());
+  }
+
+  // Issue #116 : nouvelle punchline uniquement à la transition false→true (pas
+  // à chaque re-rendu pendant le poll ~45s) — même patron que wasEmpty.
+  if (planningUnlocked !== wasPlanningUnlocked) {
+    setWasPlanningUnlocked(planningUnlocked);
+    if (planningUnlocked) setPlanningVoiceSeed(randomSeed());
   }
 
   // US-29 : étape du coach. "add" tant qu'aucune tâche active ; "strike" tant
@@ -873,6 +908,218 @@ export default function Arena({
     });
   }
 
+  // Issue #116 : ajout direct dans la section "Demain".
+  function handleAddTomorrow(title: string) {
+    optimisticTomorrowIdCounterRef.current += 1;
+    const roots = tomorrowTasks.filter((task) => task.parent_id === null && !task.is_abandoned);
+    const optimisticTask: Task = {
+      id: `optimistic-tomorrow-${optimisticTomorrowIdCounterRef.current}`,
+      user_id: profile.id,
+      parent_id: null,
+      title,
+      is_completed: false,
+      is_abandoned: false,
+      abandon_reason: null,
+      is_recurring: false,
+      recurring_template_id: null,
+      deadline_at: null,
+      deferred_at: null,
+      xp_awarded: null,
+      reminder_offset_minutes: null,
+      day_date: tomorrowDayDate,
+      position: nextSiblingPosition(roots),
+      created_at: new Date().toISOString(),
+    };
+
+    setTomorrowTasks((prev) => [...prev, optimisticTask]);
+    setIsAddingTomorrow(true);
+
+    void addTomorrowTaskAction(title).then((result) => {
+      setIsAddingTomorrow(false);
+      if (result.error) {
+        setTomorrowTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
+        setBanner(result.error);
+        return;
+      }
+      if (result.id) {
+        const realId = result.id;
+        setTomorrowTasks((prev) =>
+          prev.map((task) => (task.id === optimisticTask.id ? { ...task, id: realId } : task)),
+        );
+      }
+    });
+  }
+
+  // Issue #116 : sous-tâche dans la section "Demain" (même mécanisme serveur
+  // addSubtask que l'Arène du jour — hérite désormais du day_date du parent).
+  function handleAddTomorrowSubtask(parentId: string, title: string) {
+    optimisticTomorrowIdCounterRef.current += 1;
+    const siblings = tomorrowTasks.filter(
+      (task) => task.parent_id === parentId && !task.is_abandoned,
+    );
+    const optimisticTask: Task = {
+      id: `optimistic-tomorrow-${optimisticTomorrowIdCounterRef.current}`,
+      user_id: profile.id,
+      parent_id: parentId,
+      title,
+      is_completed: false,
+      is_abandoned: false,
+      abandon_reason: null,
+      is_recurring: false,
+      recurring_template_id: null,
+      deadline_at: null,
+      deferred_at: null,
+      xp_awarded: null,
+      reminder_offset_minutes: null,
+      day_date: tomorrowDayDate,
+      position: nextSiblingPosition(siblings),
+      created_at: new Date().toISOString(),
+    };
+
+    setTomorrowTasks((prev) => [...prev, optimisticTask]);
+    setAddingTomorrowSubtaskParentId(parentId);
+
+    void addSubtaskAction(parentId, title).then((result) => {
+      setAddingTomorrowSubtaskParentId(null);
+      if (result.error) {
+        setTomorrowTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
+        setBanner(result.error);
+        return;
+      }
+      if (result.id) {
+        const realId = result.id;
+        setTomorrowTasks((prev) =>
+          prev.map((task) => (task.id === optimisticTask.id ? { ...task, id: realId } : task)),
+        );
+      }
+    });
+  }
+
+  // Issue #116 : deadline sur une tâche de la section "Demain" (même action
+  // serveur setTaskDeadline, générique sur id+deadlineAt).
+  function handleSetTomorrowDeadline(id: string, deadlineAt: string | null) {
+    if (isOptimisticId(id)) return;
+    const previousSnapshot = tomorrowTasks;
+    setTomorrowTasks((prev) =>
+      prev.map((task) => (task.id === id ? { ...task, deadline_at: deadlineAt } : task)),
+    );
+    markPending(id);
+    void setTaskDeadlineAction(id, deadlineAt).then((result) => {
+      unmarkPending(id);
+      if (result.error) {
+        setTomorrowTasks(previousSnapshot);
+        setBanner(result.error);
+      }
+    });
+  }
+
+  // Issue #116 : abandon d'une tâche "Demain" — toujours annihilated, jamais
+  // de Rage Quit (pas de combat en cours sur une tâche pas encore
+  // "aujourd'hui"). Réutilise l'action serveur annihilateOverdueTask
+  // (comportement identique : is_abandoned=true, cascade sous-tâches, aucun
+  // filtre de day_date côté serveur).
+  function handleAnnihilateTomorrow(id: string) {
+    const cascadeIds = new Set([
+      id,
+      ...tomorrowTasks.filter((task) => task.parent_id === id).map((task) => task.id),
+    ]);
+    const previousSnapshot = tomorrowTasks;
+    setTomorrowTasks((prev) =>
+      prev.map((task) =>
+        cascadeIds.has(task.id)
+          ? { ...task, is_abandoned: true, abandon_reason: "annihilated" as const }
+          : task,
+      ),
+    );
+    for (const cid of cascadeIds) markPending(cid);
+    void annihilateTaskAction(id).then((result) => {
+      for (const cid of cascadeIds) unmarkPending(cid);
+      if (result.error) {
+        setTomorrowTasks(previousSnapshot);
+        setBanner(result.error);
+      }
+    });
+  }
+
+  // Issue #116 : report proactif d'une tâche du jour vers demain. Jamais de
+  // malus (≠ Le Réveil) : la tâche sort simplement du pool du jour, le Boss
+  // rétrécit automatiquement (calculateBossMaxHp ne lit plus cette tâche).
+  function handleReportToTomorrow(id: string) {
+    if (isOptimisticId(id)) return;
+    const cascadeIds = new Set([
+      id,
+      ...tasks.filter((task) => task.parent_id === id).map((task) => task.id),
+    ]);
+    const tasksSnapshot = tasks;
+    const tomorrowSnapshot = tomorrowTasks;
+    const reportedTitle = tasks.find((task) => task.id === id)?.title ?? "";
+
+    const moved = tasks
+      .filter((task) => cascadeIds.has(task.id))
+      .map((task) => ({ ...task, day_date: tomorrowDayDate, deadline_at: null, deferred_at: null }));
+
+    setTasks((prev) => prev.filter((task) => !cascadeIds.has(task.id)));
+    setTomorrowTasks((prev) => [...prev, ...moved]);
+    setReportUndo({ id, taskTitle: reportedTitle });
+
+    for (const cid of cascadeIds) markPending(cid);
+    void reportToTomorrowAction(id).then((result) => {
+      for (const cid of cascadeIds) unmarkPending(cid);
+      if (result.error) {
+        setTasks(tasksSnapshot);
+        setTomorrowTasks(tomorrowSnapshot);
+        setReportUndo(null);
+        setBanner(result.error);
+        return;
+      }
+      if (result.reportedTasks?.length) {
+        const byId = new Map(result.reportedTasks.map((task) => [task.id, task]));
+        setTomorrowTasks((prev) => prev.map((task) => byId.get(task.id) ?? task));
+      }
+    });
+  }
+
+  // Issue #116 : ramène une tâche à aujourd'hui — depuis la section "Demain"
+  // (changement d'avis) OU via "Annuler" juste après un report (même action).
+  function handleBringToToday(id: string) {
+    const cascadeIds = new Set([
+      id,
+      ...tomorrowTasks.filter((task) => task.parent_id === id).map((task) => task.id),
+    ]);
+    const tasksSnapshot = tasks;
+    const tomorrowSnapshot = tomorrowTasks;
+
+    const moved = tomorrowTasks
+      .filter((task) => cascadeIds.has(task.id))
+      .map((task) => ({ ...task, day_date: today, deadline_at: null, deferred_at: null }));
+
+    setTomorrowTasks((prev) => prev.filter((task) => !cascadeIds.has(task.id)));
+    setTasks((prev) => [...prev, ...moved]);
+    if (reportUndo?.id === id) setReportUndo(null);
+
+    for (const cid of cascadeIds) markPending(cid);
+    void bringToTodayAction(id).then((result) => {
+      for (const cid of cascadeIds) unmarkPending(cid);
+      if (result.error) {
+        setTasks(tasksSnapshot);
+        setTomorrowTasks(tomorrowSnapshot);
+        setBanner(result.error);
+        return;
+      }
+      if (result.broughtBackTasks?.length) {
+        const byId = new Map(result.broughtBackTasks.map((task) => [task.id, task]));
+        setTasks((prev) => prev.map((task) => byId.get(task.id) ?? task));
+      }
+    });
+  }
+
+  function scrollToTomorrowSection() {
+    tomorrowSectionRef.current?.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }
+
   async function handleToggle(id: string, isCompleted: boolean) {
     // Fix #95 : ne pas entamer une cascade sur une tâche optimistic (sa vraie
     // version serveur n'existe pas encore — l'appel échouerait). Une fois
@@ -1311,6 +1558,7 @@ export default function Arena({
             dayDate: today,
           })}
           onDismiss={() => setRecap(null)}
+          onPlanTomorrow={planningUnlocked ? scrollToTomorrowSection : undefined}
         />
       )}
       <div
@@ -1435,6 +1683,7 @@ export default function Arena({
                 void handleCrepuscule();
               }}
               onContinue={() => setKoState(null)}
+              onPlanTomorrow={planningUnlocked ? scrollToTomorrowSection : undefined}
             />
           )}
           {levelUpValue !== null && (
@@ -1554,6 +1803,22 @@ export default function Arena({
         </div>
       )}
 
+      {reportUndo && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted"
+        >
+          <span>« {reportUndo.taskTitle} » repoussée à demain.</span>
+          <button
+            type="button"
+            onClick={() => handleBringToToday(reportUndo.id)}
+            className="shrink-0 font-display uppercase tracking-wide text-xp-text underline underline-offset-2"
+          >
+            Annuler
+          </button>
+        </div>
+      )}
+
       {isEmpty ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
           <p className="font-display text-lg uppercase tracking-wide text-ink">
@@ -1577,6 +1842,8 @@ export default function Arena({
             onAbandon={handleAbandon}
             onAddSubtask={handleAddSubtask}
             onSetDeadline={handleSetDeadline}
+            onReportTomorrow={handleReportToTomorrow}
+            showReportTomorrow={planningUnlocked}
             addingSubtaskParentId={addingSubtaskParentId}
             pendingMutationIds={pendingMutationIds}
             // A4 (issue #101) : chips -10/-20 HP sur les tâches en pénalité.
@@ -1605,6 +1872,25 @@ export default function Arena({
         >
           {closing ? "…" : "Terminer la journée"}
         </button>
+      )}
+
+      {planningUnlocked && (
+        <div ref={tomorrowSectionRef}>
+          <TomorrowSection
+            tasks={activeTomorrowTasks}
+            timezone={profile.timezone}
+            aggressivityLevel={level}
+            voiceSeed={planningVoiceSeed}
+            onAdd={handleAddTomorrow}
+            onAddSubtask={handleAddTomorrowSubtask}
+            onSetDeadline={handleSetTomorrowDeadline}
+            onAnnihilate={handleAnnihilateTomorrow}
+            onBringToToday={handleBringToToday}
+            addingSubtaskParentId={addingTomorrowSubtaskParentId}
+            isAdding={isAddingTomorrow}
+            pendingMutationIds={pendingMutationIds}
+          />
+        </div>
       )}
 
       {coachStep && (

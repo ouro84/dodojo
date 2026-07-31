@@ -25,6 +25,10 @@ interface PerfectOverlayProps {
   shareCardParams: ShareCardParams;
   onCrepuscule: () => void;
   onContinue: () => void;
+  // Issue #116 : CTA contextuel vers la section "Demain", fourni par Arena
+  // uniquement si l'heure seuil est déjà franchie (sinon la section n'existe
+  // pas encore à cibler).
+  onPlanTomorrow?: () => void;
 }
 
 // US-16 : célébration en direct quand le Boss tombe à 0. PERFECT (Héro intact)
@@ -43,6 +47,7 @@ export default function PerfectOverlay({
   shareCardParams,
   onCrepuscule,
   onContinue,
+  onPlanTomorrow,
 }: PerfectOverlayProps) {
   const isPerfect = tier === "perfect";
   // Seed figé au montage : le pool de punchlines ne doit pas retirer à chaque
@@ -102,6 +107,15 @@ export default function PerfectOverlay({
           🌙 Terminer la journée
         </button>
         <ShareButton params={shareCardParams} source="perfect_overlay" />
+        {onPlanTomorrow && (
+          <button
+            type="button"
+            onClick={onPlanTomorrow}
+            className="text-xs text-muted underline underline-offset-2"
+          >
+            Planifier demain
+          </button>
+        )}
         <button
           type="button"
           onClick={onContinue}

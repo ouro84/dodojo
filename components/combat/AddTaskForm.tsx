@@ -6,9 +6,19 @@ import MicButton from "./MicButton";
 interface AddTaskFormProps {
   onAdd: (title: string) => void;
   pending?: boolean;
+  // Issue #116 : AddTaskForm est réutilisé par TomorrowSection sur le même
+  // écran que le formulaire du jour — id/libellé distincts obligatoires
+  // (sinon id HTML dupliqué + deux labels "Ajouter une tâche" ambigus).
+  inputId?: string;
+  label?: string;
 }
 
-export default function AddTaskForm({ onAdd, pending = false }: AddTaskFormProps) {
+export default function AddTaskForm({
+  onAdd,
+  pending = false,
+  inputId = "new-task",
+  label = "Ajouter une tâche",
+}: AddTaskFormProps) {
   const [title, setTitle] = useState("");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -24,11 +34,11 @@ export default function AddTaskForm({ onAdd, pending = false }: AddTaskFormProps
       onSubmit={handleSubmit}
       className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2"
     >
-      <label htmlFor="new-task" className="sr-only">
-        Ajouter une tâche
+      <label htmlFor={inputId} className="sr-only">
+        {label}
       </label>
       <input
-        id="new-task"
+        id={inputId}
         name="title"
         type="text"
         value={title}
