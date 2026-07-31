@@ -176,6 +176,25 @@ body {
   }
 }
 
+/* Recul à l'impact (issue #48) : le personnage touché est repoussé puis revient.
+   --knockback-x vaut +6px pour le Boss (poussé vers la droite) et -6px pour
+   le Héros. Complète le hit-stop : le gel donne la frappe, le recul le poids. */
+@keyframes knockback {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(var(--knockback-x));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.is-knockback {
+  animation: knockback 220ms ease-out;
+}
+
 /* ---- Flash de combat (US-21) ---- */
 @keyframes hit-shake {
   10%,
@@ -371,5 +390,8 @@ body {
   }
   .sprite-run {
     animation: none !important;
+  }
+  .is-knockback {
+    animation: none;
   }
 }

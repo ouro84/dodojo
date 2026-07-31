@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import CharacterSprite, { type CharacterAnimState } from "./CharacterSprite";
 import HeroBar from "./HeroBar";
@@ -128,19 +129,33 @@ export default function VersusScene({
           )}
         </div>
       </div>
-      <CharacterSprite
-        spriteBase={heroSpriteBase}
-        meta={heroMeta}
-        baseHeight={88}
-        state={heroState}
-        attackAnim={heroAttackAnim}
-        stateKey={heroStateKey}
-        frozen={frozen}
-        reducedMotion={reducedMotion}
-        alt={`Ton héros : ${heroName}`}
-        className="absolute bottom-2 left-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-      />
-      <div className="absolute bottom-2 right-4">
+      {/* Recul à l'impact : `key` sur le stateKey pour rejouer l'animation à
+          chaque coup encaissé. Le recul est sur ce wrapper, distinct du
+          `transform: translateY(...)` propre à CharacterSprite (sinon les
+          deux transforms se remplaceraient). */}
+      <div
+        key={`hero-wrap-${heroStateKey}`}
+        className={`absolute bottom-2 left-4 ${heroState === "hurt" ? "is-knockback" : ""}`}
+        style={heroState === "hurt" ? ({ "--knockback-x": "-6px" } as CSSProperties) : undefined}
+      >
+        <CharacterSprite
+          spriteBase={heroSpriteBase}
+          meta={heroMeta}
+          baseHeight={88}
+          state={heroState}
+          attackAnim={heroAttackAnim}
+          stateKey={heroStateKey}
+          frozen={frozen}
+          reducedMotion={reducedMotion}
+          alt={`Ton héros : ${heroName}`}
+          className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        />
+      </div>
+      <div
+        key={`boss-wrap-${bossStateKey}`}
+        className={`absolute bottom-2 right-4 ${bossState === "hurt" ? "is-knockback" : ""}`}
+        style={bossState === "hurt" ? ({ "--knockback-x": "6px" } as CSSProperties) : undefined}
+      >
         <CharacterSprite
           spriteBase={bossSpriteBase}
           meta={bossMeta}
