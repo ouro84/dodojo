@@ -16,7 +16,10 @@ test.describe("Issue #72 Succès & Titres", () => {
     // les succès (y compris FIRST_VICTORY) — pas seulement boss/décors.
     await page.goto("/");
     await page.goto("/tableau-de-chasse/succes");
-    await expect(page.getByText("Aube")).toBeVisible();
+    // `getByText("Aube")` seul est ambigu : la carte catalogue ET l'option
+    // du <select> de titre contiennent toutes deux "Aube" une fois débloqué.
+    // On cible la carte catalogue (un <li>), pas l'option du sélecteur.
+    await expect(page.locator("li", { hasText: "Aube" })).toBeVisible();
 
     await page.getByRole("combobox").selectOption("FIRST_VICTORY");
     await expect(page.getByRole("combobox")).toHaveValue("FIRST_VICTORY");
