@@ -81,8 +81,18 @@ export default function CharacterSprite({
   }
 
   const requested = animNameFor(rendered, attackAnim);
-  const available = meta.anims[requested] !== undefined;
-  const animName = available ? requested : "idle";
+  // Alias "hurt" -> "take_hit" : les héros nomment leur anim d'encaissement
+  // "take_hit" (cf. HERO_ANIM_PATTERNS, scripts/build-sprite-sheets.mjs), les
+  // boss "hurt". Sans cet alias, state="hurt" sur un héros ne trouverait
+  // jamais son anim et retomberait silencieusement sur l'idle.
+  const resolvedRequested =
+    meta.anims[requested] !== undefined
+      ? requested
+      : requested === "hurt" && meta.anims.take_hit !== undefined
+        ? "take_hit"
+        : requested;
+  const available = meta.anims[resolvedRequested] !== undefined;
+  const animName = available ? resolvedRequested : "idle";
   const anim = meta.anims[animName];
 
   // Fallback (minotaur) : l'anim demandée n'existe pas, on joue l'idle bouclé,

@@ -72,4 +72,15 @@ describe("CharacterSprite", () => {
     expect(el.style.backgroundImage).toContain("/anim/idle.png");
     expect(screen.getByTestId("character-sprite")).toHaveAttribute("data-anim-fallback", "true");
   });
+
+  it("alias state=hurt vers l'anim take_hit d'un héros (pas de clé hurt)", () => {
+    const heroMeta: CharacterSpriteMeta = {
+      ...meta,
+      anims: { idle: { frames: 8, impactFrame: null }, take_hit: { frames: 5, impactFrame: null } },
+    };
+    render(<CharacterSprite {...base} meta={heroMeta} state="hurt" />);
+    const el = screen.getByRole("img", { name: "Héros" });
+    expect(el.style.backgroundImage).toContain("/anim/take_hit.png");
+    expect(screen.getByTestId("character-sprite")).not.toHaveAttribute("data-anim-fallback");
+  });
 });
