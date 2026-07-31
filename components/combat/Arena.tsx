@@ -94,6 +94,7 @@ interface ArenaProps {
   bossId: string;
   backgroundId: string;
   hasSeenTutorial: boolean;
+  initialNewAchievements: string[];
 }
 
 interface Pulse {
@@ -132,6 +133,7 @@ export default function Arena({
   bossId,
   backgroundId,
   hasSeenTutorial,
+  initialNewAchievements,
 }: ArenaProps) {
   const boss = getBoss(bossId) ?? getBoss(DEFAULT_BOSS_ID)!;
   const background =
@@ -153,7 +155,7 @@ export default function Arena({
   const [tutorialActive, setTutorialActive] = useState(!hasSeenTutorial);
   const tutorialSeenRef = useRef(false);
   const [levelUpValue, setLevelUpValue] = useState<number | null>(null);
-  const [achievementQueue, setAchievementQueue] = useState<string[]>([]);
+  const [achievementQueue, setAchievementQueue] = useState<string[]>(initialNewAchievements);
   const [banner, setBanner] = useState<string | null>(null);
   // US-15 : id en attente de confirmation de Rage Quit + toast d'annulation.
   const [rageQuitConfirmId, setRageQuitConfirmId] = useState<string | null>(null);
