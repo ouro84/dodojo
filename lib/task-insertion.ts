@@ -5,6 +5,9 @@ export interface InsertTaskParams {
   userId: string;
   title: string;
   timezone: string;
+  // Issue #116 : jour cible explicite (ex. demain, pour la section "Demain").
+  // Omis = comportement inchangé (aujourd'hui, dérivé de timezone).
+  dayDate?: string;
 }
 
 export interface InsertTaskOutcome {
@@ -28,9 +31,10 @@ type DayTaskRow = HpTask & { position: number };
 // par Vitest (voir Global Constraints du plan US-03).
 export async function insertTaskForUser(
   supabase: SupabaseClient,
-  { userId, title, timezone }: InsertTaskParams,
+  params: InsertTaskParams,
 ): Promise<InsertTaskOutcome> {
-  const dayDate = dayKey(new Date(), timezone);
+  const { userId, title, timezone } = params;
+  const dayDate = params.dayDate ?? dayKey(new Date(), timezone);
 
   const { data: todayTasks, error: fetchError } = await supabase
     .from("tasks")
