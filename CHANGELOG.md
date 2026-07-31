@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #48 : Animations de combat : le héros attaque avec un effet propre à son élément, le Boss encaisse et meurt, et contre-attaque sur une deadline ratée ou un Rage Quit. Hit-stop, recul, jauge fantôme et « K.O. » qui claque.
 - Issue #72 : système de succès & titres (26 succès, 4 raretés, catalogue `/tableau-de-chasse/succes`, titre équipable manuellement, succès mystère + barres de progression, notification `AchievementToast`).
 - Issue #74 : 15 nouveaux boss dans le roster quotidien (27 au total), tailles boss/héros uniformisées dans l'Arène, correction du sprite du boss satyr.
 - Issue #115 : le combo ne monte plus que si 2 tâches sont cochées à moins de 15 min d'intervalle, et augmente légèrement l'XP gagnée par palier.
