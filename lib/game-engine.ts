@@ -634,6 +634,35 @@ export function dayKey(date: Date, timezone: string): string {
   }).format(date);
 }
 
+// Issue #116 : jour calendaire suivant `dayDate` (format YYYY-MM-DD). Arithmétique
+// ancrée en UTC sur la date elle-même (pas sur un instant local) — un day_date
+// est une étiquette calendaire, pas un horodatage ; ajouter 24h en UTC et
+// reformater en UTC donne toujours "le jour d'après", indépendamment de toute
+// transition DST qui se produirait ce jour-là dans le fuseau de l'utilisateur
+// (même piège que documenté pour deadlineIso, évité ici en ne touchant jamais
+// à un fuseau non-UTC).
+export function nextDayKey(dayDate: string): string {
+  return dayKey(new Date(Date.parse(`${dayDate}T00:00:00Z`) + 86_400_000), "UTC");
+}
+
+// Issue #116 : la section "Demain" (et l'icône de report) ne se débloquent
+// qu'à partir de `thresholdHour` (heure LOCALE, cf. profiles.plan_tomorrow_after_hour,
+// borné 12-23). Recalculée à chaque rendu depuis le `now` déjà existant du
+// polling deadline (~45s, US-05) — pas de timer dédié.
+export function isPlanningUnlocked(
+  now: Date,
+  timezone: string,
+  thresholdHour: number,
+): boolean {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const localHour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  return localHour >= thresholdHour;
+}
+
 export type DayContext = "manual" | "backfill";
 
 export type SummaryTask = Pick<Task, "parent_id" | "is_completed" | "is_abandoned">;

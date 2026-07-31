@@ -31,6 +31,8 @@ import {
   comboIntensity,
   weekKey,
   dayKey,
+  nextDayKey,
+  isPlanningUnlocked,
   isNestableParent,
   isOptimisticId,
   isOptimisticTask,
@@ -1043,6 +1045,49 @@ describe("dayKey", () => {
   it("gère le passage de minuit dans l'autre sens", () => {
     const instant = new Date("2026-07-20T02:00:00Z");
     expect(dayKey(instant, "America/New_York")).toBe("2026-07-19");
+  });
+});
+
+describe("nextDayKey (issue #116)", () => {
+  test("jour suivant dans le même mois", () => {
+    expect(nextDayKey("2026-07-15")).toBe("2026-07-16");
+  });
+
+  test("bascule de mois", () => {
+    expect(nextDayKey("2026-07-31")).toBe("2026-08-01");
+  });
+
+  test("bascule d'année", () => {
+    expect(nextDayKey("2026-12-31")).toBe("2027-01-01");
+  });
+
+  test("insensible au fuseau — arithmétique sur le calendrier, pas sur un instant (cf. deadlineIso DST)", () => {
+    // 2026-03-29 : jour de passage à l'heure d'été en Europe (transition 01h00 UTC).
+    // nextDayKey n'a pas à connaître de fuseau : la date suivante est toujours
+    // simplement "le jour calendaire d'après", quelle que soit la transition DST
+    // qui s'y produit dans tel ou tel fuseau.
+    expect(nextDayKey("2026-03-29")).toBe("2026-03-30");
+  });
+});
+
+describe("isPlanningUnlocked (issue #116)", () => {
+  // 2026-01-15T17:00:00Z = 18h00 à Paris (UTC+1, hors DST — 15 janvier).
+  test("heure locale >= seuil → true", () => {
+    expect(isPlanningUnlocked(new Date("2026-01-15T17:00:00.000Z"), "Europe/Paris", 18)).toBe(true);
+  });
+
+  test("heure locale juste avant le seuil → false", () => {
+    expect(isPlanningUnlocked(new Date("2026-01-15T16:59:00.000Z"), "Europe/Paris", 18)).toBe(false);
+  });
+
+  test("seuil à la borne haute (23) : débloqué seulement à 23h locale", () => {
+    expect(isPlanningUnlocked(new Date("2026-01-15T22:00:00.000Z"), "Europe/Paris", 23)).toBe(true); // 23h locale
+    expect(isPlanningUnlocked(new Date("2026-01-15T21:59:00.000Z"), "Europe/Paris", 23)).toBe(false); // 22h59 locale
+  });
+
+  test("seuil à la borne basse (12) : débloqué dès midi locale", () => {
+    expect(isPlanningUnlocked(new Date("2026-01-15T11:00:00.000Z"), "Europe/Paris", 12)).toBe(true); // 12h locale
+    expect(isPlanningUnlocked(new Date("2026-01-15T10:59:00.000Z"), "Europe/Paris", 12)).toBe(false); // 11h59 locale
   });
 });
 
