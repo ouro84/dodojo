@@ -105,6 +105,65 @@ async function sliceSheet({ slug, file, frames }) {
   return frames;
 }
 
+// Recadre les frames idle d'un boss sur la bbox alpha UNION de toutes ses
+// frames (jamais un trim par frame indépendant, qui désynchroniserait la
+// boucle idle) — même technique que scripts/trim-hero-idle-frames.mjs,
+// appliquée ici pour que tous les boss aient un ratio personnage/canvas ~1.0
+// et s'affichent donc à une taille cohérente une fois rendus à hauteur CSS
+// fixe (issue #74).
+function bboxFromRaw(data, info, alphaThreshold = 10) {
+  const { width, height, channels } = info;
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const a = data[(y * width + x) * channels + 3];
+      if (a > alphaThreshold) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return null;
+  return { left: minX, top: minY, right: maxX, bottom: maxY };
+}
+
+async function trimBossFrames(dir, frameCount) {
+  const buffers = [];
+  let union = null;
+  for (let i = 0; i < frameCount; i++) {
+    const file = path.join(dir, `frame${String(i).padStart(4, "0")}.png`);
+    const buf = await fs.readFile(file);
+    const { data, info } = await sharp(buf)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    buffers.push(buf);
+    const box = bboxFromRaw(data, info);
+    if (!box) continue;
+    union = union
+      ? {
+          left: Math.min(union.left, box.left),
+          top: Math.min(union.top, box.top),
+          right: Math.max(union.right, box.right),
+          bottom: Math.max(union.bottom, box.bottom),
+        }
+      : box;
+  }
+  if (!union) return;
+  const extract = {
+    left: union.left,
+    top: union.top,
+    width: union.right - union.left + 1,
+    height: union.bottom - union.top + 1,
+  };
+  for (let i = 0; i < frameCount; i++) {
+    const file = path.join(dir, `frame${String(i).padStart(4, "0")}.png`);
+    await sharp(buffers[i]).extract(extract).toFile(file);
+  }
+}
+
 async function exists(p) {
   try {
     await fs.access(p);
@@ -133,8 +192,16 @@ async function extractBackgrounds() {
 }
 
 const summary = [];
-for (const b of FRAME_BOSSES) summary.push([b.slug, await extractFrames(b), "frames"]);
-for (const b of SHEET_BOSSES) summary.push([b.slug, await sliceSheet(b), "sheet"]);
+for (const b of FRAME_BOSSES) {
+  const count = await extractFrames(b);
+  await trimBossFrames(PUB(`sprites/bosses/${b.slug}/idle`), count);
+  summary.push([b.slug, count, "frames"]);
+}
+for (const b of SHEET_BOSSES) {
+  const count = await sliceSheet(b);
+  await trimBossFrames(PUB(`sprites/bosses/${b.slug}/idle`), count);
+  summary.push([b.slug, count, "sheet"]);
+}
 const bgOut = await extractBackgrounds();
 
 console.log("=== BOSS idle frames ===");
