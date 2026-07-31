@@ -44,6 +44,21 @@ const SHEET_BOSSES = [
   { slug: "lightning-mage", file: A(`${LB}/free-wizard-sprite-sheets-pixel-art/Lightning Mage/Idle.png`), frames: 7 },
   { slug: "gangster", file: A(`${LB}/gangster-pixel-character-sprite-sheets-pack/Gangsters_1/Idle.png`), frames: 6 },
   { slug: "knight", file: A(`${LB}/knight-character-sprites-pixel-art/Spritesheet 128/Knight_1/Idle.png`), frames: 4 },
+  { slug: "temptress", file: A(`${LB}/Free-Satyr-Sprite-Sheet-Pixel-Art-Pack/Satyr_1/Idle.png`), frames: 7 },
+  { slug: "idler", file: A(`${LB}/Free-Satyr-Sprite-Sheet-Pixel-Art-Pack/Satyr_3/Idle.png`), frames: 6 },
+  { slug: "jaded", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_2/Idle.png`), frames: 6 },
+  { slug: "procrastinator", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_3/Idle.png`), frames: 6 },
+  { slug: "dock-corpse", file: A(`${LB}/Free-Urban-Zombie-Sprite-Sheet-Pixel-Art-Pack/Zombie_4/Idle.png`), frames: 7 },
+  { slug: "gorgon-ivory", file: A(`${LB}/free-gorgon-pixel-art-character-sprite-sheets/Gorgon_2/Idle.png`), frames: 7 },
+  { slug: "gorgon-scarlet", file: A(`${LB}/free-gorgon-pixel-art-character-sprite-sheets/Gorgon_3/Idle.png`), frames: 7 },
+  { slug: "accomplice", file: A(`${LB}/gangster-pixel-character-sprite-sheets-pack/Gangsters_2/Idle.png`), frames: 7 },
+  { slug: "mob-baron", file: A(`${LB}/gangster-pixel-character-sprite-sheets-pack/Gangsters_3/Idle.png`), frames: 7 },
+  { slug: "knight-amethyst", file: A(`${LB}/knight-character-sprites-pixel-art/Spritesheet 128/Knight_2/Idle.png`), frames: 4 },
+  { slug: "knight-garnet", file: A(`${LB}/knight-character-sprites-pixel-art/Spritesheet 128/Knight_3/Idle.png`), frames: 4 },
+  { slug: "wandering-mage", file: A(`${LB}/free-wizard-sprite-sheets-pixel-art/Wanderer Magican/Idle.png`), frames: 8 },
+  { slug: "minotaur-warrior", file: A(`${LB}/free-minotaur-sprite-sheet-pixel-art-pack/Minotaur_1/Idle.png`), frames: 10 },
+  { slug: "minotaur-ardent", file: A(`${LB}/free-minotaur-sprite-sheet-pixel-art-pack/Minotaur_2/Idle.png`), frames: 10 },
+  { slug: "minotaur-occult", file: A(`${LB}/free-minotaur-sprite-sheet-pixel-art-pack/Minotaur_3/Idle.png`), frames: 10 },
 ];
 
 // --- Backgrounds : plusieurs variantes par thème (background 1..N des packs).
