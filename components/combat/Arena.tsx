@@ -84,7 +84,6 @@ import AchievementToast from "./AchievementToast";
 import { getAchievement } from "@/lib/achievements";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
-import ImpactVfx, { pickImpactVariant, type ImpactVariantId } from "./ImpactVfx";
 
 interface ArenaProps {
   initialProfile: Profile;
@@ -102,7 +101,6 @@ interface Pulse {
   key: number;
   amount: number;
   kind: "damage" | "heal";
-  impactVariant?: ImpactVariantId;
 }
 
 interface XpPulse {
@@ -469,12 +467,7 @@ export default function Arena({
   function triggerPulse(amount: number, kind: Pulse["kind"]) {
     pulseCounterRef.current += 1;
     const key = pulseCounterRef.current;
-    setPulse({
-      key,
-      amount,
-      kind,
-      impactVariant: kind === "damage" ? pickImpactVariant() : undefined,
-    });
+    setPulse({ key, amount, kind });
 
     if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
     pulseTimeoutRef.current = setTimeout(() => {
@@ -1134,9 +1127,6 @@ export default function Arena({
             upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
             dimmed={isEmpty}
           />
-          {pulse?.kind === "damage" && pulse.impactVariant && (
-            <ImpactVfx key={pulse.key} variant={pulse.impactVariant} />
-          )}
           {comboFlash && (
             <ComboBanner
               key={comboFlash.key}

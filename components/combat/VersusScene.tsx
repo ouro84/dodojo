@@ -5,6 +5,7 @@ import CharacterSprite from "./CharacterSprite";
 import HeroBar from "./HeroBar";
 import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
+import HeroVfx from "./HeroVfx";
 import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
 
 // A2 (issue #101) : breakdown des pénalités Héros propagé depuis Arena
@@ -34,6 +35,9 @@ interface VersusSceneProps {
   maxHp: number;
   upcomingDeadlineCount?: number;
   dimmed?: boolean;
+  /** VFX d'impact du héros équipé, joué sur le Boss (issue #48). */
+  vfxVariant?: string | null;
+  reducedMotion?: boolean;
 }
 
 // Décor + Boss dynamiques : le boss du jour et son décor cohérent sont tirés par
@@ -57,6 +61,8 @@ export default function VersusScene({
   maxHp,
   upcomingDeadlineCount = 0,
   dimmed = false,
+  vfxVariant = null,
+  reducedMotion = false,
 }: VersusSceneProps) {
   const heroMeta = heroSpriteMeta(heroSlug);
   const bossMeta = bossSpriteMeta(bossSlug);
@@ -114,15 +120,25 @@ export default function VersusScene({
         alt={`Ton héros : ${heroName}`}
         className="absolute bottom-2 left-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
-      <CharacterSprite
-        spriteBase={bossSpriteBase}
-        meta={bossMeta}
-        baseHeight={96}
-        state="idle"
-        flip={bossFlip}
-        alt={`Le Boss du jour : ${bossName}`}
-        className="absolute bottom-2 right-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-      />
+      <div className="absolute bottom-2 right-4">
+        <CharacterSprite
+          spriteBase={bossSpriteBase}
+          meta={bossMeta}
+          baseHeight={96}
+          state="idle"
+          flip={bossFlip}
+          alt={`Le Boss du jour : ${bossName}`}
+          className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        />
+        {vfxVariant && (
+          <HeroVfx
+            heroSlug={heroSlug}
+            variant={vfxVariant}
+            bossHeight={96 * bossMeta.renderScale}
+            reducedMotion={reducedMotion}
+          />
+        )}
+      </div>
     </div>
   );
 }
