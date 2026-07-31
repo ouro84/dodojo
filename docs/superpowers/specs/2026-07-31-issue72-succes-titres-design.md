@@ -25,7 +25,9 @@ Un premier jet de spec (commentaire de l'issue, généré par un assistant exter
 | D8 | **Équipement manuel « sticky après 1er choix »** : tant que le joueur n'a jamais équipé de titre lui-même, le plus prestigieux débloqué s'affiche automatiquement (comportement actuel préservé). Dès qu'il équipe un titre manuellement une fois, l'auto-écrasement s'arrête définitivement pour ce profil (`profiles.title_manually_set`). |
 | D9 | **Notification de déblocage** : nouveau composant `AchievementToast`, même famille visuelle que `LevelUpOverlay`/`PerfectOverlay` (non-bloquant, empilable si plusieurs déblocages simultanés, variante `prefers-reduced-motion`, badge de rareté). |
 | D10 | **« Boss vus »/« décors vus » dérivés**, pas de nouvelle colonne de tracking par item : requête `DISTINCT` sur l'historique complet de `daily_boss` (déjà permanent, jamais update/delete). |
-| D11 | **Dépendance de séquencement avec l'issue #74** (extension roster boss 12→27, `docs/superpowers/specs/2026-07-30-issue74-boss-hero-sizing-roster-design.md`). `ALL_BOSSES`/`HALF_BOSSES` (nouveau, §3) lisent `BOSSES.length` **dynamiquement**, jamais un nombre en dur. Mais il est recommandé de **livrer #74 avant #72** : sinon ces deux succès se débloquent sur l'ancien roster de 12 (moitié = 6, pas 14) et restent acquis pour toujours (B2) même après l'extension à 27 — ils perdent leur valeur pour les premiers joueurs. |
+| D11 | **Roster boss confirmé à 27** (issue #74, PR #131, mergée le 2026-07-31 — reconfirmé après `git pull` + recomptage de `lib/bosses.ts`). Le risque de séquencement envisagé en premier jet (craindre que #72 sorte avant #74) est caduc, #74 est déjà en prod. `ALL_BOSSES`/`HALF_BOSSES` (§3) lisent quand même `BOSSES.length` **dynamiquement**, jamais un nombre en dur — robustesse pour un futur ajout de roster, plus une dépendance bloquante. |
+| D12 | **Affichage « barre de progression »** (amélioration proposée §12, adoptée) pour les succès à compteur multi-item : `ALL_HEROES`, `HALF_BOSSES`, `ALL_BOSSES`, `ALL_BACKGROUNDS`, `PLATINUM`. Toujours visibles (titre + description), avec un compteur live X/N — pas de tout-ou-rien. |
+| D13 | **Affichage « mystère »** (amélioration proposée §12, adoptée et **étendue** à la demande : pas seulement les easter eggs de niveau) pour **tous les succès qui n'ont pas de barre de progression** : les 7 succès héros, `FIRST_VICTORY`, `STREAK_7/30/100`, et les 10 paliers de niveau. Masqués (titre/description non révélés, seule la rareté est visible) tant que non débloqués. |
 
 ### Baselines techniques
 - **B1 — Pur & déterministe.** `evaluateAchievements` est une fonction pure testée Vitest, comme `currentStreak`/`goldBalance`.
@@ -36,19 +38,19 @@ Un premier jet de spec (commentaire de l'issue, généré par un assistant exter
 
 26 succès. **Noms tels qu'édités par toi** — aucune contrainte technique n'est liée au libellé, éditables librement sans toucher au code (`code` est la clé stable, `title`/`description` sont de simples chaînes).
 
-| Code | Catégorie | Rareté | Titre | Condition | Compte pour Platine ? |
-|---|---|---|---|---|---|
-| `HERO_FIRE_KNIGHT` … `HERO_METAL_BLADEKEEPER` (×7) | Héros débloqué | Bronze | Flamme Intérieure, Marée Calme, Racines, Souffle, Mue, Facette, Lame Froide | `hero_id ∈ unlocked_heroes` (ou starter) | Oui |
-| `ALL_HEROES` | Collection | Or | Ensemble on est plus fort | `unlocked_heroes.count == heroes.length` (7) | Oui |
-| `FIRST_VICTORY` | Progression | Bronze | Aube | `day_results.outcome == 'victory'` existe (≥1) | Oui |
-| `STREAK_7` / `STREAK_30` / `STREAK_100` | Streak | Argent / Argent / Or | Calme / Silence / Esprit Vide *(inchangés — repris tels quels)* | `best_streak >= 7/30/100` | Oui |
-| `HALF_BOSSES` **(nouveau)** | Exploration | Bronze | La moitié du chemin | `DISTINCT boss_id` sur `daily_boss` >= `Math.ceil(BOSSES.length / 2)` — **14** une fois l'issue #74 livrée (27 boss), actuellement 6 sur les 12 boss du roster courant (cf. D11) | Oui |
-| `ALL_BOSSES` | Exploration | Or | A vaincu une armée | `DISTINCT boss_id` sur `daily_boss` == `BOSSES.length` — **27** une fois l'issue #74 livrée, actuellement 12 (cf. D11 ; le premier jet du commentaire d'issue supposait 12 à tort, 15 boss de moins que le roster cible) | Oui |
-| `ALL_BACKGROUNDS` | Exploration | Argent | Chaque Paysage | `DISTINCT background_id` sur `daily_boss` == 16 | Oui |
-| `LEVEL_10` / `_20` / `_50` / `_84` | Niveau | Bronze → Argent | Level UP, Rigueur, Ténacité, Trad's | `level >= N` | Oui |
-| `LEVEL_100` | Niveau | Argent | Enfin ! | `level >= 100` | Oui |
-| `LEVEL_212` / `_666` / `_777` / `_1000` / `_9001` | Niveau (easter egg) | Or | Prom's, Damné, Veinard, Mythe, Super Saiyan | `level >= N` | **Non** (D4/D5 — mathématiquement hors d'atteinte, exclu du calcul Platine) |
-| `PLATINUM` | Méta | **Platine** | Démon Vaincu | tous les succès `countsTowardPlatinum: true` débloqués (**20/20**, cf. D4) | — |
+| Code | Catégorie | Rareté | Titre | Condition | Compte pour Platine ? | Affichage avant déblocage (D12/D13) |
+|---|---|---|---|---|---|---|
+| `HERO_FIRE_KNIGHT` … `HERO_METAL_BLADEKEEPER` (×7) | Héros débloqué | Bronze | Flamme Intérieure, Marée Calme, Racines, Souffle, Mue, Facette, Lame Froide | `hero_id ∈ unlocked_heroes` (ou starter) | Oui | Mystère |
+| `ALL_HEROES` | Collection | Or | Ensemble on est plus fort | `unlocked_heroes.count == heroes.length` (7) | Oui | Barre de progression (X/7) |
+| `FIRST_VICTORY` | Progression | Bronze | Aube | `day_results.outcome == 'victory'` existe (≥1) | Oui | Mystère |
+| `STREAK_7` / `STREAK_30` / `STREAK_100` | Streak | Argent / Argent / Or | Calme / Silence / Esprit Vide *(inchangés — repris tels quels)* | `best_streak >= 7/30/100` | Oui | Mystère |
+| `HALF_BOSSES` **(nouveau)** | Exploration | Bronze | La moitié du chemin | `DISTINCT boss_id` sur `daily_boss` >= `Math.ceil(BOSSES.length / 2)` — **14** (roster confirmé à 27, D11) | Oui | Barre de progression (X/27, partagée avec `ALL_BOSSES`) |
+| `ALL_BOSSES` | Exploration | Or | A vaincu une armée | `DISTINCT boss_id` sur `daily_boss` == `BOSSES.length` — **27** (confirmé, D11 ; le premier jet du commentaire d'issue supposait 12 à tort) | Oui | Barre de progression (X/27) |
+| `ALL_BACKGROUNDS` | Exploration | Argent | Chaque Paysage | `DISTINCT background_id` sur `daily_boss` == 16 | Oui | Barre de progression (X/16) |
+| `LEVEL_10` / `_20` / `_50` / `_84` | Niveau | Bronze → Argent | Level UP, Rigueur, Ténacité, Trad's | `level >= N` | Oui | Mystère |
+| `LEVEL_100` | Niveau | Argent | Enfin ! | `level >= 100` | Oui | Mystère |
+| `LEVEL_212` / `_666` / `_777` / `_1000` / `_9001` | Niveau (easter egg) | Or | Prom's, Damné, Veinard, Mythe, Super Saiyan | `level >= N` | **Non** (D4/D5 — mathématiquement hors d'atteinte, exclu du calcul Platine) | Mystère |
+| `PLATINUM` | Méta | **Platine** | Démon Vaincu | tous les succès `countsTowardPlatinum: true` débloqués (**20/20**, cf. D4) | — | Barre de progression (X/20) |
 
 ## 4. Algorithme
 
@@ -82,6 +84,20 @@ export function evaluateAchievements(
 // égalité départagée par unlocked_at le plus récent.
 export function bestTitleCode(unlocked: { code: string; unlockedAt: string }[]): string | null
 ```
+
+### Barre de progression (D12)
+```ts
+// null pour un code « mystère » (D13, pas de compteur pertinent).
+// Pour les 5 codes à compteur (ALL_HEROES, HALF_BOSSES, ALL_BOSSES,
+// ALL_BACKGROUNDS, PLATINUM) : { current, total } lu depuis le même
+// AchievementContext, jamais recalculé séparément.
+export function achievementProgressFor(
+  code: string,
+  ctx: AchievementContext,
+  totalPlatinumEligible: number, // 20, cf. D4 — passé en paramètre plutôt que recalculé en dur
+): { current: number; total: number } | null
+```
+`HALF_BOSSES` et `ALL_BOSSES` partagent la même paire `{current, total}` (nombre de boss vus / `BOSSES.length`) — deux seuils différents sur la même barre, pas deux barres séparées dans l'UI.
 
 ## 5. Checkpoints & server actions
 
@@ -124,7 +140,10 @@ Résultat : un profil existant peut découvrir plusieurs succès rétroactifs d'
 
 ## 7. UI
 
-- **`/tableau-de-chasse/succes`** : catalogue groupé par catégorie, compteur global (« X / 26 »), succès verrouillés grisés, succès débloqués affichent leur date (`unlocked_at`). Sélecteur de titre : liste des titres débloqués + option « Aucun », le titre actif est mis en évidence. Choisir un titre pose `title_manually_set = true`.
+- **`/tableau-de-chasse/succes`** : catalogue groupé par catégorie, compteur global (« X / 26 »), succès débloqués affichent leur date (`unlocked_at`). Sélecteur de titre : liste des titres débloqués + option « Aucun », le titre actif est mis en évidence. Choisir un titre pose `title_manually_set = true`.
+- **Deux rendus pour un succès verrouillé** (D12/D13) :
+  - **Mystère** (21 succès : héros, première victoire, streak, niveau) : carte grisée, titre et description **non révélés** (ex: « ??? », rareté visible seule). Le titre/description n'apparaissent qu'à l'unlock (catalogue + `AchievementToast`).
+  - **Barre de progression** (5 succès : `ALL_HEROES`, `HALF_BOSSES`, `ALL_BOSSES`, `ALL_BACKGROUNDS`, `PLATINUM`) : titre et description **toujours visibles**, avec un compteur live (ex: « Chaque Paysage — 9/16 »). `HALF_BOSSES`/`ALL_BOSSES` partagent la même barre (§4).
 - **3 états UI obligatoires** (règle projet n°3) : Loading (squelette catalogue), Error (message, ne bloque pas la nav), Empty (0 succès débloqué → catalogue entièrement grisé, pas un état spécial séparé).
 - **`AchievementToast`** (D9) : apparaît sur l'écran courant (Arène incluse) au retour d'une server action contenant des codes nouvellement débloqués. Empilable (plusieurs succès d'un coup, ex: `ALL_HEROES` + `PLATINUM` au même achat). Badge rareté (couleur/icône par tier), titre + description, son court. Variante statique sous `prefers-reduced-motion`.
 - Accès : lien depuis Tableau de Chasse (déjà atteint via Le Vestiaire, `BottomNav` reste sur `active="vestiaire"`, cf. audit UX 2026-07-24).
@@ -132,9 +151,10 @@ Résultat : un profil existant peut découvrir plusieurs succès rétroactifs d'
 ## 8. Découpage technique
 
 ### `lib/achievements.ts` (nouveau, pur)
-- Catalogue statique (26 entrées : code, rareté, catégorie, titre, description, `countsTowardPlatinum`, condition déclarative ou fonction).
+- Catalogue statique (26 entrées : code, rareté, catégorie, titre, description, `countsTowardPlatinum`, `displayMode: 'mystery' | 'progress'`, condition déclarative ou fonction).
 - `evaluateAchievements(ctx, alreadyUnlocked)`.
 - `bestTitleCode(unlocked)`.
+- `achievementProgressFor(code, ctx, totalPlatinumEligible)` (D12).
 
 ### `lib/game-engine.ts` (modif)
 - Suppression de `titleForStreak` (remplacé par les entrées `STREAK_7`/`STREAK_30`/`STREAK_100` du catalogue).
@@ -169,10 +189,12 @@ Résultat : un profil existant peut découvrir plusieurs succès rétroactifs d'
 - `ALL_BOSSES`/`HALF_BOSSES` : test avec un pool `BOSSES` mocké de taille différente (ex: 4 boss) pour vérifier que le seuil suit `BOSSES.length` dynamiquement — aucun nombre en dur (D11).
 - `evaluateAchievements` idempotent : un contexte qui remplit déjà des conditions dans `alreadyUnlocked` ne les re-retourne pas.
 - `bestTitleCode` : égalité de rareté → le plus récent gagne ; aucun débloqué → `null`.
+- `achievementProgressFor` : `{current, total}` correct pour les 5 codes à compteur ; `null` pour un code mystère ; `HALF_BOSSES`/`ALL_BOSSES` renvoient le même `{current, total}` malgré des seuils différents.
 
 ### Playwright e2e
-- Un parcours minimal : débloquer un succès facilement atteignable en fixture (ex: première victoire) → `AchievementToast` apparaît → titre auto-affiché change.
+- Un parcours minimal : débloquer un succès facilement atteignable en fixture (ex: première victoire) → carte mystère grisée devient visible + `AchievementToast` apparaît → titre auto-affiché change.
 - Équipement manuel d'un titre → reste affiché même après déblocage d'un succès plus prestigieux ensuite (D8, sticky).
+- Un succès mystère non débloqué n'expose **ni titre ni description** dans le DOM (pas juste masqué en CSS) — vérifier via le HTML rendu, pas juste visuellement.
 - Le reste du catalogue (26 conditions) n'a **pas** vocation à être couvert en e2e un par un — coût/bénéfice mauvais vu la contrainte compte e2e unique (cf. flakes déjà documentés). Couverture exhaustive = Vitest sur `evaluateAchievements`.
 - **Prévoir un helper de reset** (`resetAchievementsState`, même famille que `resetShopState`/`resetOnboardingUser`) qui vide `unlocked_achievements` et réinitialise `equipped_title_code`/`title_manually_set` pour le compte e2e fixe — sans ça, les succès s'accumulent sur le compte partagé (RG-04, jamais de DELETE en usage normal, mais un reset de test dédié reste nécessaire) et polluent les assertions des runs suivants.
 
@@ -182,6 +204,7 @@ Résultat : un profil existant peut découvrir plusieurs succès rétroactifs d'
 - Récompenses matérielles liées à un succès (or, héros gratuit) — un succès ne débloque qu'un titre, rien d'autre.
 - Partage social d'un succès débloqué (distinct du partage de victoire US-20).
 - Réajustement de la formule XP pour rendre les paliers extrêmes atteignables (D5).
+- Widget « prochain succès à portée » sur Tableau de Chasse — proposé en amélioration (ancien §12), **explicitement écarté**.
 
 ## 11. Vérification
 
@@ -191,10 +214,10 @@ Résultat : un profil existant peut découvrir plusieurs succès rétroactifs d'
 4. e2e vert (parcours minimal §9).
 5. Manuel : débloquer plusieurs succès d'un coup (empilement `AchievementToast`) ; équiper un titre puis débloquer un succès plus rare (le titre équipé manuellement ne bouge pas) ; atteindre 20/20 (hors easter eggs) → `PLATINUM` se débloque dans la foulée (même pattern que le Platine Ultime du commentaire d'issue) sans jamais nécessiter les paliers 212+ ; profil existant avec `current_title` migré → titre identique affiché sans action, plus les succès rétroactifs visibles au premier passage sur `/tableau-de-chasse/succes`.
 
-## 12. Pistes d'amélioration (proposées, non tranchées)
+## 12. Historique des améliorations proposées
 
-Trois idées à considérer pour une itération future — pas engagées dans le scope ci-dessus, à activer seulement sur décision explicite :
+Trois idées proposées lors de la relecture. Décisions actées ci-dessous (intégrées en D12/D13 et dans le catalogue §3) :
 
-1. **Succès de niveau easter egg masqués tant que non approchés** (« succès mystère ») : `LEVEL_666`/`_777`/`_1000`/`_9001` (et leur titre) restent grisés **sans révéler le libellé** dans le catalogue avant que le joueur soit à portée réaliste (ex: à 20 % du seuil). Évite de spoiler la blague avant même d'avoir une chance d'y penser — pattern courant dans les jeux à trophées (succès secrets).
-2. **Barre de progression sur les succès à compteur** (`ALL_BOSSES`/`HALF_BOSSES`/`ALL_BACKGROUNDS`/`ALL_HEROES`) : afficher « 8/12 démons rencontrés » plutôt qu'un simple verrou binaire. Donne un sentiment de progression continue au lieu de tout-ou-rien, cohérent avec le compteur global déjà prévu (§7).
-3. **Widget « prochain succès à portée »** sur Tableau de Chasse (ex: « à 2 tâches du niveau 20 », « à 1 boss de la moitié du chemin ») : même logique que `StreakBadge`/« série en danger » (US-12) mais côté motivation positive plutôt qu'alerte — crée un objectif immédiat sans attendre l'ouverture du catalogue complet.
+1. **Succès mystère** — adoptée, **portée étendue** à la demande : pas seulement les easter eggs de niveau comme proposé initialement, mais **tous les succès sans barre de progression** (héros, première victoire, streak, niveau — 21 au total). Cf. D13.
+2. **Barre de progression sur les succès à compteur** — adoptée telle que proposée (`ALL_HEROES`/`HALF_BOSSES`/`ALL_BOSSES`/`ALL_BACKGROUNDS`, + `PLATINUM` ajouté par cohérence — c'est aussi un compteur X/20). Cf. D12.
+3. **Widget « prochain succès à portée »** — **écartée**, cf. §10 Hors scope.
