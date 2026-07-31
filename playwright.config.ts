@@ -30,6 +30,14 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    // Neutralise toutes les animations de combat (issue #48) : sous
+    // prefers-reduced-motion, le gating temporel est désactivé et jauges,
+    // chiffres et overlays redeviennent instantanés — le comportement sur
+    // lequel toute la suite existante a été écrite. Le seul spec qui teste
+    // les animations le surcharge localement. `reducedMotion` n'est pas une
+    // option aplatie sur `use` dans cette version de @playwright/test — elle
+    // passe par `contextOptions` (BrowserContextOptions).
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },

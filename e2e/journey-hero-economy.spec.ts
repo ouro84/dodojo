@@ -18,7 +18,10 @@ test.describe("Parcours : équiper un héros depuis Le Marché Noir se reflète 
     page,
   }) => {
     await login(page);
-    await expect(page.getByAltText("Ton héros : Chevalier de Feu")).toBeVisible();
+    // Issue #48 : CharacterSprite rend un <div role="img" aria-label="…">
+    // (spritesheet en background-image), plus un <img alt="…"> — getByAltText
+    // ne matcherait donc plus rien depuis la migration.
+    await expect(page.getByRole("img", { name: "Ton héros : Chevalier de Feu" })).toBeVisible();
 
     await page.getByRole("link", { name: "Marché Noir" }).click();
     await page.waitForURL("/marche-noir");
@@ -32,6 +35,6 @@ test.describe("Parcours : équiper un héros depuis Le Marché Noir se reflète 
 
     await page.getByRole("link", { name: "Arène" }).click();
     await page.waitForURL("/");
-    await expect(page.getByAltText("Ton héros : Prêtresse de l'Eau")).toBeVisible();
+    await expect(page.getByRole("img", { name: "Ton héros : Prêtresse de l'Eau" })).toBeVisible();
   });
 });
