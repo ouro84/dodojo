@@ -25,6 +25,8 @@ export interface Profile {
   // Préparation issue #114 : défaut utilisateur (minutes avant deadline),
   // toujours renseigné (non nullable en base).
   reminder_offset_minutes: number;
+  // Issue #116 : heure locale (12-23) de déblocage de la section "Demain".
+  plan_tomorrow_after_hour: number;
   created_at: string;
 }
 
