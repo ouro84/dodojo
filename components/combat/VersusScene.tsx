@@ -122,14 +122,14 @@ export default function VersusScene({
         framePrefix={heroFramePrefix}
         frameCount={heroFrameCount}
         alt={`Ton héros : ${heroName}`}
-        className="absolute bottom-2 left-4 h-28 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        className="absolute bottom-2 left-4 h-[88px] w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
       <IdleSprite
         framePrefix={bossFramePrefix}
         frameCount={bossFrameCount}
         flip={bossFlip}
         alt={`Le Boss du jour : ${bossName}`}
-        className="absolute bottom-2 right-4 h-28 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        className="absolute bottom-2 right-4 h-24 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
     </div>
   );
