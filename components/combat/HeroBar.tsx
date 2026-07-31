@@ -65,10 +65,18 @@ export default function HeroBar({
       aria-valuemin={0}
       aria-valuemax={maxHp}
       aria-label={`Vie du héros : ${currentHp} sur ${maxHp}`}
-      className={`h-3.5 overflow-hidden rounded-sm bg-hp-dim ${alarm ? "hero-alarm" : ""}`}
+      className={`relative h-3.5 overflow-hidden rounded-sm bg-hp-dim ${alarm ? "hero-alarm" : ""}`}
     >
+      {/* Chip damage : voir BossBar pour l'explication. Ancré à droite (comme
+          la barre elle-même, cf. ml-auto ci-dessous) : le héros se lit de
+          droite à gauche dans l'Arène. */}
       <div
-        className="ml-auto h-full bg-hp transition-[width] duration-300 ease-out motion-reduce:transition-none"
+        aria-hidden="true"
+        className="absolute inset-y-0 right-0 bg-white/40 transition-[width] delay-200 duration-500 ease-out motion-reduce:transition-none"
+        style={{ width: `${pct}%` }}
+      />
+      <div
+        className="absolute inset-y-0 right-0 bg-hp transition-[width] duration-100 ease-out motion-reduce:transition-none"
         style={{ width: `${pct}%` }}
       />
     </div>
