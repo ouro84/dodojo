@@ -87,6 +87,16 @@ export default function SpriteAnimator({
 
   return (
     <div
+      // `animKey` en `key` React (pas seulement en dépendance d'effet) :
+      // changer animation-duration/iteration-count sur un élément qui a déjà
+      // une animation CSS en cours NE LA RELANCE PAS à 0 (animation-name reste
+      // "sprite-run" à l'identique) — le navigateur continue avec le temps
+      // écoulé actuel appliqué aux nouvelles valeurs, ce qui peut sauter
+      // directement à la fin (frame invisible/transparente selon la feuille).
+      // Un `key` différent force un nouveau nœud DOM, donc une animation
+      // fraîche. Bug reproduit : idle -> attack restait invisible tant que
+      // l'idle avait tourné assez longtemps avant le déclenchement.
+      key={animKey}
       role="img"
       aria-label={ariaLabel}
       data-frames={frames}
