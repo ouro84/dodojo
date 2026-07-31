@@ -44,3 +44,29 @@ export async function updateAggressivityLevel(
   if (error) return { error: "Dodojo n'a pas pu enregistrer ton réglage. Réessaie." };
   return { error: null };
 }
+
+// Issue #116 : réglable à tout moment depuis Le Vestiaire, pas de contrainte
+// one-shot. Borné 12-23 (cf. spec — évite une section "Demain" quasi
+// permanente) : le CHECK en base est la garde ultime, rejet précoce ici pour
+// un message d'erreur clair côté UI.
+export async function updatePlanTomorrowAfterHour(
+  hour: number,
+): Promise<{ error: string | null }> {
+  if (!Number.isInteger(hour) || hour < 12 || hour > 23) {
+    return { error: "Heure de planification invalide." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ plan_tomorrow_after_hour: hour })
+    .eq("id", user.id);
+
+  if (error) return { error: "Dodojo n'a pas pu enregistrer ce réglage. Réessaie." };
+  return { error: null };
+}
