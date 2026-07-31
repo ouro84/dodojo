@@ -50,7 +50,7 @@ import {
   type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
-import { getHeroSpritePrefix } from "@/lib/hero-skins";
+import { getHeroSpriteBase } from "@/lib/hero-skins";
 import { DEFAULT_BOSS_ID, getBoss } from "@/lib/bosses";
 import { DEFAULT_BACKGROUND_ID, getBackground } from "@/lib/backgrounds";
 import { buildShareCardParams } from "@/lib/share-card";
@@ -304,7 +304,7 @@ export default function Arena({
   const equippedHero =
     getHero(profile.equipped_hero_id) ?? getHero(DEFAULT_HERO_ID)!;
   // US-53 : tenue équipée (null = tenue par défaut du héros).
-  const equippedHeroFramePrefix = getHeroSpritePrefix(
+  const equippedHeroSpriteBase = getHeroSpriteBase(
     equippedHero.id,
     profile.equipped_skin_id,
   );
@@ -1100,8 +1100,8 @@ export default function Arena({
           <VersusScene
             heroName={equippedHero.name}
             heroLabel={profile.username}
-            heroFramePrefix={equippedHeroFramePrefix}
-            heroFrameCount={equippedHero.idleFrameCount}
+            heroSpriteBase={equippedHeroSpriteBase}
+            heroSlug={equippedHero.slug}
             heroHp={heroHp}
             heroMaxHp={HERO_MAX_HP}
             heroAlarm={heroPulse !== null}
@@ -1125,8 +1125,8 @@ export default function Arena({
               missedHpPerItem: HERO_DAMAGE_PER_MISSED_DEADLINE,
             }}
             bossName={bossName}
-            bossFramePrefix={boss.idleFramePrefix}
-            bossFrameCount={boss.idleFrameCount}
+            bossSpriteBase={boss.spriteBase}
+            bossSlug={boss.slug}
             bossFlip={boss.flip}
             backgroundPath={background.publicPath}
             currentHp={currentHp}

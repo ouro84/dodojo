@@ -131,7 +131,7 @@ export function CharacterSelect({
 
       {/* Stage */}
       <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-black/40 p-4">
-        <HeroIdle hero={selected} skinId={selectedSkinId} locked={!owned} className="h-28" />
+        <HeroIdle hero={selected} skinId={selectedSkinId} locked={!owned} />
         <div className="font-display text-sm uppercase tracking-wide text-ink">
           {selected.name}
         </div>

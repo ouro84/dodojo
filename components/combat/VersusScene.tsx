@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
 import Image from "next/image";
-import IdleSprite from "./IdleSprite";
+import CharacterSprite from "./CharacterSprite";
 import HeroBar from "./HeroBar";
 import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
-import { IMPACT_VARIANTS } from "./ImpactVfx";
+import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
 
 // A2 (issue #101) : breakdown des pénalités Héros propagé depuis Arena
 // jusqu'à HeroBar. Type en miroir de HeroBar.tsx (garder les deux alignés).
@@ -20,15 +19,15 @@ interface HeroPenaltiesBreakdown {
 interface VersusSceneProps {
   heroName: string;
   heroLabel?: string;
-  heroFramePrefix: string;
-  heroFrameCount: number;
+  heroSpriteBase: string;
+  heroSlug: string;
   heroHp: number;
   heroMaxHp: number;
   heroAlarm?: boolean;
   heroPenaltiesBreakdown?: HeroPenaltiesBreakdown | null;
   bossName: string;
-  bossFramePrefix: string;
-  bossFrameCount: number;
+  bossSpriteBase: string;
+  bossSlug: string;
   bossFlip: boolean;
   backgroundPath: string;
   currentHp: number;
@@ -43,15 +42,15 @@ interface VersusSceneProps {
 export default function VersusScene({
   heroName,
   heroLabel,
-  heroFramePrefix,
-  heroFrameCount,
+  heroSpriteBase,
+  heroSlug,
   heroHp,
   heroMaxHp,
   heroAlarm = false,
   heroPenaltiesBreakdown = undefined,
   bossName,
-  bossFramePrefix,
-  bossFrameCount,
+  bossSpriteBase,
+  bossSlug,
   bossFlip,
   backgroundPath,
   currentHp,
@@ -59,19 +58,8 @@ export default function VersusScene({
   upcomingDeadlineCount = 0,
   dimmed = false,
 }: VersusSceneProps) {
-  // Audit #67, PR4 : les 4 variantes d'impact sont tirées au hasard à chaque
-  // coup (ImpactVfx monte/démonte à chaque hit, cadence 45ms/frame) — sans
-  // préchargement, la toute première apparition d'une variante peut manquer
-  // une frame sur un réseau lent. Préchargé une fois ici plutôt qu'à chaque
-  // coup, puisque VersusScene reste monté toute la session de combat.
-  useEffect(() => {
-    for (const variant of IMPACT_VARIANTS) {
-      for (let i = 0; i < variant.frameCount; i++) {
-        const img = new window.Image();
-        img.src = `/vfx/impact/${variant.id}/frame${String(i).padStart(4, "0")}.png`;
-      }
-    }
-  }, []);
+  const heroMeta = heroSpriteMeta(heroSlug);
+  const bossMeta = bossSpriteMeta(bossSlug);
 
   return (
     <div
@@ -118,18 +106,22 @@ export default function VersusScene({
           )}
         </div>
       </div>
-      <IdleSprite
-        framePrefix={heroFramePrefix}
-        frameCount={heroFrameCount}
+      <CharacterSprite
+        spriteBase={heroSpriteBase}
+        meta={heroMeta}
+        baseHeight={88}
+        state="idle"
         alt={`Ton héros : ${heroName}`}
-        className="absolute bottom-2 left-4 h-[88px] w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        className="absolute bottom-2 left-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
-      <IdleSprite
-        framePrefix={bossFramePrefix}
-        frameCount={bossFrameCount}
+      <CharacterSprite
+        spriteBase={bossSpriteBase}
+        meta={bossMeta}
+        baseHeight={96}
+        state="idle"
         flip={bossFlip}
         alt={`Le Boss du jour : ${bossName}`}
-        className="absolute bottom-2 right-4 h-24 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+        className="absolute bottom-2 right-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
       />
     </div>
   );

@@ -5,7 +5,8 @@ import Image from "next/image";
 import type { Boss } from "@/lib/bosses";
 import type { Background } from "@/lib/backgrounds";
 import type { Hero } from "@/types";
-import IdleSprite from "./IdleSprite";
+import CharacterSprite from "./CharacterSprite";
+import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
 
 interface RosterPreviewProps {
   bosses: Boss[];
@@ -67,12 +68,13 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
       {bosses.map((boss) => {
         const bgId = selected[boss.id];
         const bg = bgById.get(bgId);
+        const bossMeta = bossSpriteMeta(boss.slug);
         return (
           <section key={boss.id} className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
               <span className="font-display text-sm text-ink">{boss.name}</span>
               <span className="text-[10px] text-faint">
-                {boss.id} · {boss.idleFrameCount} frames
+                {boss.id} · {bossMeta.anims.idle.frames} frames
               </span>
             </div>
             <p className="text-[11px] text-muted">{boss.lore}</p>
@@ -87,19 +89,23 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
                 />
               )}
               {hero && (
-                <IdleSprite
-                  framePrefix={hero.idleFramePrefix}
-                  frameCount={hero.idleFrameCount}
+                <CharacterSprite
+                  spriteBase={hero.spriteBase}
+                  meta={heroSpriteMeta(hero.slug)}
+                  baseHeight={88}
+                  state="idle"
                   alt={hero.name}
-                  className="absolute bottom-2 left-4 h-[88px] w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+                  className="absolute bottom-2 left-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
                 />
               )}
-              <IdleSprite
-                framePrefix={boss.idleFramePrefix}
-                frameCount={boss.idleFrameCount}
+              <CharacterSprite
+                spriteBase={boss.spriteBase}
+                meta={bossMeta}
+                baseHeight={96}
+                state="idle"
                 flip={flips[boss.id]}
                 alt={boss.name}
-                className="absolute bottom-2 right-6 h-24 w-auto [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+                className="absolute bottom-2 right-6 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
               />
               <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-ink">
                 {bg?.name ?? bgId}

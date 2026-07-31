@@ -1,8 +1,9 @@
 "use client";
 
 import type { Hero } from "@/types";
-import { getSkinsForHero, getHeroSpritePrefix } from "@/lib/hero-skins";
-import IdleSprite from "@/components/combat/IdleSprite";
+import { getSkinsForHero, getHeroSpriteBase } from "@/lib/hero-skins";
+import CharacterSprite from "@/components/combat/CharacterSprite";
+import { heroSpriteMeta } from "@/lib/sprite-metadata";
 
 // Écran de test interne (chemin obscur, login requis, non listé). Affiche
 // toutes les tenues de tous les héros côte à côte pour valider (ou recalibrer)
@@ -26,11 +27,13 @@ export default function SkinsPreview({ heroes }: { heroes: Hero[] }) {
                   key={skin.id}
                   className="flex flex-col items-center gap-1 rounded border border-border bg-black/40 p-2"
                 >
-                  <IdleSprite
-                    framePrefix={getHeroSpritePrefix(hero.id, skin.id)}
-                    frameCount={hero.idleFrameCount}
+                  <CharacterSprite
+                    spriteBase={getHeroSpriteBase(hero.id, skin.id)}
+                    meta={heroSpriteMeta(hero.slug)}
+                    baseHeight={96}
+                    state="idle"
                     alt={`${hero.name} — ${skin.name}`}
-                    className="h-24 w-auto [image-rendering:pixelated]"
+                    className="[image-rendering:pixelated]"
                   />
                   <span className="text-[10px] text-muted">{skin.name}</span>
                   <span className="text-[9px] text-faint">

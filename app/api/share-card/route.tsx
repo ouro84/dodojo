@@ -56,8 +56,8 @@ export async function GET(request: Request) {
 
   try {
     const [heroFrameSrc, bossFrameSrc, boldPixels] = await Promise.all([
-      toDataUri(`${hero.idleFramePrefix.replace(/^\//, "")}0000.png`),
-      toDataUri(`${boss.idleFramePrefix.replace(/^\//, "")}0000.png`),
+      toDataUri(`${hero.spriteBase.replace(/^\//, "")}/still.png`),
+      toDataUri(`${boss.spriteBase.replace(/^\//, "")}/still.png`),
       readFile(join(process.cwd(), "public/fonts/boldpixels.woff")),
     ]);
 
