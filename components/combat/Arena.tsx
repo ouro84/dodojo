@@ -1019,6 +1019,7 @@ export default function Arena({
   // (comportement identique : is_abandoned=true, cascade sous-tâches, aucun
   // filtre de day_date côté serveur).
   function handleAnnihilateTomorrow(id: string) {
+    if (isOptimisticId(id)) return;
     const cascadeIds = new Set([
       id,
       ...tomorrowTasks.filter((task) => task.parent_id === id).map((task) => task.id),
@@ -1082,6 +1083,7 @@ export default function Arena({
   // Issue #116 : ramène une tâche à aujourd'hui — depuis la section "Demain"
   // (changement d'avis) OU via "Annuler" juste après un report (même action).
   function handleBringToToday(id: string) {
+    if (isOptimisticId(id)) return;
     const cascadeIds = new Set([
       id,
       ...tomorrowTasks.filter((task) => task.parent_id === id).map((task) => task.id),

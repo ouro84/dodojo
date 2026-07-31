@@ -75,7 +75,9 @@ export default function TomorrowSection({
         onAdd={onAdd}
         pending={isAdding}
         inputId="new-task-tomorrow"
-        label="Ajouter une tâche pour demain"
+        label="Prévoir une tâche pour demain"
+        submitLabel="Planifier"
+        micLabel="Dicter la tâche de demain"
       />
     </section>
   );
