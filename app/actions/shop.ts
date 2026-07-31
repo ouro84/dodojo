@@ -5,9 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { goldBalance } from "@/lib/game-engine";
 import { getHero, isHeroOwned } from "@/lib/heroes";
 import { getSkin, isSkinOwned } from "@/lib/hero-skins";
+import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
 
 interface ShopActionResult {
   error: string | null;
+  newAchievements?: string[];
 }
 
 // US-18 : achat autoritaire côté serveur. Idempotent (re-achat = no-op),
@@ -58,9 +60,12 @@ export async function purchaseHero(heroId: string): Promise<ShopActionResult> {
     .update({ gold: balance - hero.price })
     .eq("id", user.id);
 
+  const ctx = await assembleAchievementContext(supabase, user.id);
+  const newAchievements = await applyNewAchievements(supabase, user.id, ctx);
+
   revalidatePath("/marche-noir");
   revalidatePath("/");
-  return { error: null };
+  return { error: null, newAchievements };
 }
 
 // US-18 : équipe un héros possédé (sinon refus). Swap live du sprite Arène.
