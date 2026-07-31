@@ -184,4 +184,20 @@ describe("Server actions — guards UUID (issues #95/#96)", () => {
     await reorderSiblings(null, [realId]);
     expect(fakeClient.calls).toBeGreaterThan(0);
   });
+
+  test("reportToTomorrow rejette un id optimistic sans appeler Supabase", async () => {
+    const { reportToTomorrow } = await import("./tasks");
+    const result = await reportToTomorrow("optimistic-6");
+    expect(result.error).toMatch(/pas encore prête/);
+    expect(fakeClient.calls).toBe(0);
+    expect(revalidateCalls).toBe(0);
+  });
+
+  test("bringToToday rejette un id optimistic sans appeler Supabase", async () => {
+    const { bringToToday } = await import("./tasks");
+    const result = await bringToToday("optimistic-7");
+    expect(result.error).toMatch(/pas encore prête/);
+    expect(fakeClient.calls).toBe(0);
+    expect(revalidateCalls).toBe(0);
+  });
 });

@@ -9,6 +9,7 @@ import {
   dayKey,
   isNestableParent,
   nextComboState,
+  nextDayKey,
   nextSiblingPosition,
   RAGE_QUIT_XP_PENALTY,
   xpForCompletion,
@@ -37,6 +38,10 @@ export interface TaskActionResult {
   deferredTasks?: Task[];
   comboCount?: number;
   newAchievements?: string[];
+  // Issue #116 : lignes déplacées vers demain / ramenées à aujourd'hui, pour
+  // fusion explicite côté client (même besoin que deferredTasks, cf. bug #70).
+  reportedTasks?: Task[];
+  broughtBackTasks?: Task[];
 }
 
 // Le "jour" du jeu est le jour local de l'utilisateur (RG-03), pas l'UTC.
@@ -113,7 +118,10 @@ export async function addSubtask(
 
   const { data: parent, error: parentError } = await supabase
     .from("tasks")
-    .select("id, parent_id, is_abandoned")
+    // Issue #116 : `day_date` du parent lu ici pour que la sous-tâche hérite
+    // du bon jour (une sous-tâche de la section "Demain" doit rester "demain",
+    // pas retomber sur "aujourd'hui" comme avant ce correctif).
+    .select("id, parent_id, is_abandoned, day_date")
     .eq("id", parentId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -139,14 +147,13 @@ export async function addSubtask(
     return { error: "La sous-tâche a résisté à l'invocation. Réessaie." };
   }
 
-  const today = await userToday(supabase, user.id);
   const { data: inserted, error } = await supabase
     .from("tasks")
     .insert({
       user_id: user.id,
       parent_id: parentId,
       title: trimmed,
-      day_date: today,
+      day_date: parent.day_date,
       position: nextSiblingPosition(siblings ?? []),
     })
     .select("id")
@@ -719,4 +726,141 @@ export async function setTaskDeadline(
 
   revalidatePath("/");
   return { error: null };
+}
+
+// Issue #116 : crée une tâche directement pour demain (section "Demain" de
+// l'Arène, visible après l'heure seuil réglable). Ne soigne jamais le Boss
+// d'aujourd'hui : calculateBossMaxHp/CurrentHp ne reçoivent que les tâches
+// filtrées day_date == aujourd'hui côté client, l'exclusion est automatique.
+export async function addTomorrowTask(title: string): Promise<TaskActionResult> {
+  const validation = validateTaskTitle(title);
+  if ("error" in validation) {
+    return { error: validation.error };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Session expirée. Reconnecte-toi." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const timezone = profile?.timezone ?? "UTC";
+  const today = dayKey(new Date(), timezone);
+  const tomorrow = nextDayKey(today);
+
+  let outcome;
+  try {
+    outcome = await insertTaskForUser(supabase, {
+      userId: user.id,
+      title: validation.title,
+      timezone,
+      dayDate: tomorrow,
+    });
+  } catch {
+    return { error: "Le monstre a résisté à l'invocation. Réessaie." };
+  }
+
+  revalidatePath("/");
+  return { error: null, id: outcome.taskId };
+}
+
+// Issue #116 : reporte une tâche active du jour (+ sous-tâches actives) vers
+// demain — sens inverse de deferOverdueTask (US-08). Jamais de malus Hero HP :
+// contrairement à un reste (procrastination avérée), c'est une planification
+// proactive avant la fin du jour courant. `deferred_at` est explicitement remis
+// à null (jamais posé), y compris si la tâche le portait déjà (ex. reste
+// reporté par Le Réveil plus tôt aujourd'hui, repoussé encore par cette
+// action) — sinon le malus -20 HP réapparaîtrait à tort demain matin alors que
+// la tâche ne serait plus "en retard" (son day_date == le "aujourd'hui" de demain).
+export async function reportToTomorrow(id: string): Promise<TaskActionResult> {
+  if (!UUID_RE.test(id)) {
+    return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const today = await userToday(supabase, user.id);
+  const tomorrow = nextDayKey(today);
+
+  const { data: tomorrowRoots } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("user_id", user.id)
+    .eq("day_date", tomorrow)
+    .is("parent_id", null);
+
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({
+      day_date: tomorrow,
+      position: nextSiblingPosition(tomorrowRoots ?? []),
+      deadline_at: null,
+      deferred_at: null,
+    })
+    .or(`id.eq.${id},parent_id.eq.${id}`)
+    .eq("user_id", user.id)
+    .eq("day_date", today)
+    .eq("is_completed", false)
+    .eq("is_abandoned", false)
+    .select();
+
+  if (error) return { error: "Impossible de reporter cette tâche à demain. Réessaie." };
+  revalidatePath("/");
+  return { error: null, reportedTasks: (updated ?? []) as Task[] };
+}
+
+// Issue #116 : ramène une tâche de la section "Demain" à aujourd'hui —
+// changement d'avis, OU annulation (~5s) juste après un reportToTomorrow (une
+// seule action sert les deux usages, cf. plan d'implémentation).
+// Simplification assumée : pas de restauration exacte de la position/deadline
+// d'origine, la tâche revient en fin de fratrie du jour, deadline effacée.
+export async function bringToToday(id: string): Promise<TaskActionResult> {
+  if (!UUID_RE.test(id)) {
+    return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const today = await userToday(supabase, user.id);
+
+  const { data: todayRoots } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("user_id", user.id)
+    .eq("day_date", today)
+    .is("parent_id", null);
+
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({
+      day_date: today,
+      position: nextSiblingPosition(todayRoots ?? []),
+      deadline_at: null,
+      deferred_at: null,
+    })
+    .or(`id.eq.${id},parent_id.eq.${id}`)
+    .eq("user_id", user.id)
+    .eq("is_abandoned", false)
+    .select();
+
+  if (error) return { error: "Impossible de ramener cette tâche à aujourd'hui. Réessaie." };
+  revalidatePath("/");
+  return { error: null, broughtBackTasks: (updated ?? []) as Task[] };
 }
