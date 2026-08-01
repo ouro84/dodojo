@@ -57,6 +57,8 @@ jobs:
     env:
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
       E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      E2E_ONBOARDING_EMAIL: ${{ secrets.E2E_ONBOARDING_EMAIL }}
+      E2E_ONBOARDING_PASSWORD: ${{ secrets.E2E_ONBOARDING_PASSWORD }}
       NEXT_PRIVATE_KEY_SUPABASE: ${{ secrets.NEXT_PRIVATE_KEY_SUPABASE }}
     steps:
       - uses: actions/checkout@v7
