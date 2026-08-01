@@ -169,7 +169,7 @@ export default async function PantheonPage() {
           href="/tableau-de-chasse/succes"
           className="text-xs text-xp-text underline underline-offset-4"
         >
-          Voir le catalogue complet
+          Liste des succès
         </Link>
       </section>
 
