@@ -137,57 +137,78 @@ export default function VersusScene({
           )}
         </div>
       </div>
-      {/* Recul à l'impact : `key` sur le stateKey pour rejouer l'animation à
-          chaque coup encaissé. Le recul est sur ce wrapper, distinct du
-          `transform: translateY(...)` propre à CharacterSprite (sinon les
-          deux transforms se remplaceraient). */}
-      <div
-        key={`hero-wrap-${heroStateKey}`}
-        className={`absolute bottom-2 left-4 ${heroState === "hurt" ? "is-knockback" : ""}`}
-        style={heroState === "hurt" ? ({ "--knockback-x": "-6px" } as CSSProperties) : undefined}
-      >
-        <CharacterSprite
-          spriteBase={heroSpriteBase}
-          meta={heroMeta}
-          baseHeight={88}
-          state={heroState}
-          attackAnim={heroAttackAnim}
-          stateKey={heroStateKey}
-          frozen={frozen}
-          reducedMotion={reducedMotion}
-          onStateEnd={onHeroAttackEnd}
-          alt={`Ton héros : ${heroName}`}
-          className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-        />
-      </div>
-      <div
-        key={`boss-wrap-${bossStateKey}`}
-        className={`absolute bottom-2 right-4 ${bossState === "hurt" ? "is-knockback" : ""}`}
-        style={bossState === "hurt" ? ({ "--knockback-x": "6px" } as CSSProperties) : undefined}
-      >
-        <CharacterSprite
-          spriteBase={bossSpriteBase}
-          meta={bossMeta}
-          baseHeight={96}
-          state={bossState}
-          stateKey={bossStateKey}
-          frozen={frozen}
-          fallbackHurtDeath={bossFallbackHurtDeath}
-          reducedMotion={reducedMotion}
-          danger={bossDanger}
-          flip={bossFlip}
-          onImpact={onBossImpact}
-          alt={`Le Boss du jour : ${bossName}`}
-          className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-        />
-        {vfxVariant && (
-          <HeroVfx
-            heroSlug={heroSlug}
-            variant={vfxVariant}
-            bossHeight={96 * bossMeta.renderScale}
-            reducedMotion={reducedMotion}
-          />
-        )}
+      {/* Issue #145 : héros/boss chacun de son côté, cohérent mobile/desktop
+          — un conteneur flex à deux zones de 50 % plutôt que deux `absolute
+          left-4`/`right-4` indépendants, dont la marge fixe occupait une
+          fraction bien plus grande de l'espace disponible sur un conteneur
+          étroit (mobile), "aspirant" les deux personnages vers le centre.
+          Deux zones `flex-1 min-w-0` (pas un simple `justify-between`) :
+          la boîte de recadrage d'un personnage (union alpha de toutes ses
+          anims, cf. CLAUDE.md § Sprites de combat) est bien plus large que
+          sa silhouette visible (marge transparente pour les anims d'attaque)
+          — avec `justify-between` seul, cette boîte surdimensionnée du héros
+          pousse littéralement le Boss hors du conteneur sur mobile. Chaque
+          zone à 50 % fixe (indépendante du contenu grâce à `min-w-0`) laisse
+          le débordement rester local à son propre côté, sans déplacer
+          l'autre personnage — même comportement que l'ancien positionnement
+          absolu, réparti proportionnellement au lieu d'une marge fixe. */}
+      <div className="absolute inset-x-0 bottom-2 z-[6] flex items-end px-4">
+        {/* Recul à l'impact : `key` sur le stateKey pour rejouer l'animation à
+            chaque coup encaissé. Le recul est sur ce wrapper, distinct du
+            `transform: translateY(...)` propre à CharacterSprite (sinon les
+            deux transforms se remplaceraient). */}
+        <div className="flex min-w-0 flex-1 justify-start">
+          <div
+            key={`hero-wrap-${heroStateKey}`}
+            className={heroState === "hurt" ? "is-knockback" : ""}
+            style={heroState === "hurt" ? ({ "--knockback-x": "-6px" } as CSSProperties) : undefined}
+          >
+            <CharacterSprite
+              spriteBase={heroSpriteBase}
+              meta={heroMeta}
+              baseHeight={88}
+              state={heroState}
+              attackAnim={heroAttackAnim}
+              stateKey={heroStateKey}
+              frozen={frozen}
+              reducedMotion={reducedMotion}
+              onStateEnd={onHeroAttackEnd}
+              alt={`Ton héros : ${heroName}`}
+              className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+            />
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-1 justify-end">
+          <div
+            key={`boss-wrap-${bossStateKey}`}
+            className={bossState === "hurt" ? "is-knockback" : ""}
+            style={bossState === "hurt" ? ({ "--knockback-x": "6px" } as CSSProperties) : undefined}
+          >
+            <CharacterSprite
+              spriteBase={bossSpriteBase}
+              meta={bossMeta}
+              baseHeight={96}
+              state={bossState}
+              stateKey={bossStateKey}
+              frozen={frozen}
+              fallbackHurtDeath={bossFallbackHurtDeath}
+              reducedMotion={reducedMotion}
+              danger={bossDanger}
+              flip={bossFlip}
+              onImpact={onBossImpact}
+              alt={`Le Boss du jour : ${bossName}`}
+              className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+            />
+            {vfxVariant && (
+              <HeroVfx
+                heroSlug={heroSlug}
+                variant={vfxVariant}
+                bossHeight={96 * bossMeta.renderScale}
+                reducedMotion={reducedMotion}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

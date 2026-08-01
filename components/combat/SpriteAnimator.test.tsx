@@ -86,4 +86,51 @@ describe("SpriteAnimator", () => {
     expect(el.style.backgroundPositionX).toBe("-1008px");
     expect(el.style.animationName).toBe("");
   });
+
+  // Issue #146 : sous staticFrame (reduced-motion), onImpact/onEnd doivent
+  // suivre les mêmes gardes que la branche animée (impactFrame !== null /
+  // !loop) — sans elles, un remount d'un sprite idle (bouclé, sans
+  // impactFrame) rappelait onImpact à tort. Pour le Boss (onImpact =
+  // onBossImpact), ça remettait le héros en "hurt" en boucle sans rapport
+  // avec une vraie attaque.
+  it("n'appelle pas onImpact sous staticFrame quand l'anim n'a pas d'impactFrame (idle)", () => {
+    const onImpact = vi.fn();
+    render(<SpriteAnimator {...base} staticFrame="first" impactFrame={null} onImpact={onImpact} />);
+    expect(onImpact).not.toHaveBeenCalled();
+  });
+
+  it("appelle onImpact sous staticFrame quand l'anim a un impactFrame (attaque)", () => {
+    const onImpact = vi.fn();
+    render(
+      <SpriteAnimator
+        {...base}
+        loop={false}
+        staticFrame="first"
+        impactFrame={4}
+        onImpact={onImpact}
+        animKey="atk1"
+      />,
+    );
+    expect(onImpact).toHaveBeenCalledTimes(1);
+  });
+
+  it("n'appelle pas onEnd sous staticFrame quand l'anim est bouclée (idle)", () => {
+    const onEnd = vi.fn();
+    render(<SpriteAnimator {...base} staticFrame="first" loop onEnd={onEnd} />);
+    expect(onEnd).not.toHaveBeenCalled();
+  });
+
+  it("appelle onEnd sous staticFrame quand l'anim n'est pas bouclée (hurt/death)", () => {
+    const onEnd = vi.fn();
+    render(
+      <SpriteAnimator
+        {...base}
+        loop={false}
+        staticFrame="last"
+        onEnd={onEnd}
+        animKey="hurt"
+      />,
+    );
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });

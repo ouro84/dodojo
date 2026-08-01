@@ -13,6 +13,12 @@ export const KNOCKBACK_MS = 220;
 export const KO_FADE_MS = 400;
 export const COMBO_SPECIAL_THRESHOLD = 3;
 
+// Issue #146 : marge supplémentaire entre la fin visuelle de l'anim de mort
+// du Boss (+ le slam K.O.) et l'ouverture de PerfectOverlay — sans cette
+// marge, l'overlay pouvait s'ouvrir avant que l'animation n'ait fini de se
+// jouer à l'écran.
+export const KO_OVERLAY_EXTRA_DELAY_MS = 1000;
+
 export type HeroAttackAnim = "atk1" | "atk2" | "atk3" | "sp_atk";
 
 const BASE_ATTACKS: HeroAttackAnim[] = ["atk1", "atk2", "atk3"];
