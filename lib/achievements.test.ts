@@ -160,11 +160,16 @@ describe("achievementProgressFor", () => {
     ).toEqual({ current: 1, total: HEROES.length });
   });
 
-  it("HALF_BOSSES et ALL_BOSSES partagent le même progrès", () => {
+  it("HALF_BOSSES vise la moitié du roster, distinct du total ALL_BOSSES", () => {
     const ctx = baseCtx({ seenBossIds: [BOSSES[0].id] });
-    expect(achievementProgressFor("HALF_BOSSES", ctx, new Set())).toEqual(
-      achievementProgressFor("ALL_BOSSES", ctx, new Set()),
-    );
+    expect(achievementProgressFor("HALF_BOSSES", ctx, new Set())).toEqual({
+      current: 1,
+      total: Math.ceil(BOSSES.length / 2),
+    });
+    expect(achievementProgressFor("ALL_BOSSES", ctx, new Set())).toEqual({
+      current: 1,
+      total: BOSSES.length,
+    });
   });
 
   it("PLATINUM compte les succès éligibles débloqués", () => {

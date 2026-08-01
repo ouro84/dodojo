@@ -323,6 +323,7 @@ export function achievementProgressFor(
     case "ALL_HEROES":
       return { current: ctx.unlockedHeroIds.length, total: HEROES.length };
     case "HALF_BOSSES":
+      return { current: ctx.seenBossIds.length, total: Math.ceil(BOSSES.length / 2) };
     case "ALL_BOSSES":
       return { current: ctx.seenBossIds.length, total: BOSSES.length };
     case "ALL_BACKGROUNDS":
