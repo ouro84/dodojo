@@ -40,7 +40,7 @@ Rendu **uniquement** si `planningUnlocked` est vrai — gating horaire (`profile
 
 Overlay `fixed inset-0 z-50`, header `← Demain` + bouton `×`. Contenu = **`TomorrowSection` réutilisé sans modification interne** (voice line `planningUnlockedLine`, liste `TomorrowTaskRow`, `AddTaskForm`) — le composant existant devient l'intérieur de la sheet, aucune logique dupliquée.
 
-- `useFocusTrap` avec `onEscape` fourni → **dismissable** (contrairement au Réveil, `WakeUpRitual`, qui est volontairement bloquant). Clic sur le backdrop ferme aussi.
+- `useFocusTrap` avec `onEscape` fourni → **dismissable** (contrairement au Réveil, `WakeUpRitual`, qui est volontairement bloquant). Fermeture via bouton `×` explicite ou Echap — pas de clic sur un "backdrop" : la sheet est plein-bleed (`fixed inset-0`, même patron que `WakeUpRitual`), il n'existe pas de zone de fond distincte du contenu à cliquer.
 - Monte du bas (`translate-y`), transition CSS ; instantané sous `prefers-reduced-motion` — même convention que les overlays existants (`PerfectOverlay`, `LevelUpOverlay`, etc.).
 - Scroll interne libre (contenu de la sheet peut dépasser le viewport sans contrainte — plus de partage d'espace avec quoi que ce soit d'autre).
 
