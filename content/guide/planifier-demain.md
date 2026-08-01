@@ -1,4 +1,4 @@
-En fin de journée, une section "Demain" apparaît sous ton combat du jour. Tu peux y ajouter directement des tâches pour demain, ou reporter une tâche du jour vers demain d'un clic — sans jamais perdre de HP, ni pour toi, ni pour le Boss du jour.
+En fin de journée, un bandeau "Demain" apparaît en bas de l'Arène. Tape dessus pour ouvrir ton planning du lendemain en plein écran : tu peux y ajouter directement des tâches pour demain, ou reporter une tâche du jour vers demain d'un clic — sans jamais perdre de HP, ni pour toi, ni pour le Boss du jour.
 
 ## À partir de quand ?
 
