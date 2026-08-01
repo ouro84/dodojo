@@ -76,6 +76,7 @@ import { deadlineAlertLine } from "@/lib/copy/deadline";
 import { planningUnlockedLine } from "@/lib/copy/planning";
 import { randomSeed } from "@/lib/copy/variant";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
+import { createKeyedQueue } from "@/lib/async-queue";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   addTask as addTaskAction,
@@ -251,6 +252,10 @@ export default function Arena({
   const [vfxVariant, setVfxVariant] = useState<string | null>(null);
   const pendingHitRef = useRef<PendingHits | null>(null);
   const animKeyRef = useRef(0);
+  // Issue #144 : sérialise les écritures de position par groupe de fratrie
+  // (parentId) — deux reorderSiblingsAction concurrents sur le même groupe
+  // ne doivent jamais s'écraser selon l'ordre d'arrivée réseau.
+  const reorderQueueRef = useRef(createKeyedQueue<string | null>());
   const impactTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const freezeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Issue #48 (Task 4.1) : attaque du Boss sur deadline ratée / Rage Quit.
@@ -811,17 +816,19 @@ export default function Arena({
               return { ...task, position };
             });
           });
-          void reorderSiblingsAction(null, orderedIds).then((reorderResult) => {
-            if (reorderResult.error) {
-              setTasks((prev) =>
-                prev.map((task) =>
-                  previousPositions.has(task.id)
-                    ? { ...task, position: previousPositions.get(task.id)! }
-                    : task,
-                ),
-              );
-            }
-          });
+          void reorderQueueRef.current
+            .run(null, () => reorderSiblingsAction(null, orderedIds))
+            .then((reorderResult) => {
+              if (reorderResult.error) {
+                setTasks((prev) =>
+                  prev.map((task) =>
+                    previousPositions.has(task.id)
+                      ? { ...task, position: previousPositions.get(task.id)! }
+                      : task,
+                  ),
+                );
+              }
+            });
         }
       }
     });
@@ -892,17 +899,19 @@ export default function Arena({
               return { ...task, position };
             });
           });
-          void reorderSiblingsAction(parentId, orderedIds).then((reorderResult) => {
-            if (reorderResult.error) {
-              setTasks((prev) =>
-                prev.map((task) =>
-                  previousPositions.has(task.id)
-                    ? { ...task, position: previousPositions.get(task.id)! }
-                    : task,
-                ),
-              );
-            }
-          });
+          void reorderQueueRef.current
+            .run(parentId, () => reorderSiblingsAction(parentId, orderedIds))
+            .then((reorderResult) => {
+              if (reorderResult.error) {
+                setTasks((prev) =>
+                  prev.map((task) =>
+                    previousPositions.has(task.id)
+                      ? { ...task, position: previousPositions.get(task.id)! }
+                      : task,
+                  ),
+                );
+              }
+            });
         }
       }
     });
@@ -1287,18 +1296,20 @@ export default function Arena({
     // pas une règle métier critique) — seule la position optimiste de ce
     // groupe est restaurée si l'appel échoue.
     for (const plan of reorderPlans) {
-      void reorderSiblingsAction(plan.parentId, plan.orderedTaskIds).then((result) => {
-        if (result.error) {
-          setTasks((current) =>
-            current.map((task) => {
-              const previous = previousTasksSnapshot.find((t) => t.id === task.id);
-              return previous && task.parent_id === plan.parentId
-                ? { ...task, position: previous.position }
-                : task;
-            }),
-          );
-        }
-      });
+      void reorderQueueRef.current
+        .run(plan.parentId, () => reorderSiblingsAction(plan.parentId, plan.orderedTaskIds))
+        .then((result) => {
+          if (result.error) {
+            setTasks((current) =>
+              current.map((task) => {
+                const previous = previousTasksSnapshot.find((t) => t.id === task.id);
+                return previous && task.parent_id === plan.parentId
+                  ? { ...task, position: previous.position }
+                  : task;
+              }),
+            );
+          }
+        });
     }
     } finally {
       // Fix #3 : libère le verrou quel que soit le chemin (succès, erreur
@@ -1361,12 +1372,14 @@ export default function Arena({
 
     setTasks(nextTasks);
 
-    void reorderSiblingsAction(plan.parentId, plan.orderedTaskIds).then((result) => {
-      if (result.error) {
-        setTasks(previousSnapshot);
-        setBanner(result.error);
-      }
-    });
+    void reorderQueueRef.current
+      .run(plan.parentId, () => reorderSiblingsAction(plan.parentId, plan.orderedTaskIds))
+      .then((result) => {
+        if (result.error) {
+          setTasks(previousSnapshot);
+          setBanner(result.error);
+        }
+      });
   }
 
   // US-15 : clic sur « × » d'une tâche active → demande de confirmation
