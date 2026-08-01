@@ -45,4 +45,39 @@ test.describe("Animations de combat (issue #48)", () => {
     await expect(hero).toHaveAttribute("data-anim-state", "idle", { timeout: 3000 });
     await expect(boss).toHaveAttribute("data-anim-state", "idle", { timeout: 3000 });
   });
+
+  // Issue #149 (suite de #146) : décocher une tâche déjà complétée doit jouer
+  // une contre-attaque du Boss (héros en "hurt"), jamais une attaque du héros
+  // — le héros n'attaque qu'en complétant une tâche, pas en l'annulant.
+  test("décocher une tâche fait contre-attaquer le Boss (héros hurt, jamais attack)", async ({
+    page,
+  }) => {
+    bufferTitle = `E2E anim buffer uncheck ${Date.now()}`;
+    await page.getByLabel("Ajouter une tâche").fill(bufferTitle);
+    await page.getByRole("button", { name: "Ajouter" }).click();
+    await page.waitForTimeout(300);
+
+    taskTitle = `E2E anim uncheck ${Date.now()}`;
+    const hero = page.getByTestId("character-sprite").first();
+    const boss = page.getByTestId("character-sprite").last();
+
+    await page.getByLabel("Ajouter une tâche").fill(taskTitle);
+    await page.getByRole("button", { name: "Ajouter" }).click();
+    const checkbox = page.locator("li", { hasText: taskTitle }).locator('input[type="checkbox"]');
+    await checkbox.check();
+    await expect(hero).toHaveAttribute("data-anim-state", "idle", { timeout: 3000 });
+    await expect(boss).toHaveAttribute("data-anim-state", "idle", { timeout: 3000 });
+    // Attend la résolution serveur de la coche (pas seulement la retombée
+    // d'anim) avant de décocher — sinon le verrou anti-double-tap (fix #95,
+    // pendingMutationIds) ignore silencieusement le décochage pendant que le
+    // premier appel est encore en vol.
+    await expect(page.getByLabel(`Déplacer "${taskTitle}"`)).toBeEnabled({ timeout: 15_000 });
+
+    await checkbox.uncheck();
+
+    await expect(boss).toHaveAttribute("data-anim-state", "attack");
+    await expect(hero).toHaveAttribute("data-anim-state", "hurt");
+    await expect(hero).toHaveAttribute("data-anim-state", "idle", { timeout: 3000 });
+    await expect(boss).toHaveAttribute("data-anim-state", "idle", { timeout: 3000 });
+  });
 });

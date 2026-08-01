@@ -261,9 +261,9 @@ export default function Arena({
   const freezeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Issue #48 (Task 4.1) : attaque du Boss sur deadline ratée / Rage Quit.
   const [bossAttackReason, setBossAttackReason] = useState<
-    "deadline" | "rage_quit" | "recap" | null
+    "deadline" | "rage_quit" | "recap" | "uncheck" | null
   >(null);
-  const bossAttackPendingRef = useRef<null | "deadline" | "rage_quit" | "recap">(null);
+  const bossAttackPendingRef = useRef<null | "deadline" | "rage_quit" | "recap" | "uncheck">(null);
   // Miroir de heroAnim (même patron que tasksRef) : triggerBossAttack est
   // appelée depuis le polling deadline, un effet à deps `[]` (fermeture figée
   // au montage) — lire heroAnim directement y renverrait toujours sa valeur
@@ -681,7 +681,7 @@ export default function Arena({
   // récapitulatif au chargement — Task 4.2). Héros et Boss n'animent jamais en
   // même temps : si le héros est en train de frapper, l'attaque attend la fin
   // de son anim (rejouée depuis onHeroAttackEnd, cf. plus bas).
-  function triggerBossAttack(reason: "deadline" | "rage_quit" | "recap") {
+  function triggerBossAttack(reason: "deadline" | "rage_quit" | "recap" | "uncheck") {
     if (reducedMotion) return;
     if (heroAnimRef.current?.state === "attack") {
       bossAttackPendingRef.current = reason;
@@ -704,12 +704,29 @@ export default function Arena({
       // Rage Quit : -5 XP, aucun HP. L'anim est narrative, la jauge ne bouge pas.
       triggerXpPulse(RAGE_QUIT_XP_PENALTY, "damage");
     }
-    // deadline / recap : les HP sont déjà décomptés par le calcul de heroHp,
-    // le FloatingText et le clignotement de jauge existants restent en place.
+    // deadline / recap / uncheck : les HP sont déjà décomptés (ou recomptés,
+    // cf. hpDelta < 0) par le calcul de heroHp/currentHp, le FloatingText et
+    // le clignotement de jauge existants restent en place.
   }
 
   // Rejoue une attaque du Boss mise en attente pendant que le héros frappait.
   function onHeroAttackEnd() {
+    // Issue #149 : rien ne remettait jamais `heroAnim.state` à "idle" après
+    // une attaque (seul `rendered`, local à CharacterSprite, se réinitialise
+    // visuellement) — le garde anti-chevauchement de `triggerBossAttack`
+    // (`heroAnimRef.current?.state === "attack"`) restait donc bloqué à vrai
+    // pour le reste de la session dès la première attaque du héros, mettant
+    // toute contre-attaque du Boss ultérieure (deadline, rage quit, recap,
+    // et le nouveau cas décochage) en file d'attente indéfiniment au lieu de
+    // se jouer. Mutation directe de `heroAnimRef` (pas seulement `setHeroAnim`,
+    // dont le miroir ne se met à jour qu'à l'effet du prochain rendu) pour que
+    // `triggerBossAttack`, appelée juste en dessous, voie l'état à jour tout
+    // de suite si une attaque était justement en attente.
+    if (heroAnimRef.current?.state === "attack") {
+      const next = { state: "idle" as const, key: heroAnimRef.current.key + 1 };
+      heroAnimRef.current = next;
+      setHeroAnim(next);
+    }
     if (bossAttackPendingRef.current) {
       const reason = bossAttackPendingRef.current;
       bossAttackPendingRef.current = null;
@@ -1229,6 +1246,12 @@ export default function Arena({
       }
     } else if (hpDelta < 0) {
       triggerPulse(-hpDelta, "heal");
+      // Issue #149 : décocher = contre-attaque du Boss (héros encaisse), jamais
+      // une attaque du héros — purement cosmétique, l'HP est déjà recalculé
+      // ci-dessus. Même mécanisme que deadline ratée/rage quit/recap
+      // (bossAttackPendingRef gère l'attente si le héros est déjà en train
+      // d'attaquer), désactivé sous reduced-motion comme les autres raisons.
+      triggerBossAttack("uncheck");
     }
 
     // Combo (juice arcade) : chaque tâche terminée à la chaîne monte la série ;
