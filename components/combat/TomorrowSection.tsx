@@ -7,7 +7,7 @@ import { planningUnlockedLine } from "@/lib/copy/planning";
 import TomorrowTaskRow from "./TomorrowTaskRow";
 import AddTaskForm from "./AddTaskForm";
 
-interface TomorrowSectionProps {
+export interface TomorrowSectionProps {
   tasks: Task[];
   timezone: string;
   aggressivityLevel: AggressivityLevel;

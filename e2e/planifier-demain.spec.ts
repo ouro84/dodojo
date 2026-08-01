@@ -28,31 +28,38 @@ async function fixedTimeAt20hLocal(): Promise<string> {
   return deadlineIso(today, "20:00", timezone);
 }
 
-test.describe("Planifier demain (issue #116)", () => {
+test.describe("Planifier demain (issue #116 / #147)", () => {
   test.afterEach(async () => {
     await resetPlanTomorrowAfterHour();
   });
 
-  test("section Demain masquée avant l'heure seuil, visible après", async ({ page }) => {
-    await setPlanTomorrowAfterHour(21); // seuil au-delà de l'heure fixée (20h) : masquée
+  test("bandeau Demain masqué avant l'heure seuil, ouvre la sheet une fois débloqué", async ({ page }) => {
+    await setPlanTomorrowAfterHour(21); // seuil au-delà de l'heure fixée (20h) : masqué
     const fixedTime = await fixedTimeAt20hLocal();
     await page.clock.install({ time: new Date(fixedTime) });
 
     await login(page);
-    await expect(page.getByRole("region", { name: "Demain" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Demain/ })).toHaveCount(0);
 
     await setPlanTomorrowAfterHour(18); // seuil avant l'heure fixée (20h) : visible
     await page.reload();
+    const banner = page.getByRole("button", { name: /^Demain/ });
+    await expect(banner).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Demain" })).toHaveCount(0);
+
+    await banner.click();
+    await expect(page.getByRole("dialog", { name: "Demain" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Demain" })).toBeVisible();
   });
 
-  test("créer une tâche dans la section Demain, puis la ramener à aujourd'hui", async ({ page }) => {
+  test("créer une tâche dans la sheet Demain, puis la ramener à aujourd'hui", async ({ page }) => {
     await setPlanTomorrowAfterHour(18);
     const fixedTime = await fixedTimeAt20hLocal();
     await page.clock.install({ time: new Date(fixedTime) });
     await login(page);
 
     const title = `E2E demain ${Date.now()}`;
+    await page.getByRole("button", { name: /^Demain/ }).click();
     const demainSection = page.getByRole("region", { name: "Demain" });
     await expect(demainSection).toBeVisible();
 
@@ -74,6 +81,10 @@ test.describe("Planifier demain (issue #116)", () => {
     await expect(demainSection.getByText(title)).toHaveCount(0);
     await expect(page.locator("li", { hasText: title })).toHaveCount(1);
 
+    // Ferme la sheet avant le nettoyage (la tâche ramenée est désormais dans
+    // la liste du jour, derrière la sheet encore ouverte).
+    await page.getByRole("button", { name: "Fermer" }).click();
+
     // Nettoyage : abandon direct de la tâche ramenée aujourd'hui.
     await page.locator("li", { hasText: title }).getByLabel(`Abandonner "${title}"`).click();
     await page.getByRole("button", { name: "Abandonner", exact: true }).click();
@@ -89,24 +100,37 @@ test.describe("Planifier demain (issue #116)", () => {
     // "Ajouter une tâche"/"Ajouter" restent uniques au formulaire du jour
     // (le formulaire "Demain" utilise désormais "Prévoir une tâche pour
     // demain"/"Planifier", cf. AddTaskForm Step 0) — aucune ambiguïté même
-    // section Demain visible.
+    // bandeau Demain visible.
     await page.getByLabel("Ajouter une tâche").fill(title);
     await page.getByRole("button", { name: "Ajouter" }).click();
     const row = page.locator("li", { hasText: title });
     await expect(row).toBeVisible();
 
     await row.getByLabel(`Reporter "${title}" à demain`).click();
-    const demainSection = page.getByRole("region", { name: "Demain" });
-    await expect(demainSection.getByText(title)).toBeVisible();
+    // Toast d'annulation (~5s, indépendant du bandeau/sheet — cf. reportUndo
+    // dans Arena.tsx) : confirme le report avant d'ouvrir la sheet.
+    await expect(page.getByText(`« ${title} » repoussée à demain.`)).toBeVisible();
+
+    await page.getByRole("button", { name: /^Demain/ }).click();
+    await expect(page.getByRole("region", { name: "Demain" }).getByText(title)).toBeVisible();
     // `row` se re-résout dynamiquement (pas une référence figée à l'élément
     // d'origine) — après le déplacement il matcherait la nouvelle ligne dans
     // "Demain". On vérifie plutôt l'unicité globale : une seule occurrence,
     // désormais dans "Demain".
     await expect(page.locator("li", { hasText: title })).toHaveCount(1);
 
+    // La sheet est un vrai modal plein écran (fixed inset-0 z-50) : le toast
+    // "Annuler", situé dans le flux normal derrière elle, est inatteignable
+    // tant qu'elle reste ouverte — comportement attendu d'un modal, pas un
+    // bug. On la ferme avant d'interagir avec le toast.
+    await page.getByRole("button", { name: "Fermer" }).click();
     await page.getByRole("button", { name: "Annuler" }).click();
-    await expect(demainSection.getByText(title)).toHaveCount(0);
     await expect(page.locator("li", { hasText: title })).toHaveCount(1);
+
+    // Ré-ouvre la sheet pour confirmer que la tâche a bien quitté "Demain".
+    await page.getByRole("button", { name: /^Demain/ }).click();
+    await expect(page.getByRole("region", { name: "Demain" }).getByText(title)).toHaveCount(0);
+    await page.getByRole("button", { name: "Fermer" }).click();
 
     // Nettoyage.
     await page.locator("li", { hasText: title }).getByLabel(`Abandonner "${title}"`).click();
