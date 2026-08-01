@@ -60,6 +60,7 @@ import {
   ATTACK_DURATION_MS,
   DEATH_DURATION_MS,
   KO_FADE_MS,
+  KO_OVERLAY_EXTRA_DELAY_MS,
   SP_ATTACK_DURATION_MS,
   addPendingHit,
   hitStopMs,
@@ -732,7 +733,7 @@ export default function Arena({
       setTimeout(() => {
         setKoSlam(false);
         setKoState(payload);
-      }, DEATH_DURATION_MS + KO_FADE_MS),
+      }, DEATH_DURATION_MS + KO_FADE_MS + KO_OVERLAY_EXTRA_DELAY_MS),
     );
   }
 
