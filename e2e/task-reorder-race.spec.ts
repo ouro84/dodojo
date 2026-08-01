@@ -44,7 +44,12 @@ test.describe("Ordre des tâches persiste après reorder (issue #144)", () => {
     await expect(page.getByLabel(`Déplacer "${titleB}"`)).toBeEnabled({ timeout: 15_000 });
 
     // Reload complet : on ne vérifie plus l'état optimiste, mais l'état
-    // réellement persisté en base.
+    // réellement persisté en base. Le reorder lui-même est déclenché en
+    // fire-and-forget côté Arena.tsx (persistance "best-effort", cf. commentaire
+    // sur handleToggle) — "Déplacer" activé ne garantit que la coche elle-même,
+    // pas que ce reorder ait atteint le serveur. `networkidle` laisse cet appel
+    // se terminer avant de couper l'état client via reload.
+    await page.waitForLoadState("networkidle");
     await page.reload();
 
     const listItems = page.locator("main li");
@@ -75,6 +80,9 @@ test.describe("Ordre des tâches persiste après reorder (issue #144)", () => {
     await page.getByRole("button", { name: "Ajouter" }).click();
     await expect(page.getByLabel(`Déplacer "${newTitle}"`)).toBeEnabled({ timeout: 15_000 });
 
+    // Cf. commentaire du test précédent : le reorder déclenché par handleAdd
+    // est fire-and-forget, "Déplacer" activé ne l'atteste pas.
+    await page.waitForLoadState("networkidle");
     await page.reload();
 
     // La nouvelle tâche doit apparaître AVANT la tâche complétée dans le DOM.
