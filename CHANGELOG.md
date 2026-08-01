@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #147 : la section "Demain" de l'Arène devient un bandeau compact + une sheet plein écran ouverte à la demande (au lieu d'un bloc toujours affiché sous le combat) — corrige un bug de layout où la liste de tâches du jour se retrouvait compressée à quelques lignes dès que "Demain" prenait de la place, l'Arène étant en hauteur figée (`h-dvh overflow-hidden`) sans scroll de page.
 - Issue #140 : le sélecteur de titre actif (`/tableau-de-chasse/succes`) n'est plus un `<select>` HTML natif mais un vrai radiogroup ARIA cohérent avec le design system — navigation clavier flèches Haut/Bas (roving tabindex) + Entrée/Espace, `aria-checked` par option.
 - Issue #139 : le titre équipé (issue #72) s'affiche désormais à côté du pseudo du joueur dans l'Arène (`HeroBar`), format « Pseudo - Titre ». Aucun titre débloqué → seul le pseudo s'affiche.
 - Issue #143 : correction de la barre de progression du succès "La moitié du chemin" (`HALF_BOSSES`), qui affichait à tort le total complet du roster (27) au lieu de la moitié (14), la rendant visuellement indiscernable du succès "A vaincu une armée" (`ALL_BOSSES`).
