@@ -107,7 +107,8 @@ import AchievementToast from "./AchievementToast";
 import { getAchievement } from "@/lib/achievements";
 import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
-import TomorrowSection from "./TomorrowSection";
+import TomorrowBanner from "./TomorrowBanner";
+import TomorrowSheet from "./TomorrowSheet";
 import { pickVfxVariant } from "./HeroVfx";
 import KoSlam from "./KoSlam";
 
@@ -179,7 +180,7 @@ export default function Arena({
   const [isAddingTomorrow, setIsAddingTomorrow] = useState(false);
   const [addingTomorrowSubtaskParentId, setAddingTomorrowSubtaskParentId] = useState<string | null>(null);
   const [reportUndo, setReportUndo] = useState<{ id: string; taskTitle: string } | null>(null);
-  const tomorrowSectionRef = useRef<HTMLDivElement>(null);
+  const [tomorrowSheetOpen, setTomorrowSheetOpen] = useState(false);
   const [wasPlanningUnlocked, setWasPlanningUnlocked] = useState(false);
   const [planningVoiceSeed, setPlanningVoiceSeed] = useState(randomSeed);
   const optimisticTomorrowIdCounterRef = useRef(0);
@@ -1142,11 +1143,8 @@ export default function Arena({
     });
   }
 
-  function scrollToTomorrowSection() {
-    tomorrowSectionRef.current?.scrollIntoView({
-      behavior: reducedMotion ? "auto" : "smooth",
-      block: "start",
-    });
+  function openTomorrowSheet() {
+    setTomorrowSheetOpen(true);
   }
 
   async function handleToggle(id: string, isCompleted: boolean) {
@@ -1597,7 +1595,7 @@ export default function Arena({
             dayDate: today,
           })}
           onDismiss={() => setRecap(null)}
-          onPlanTomorrow={planningUnlocked ? scrollToTomorrowSection : undefined}
+          onPlanTomorrow={planningUnlocked ? openTomorrowSheet : undefined}
         />
       )}
       <div
@@ -1723,7 +1721,7 @@ export default function Arena({
                 void handleCrepuscule();
               }}
               onContinue={() => setKoState(null)}
-              onPlanTomorrow={planningUnlocked ? scrollToTomorrowSection : undefined}
+              onPlanTomorrow={planningUnlocked ? openTomorrowSheet : undefined}
             />
           )}
           {levelUpValue !== null && (
@@ -1915,22 +1913,25 @@ export default function Arena({
       )}
 
       {planningUnlocked && (
-        <div ref={tomorrowSectionRef}>
-          <TomorrowSection
-            tasks={activeTomorrowTasks}
-            timezone={profile.timezone}
-            aggressivityLevel={level}
-            voiceSeed={planningVoiceSeed}
-            onAdd={handleAddTomorrow}
-            onAddSubtask={handleAddTomorrowSubtask}
-            onSetDeadline={handleSetTomorrowDeadline}
-            onAnnihilate={handleAnnihilateTomorrow}
-            onBringToToday={handleBringToToday}
-            addingSubtaskParentId={addingTomorrowSubtaskParentId}
-            isAdding={isAddingTomorrow}
-            pendingMutationIds={pendingMutationIds}
-          />
-        </div>
+        <TomorrowBanner count={activeTomorrowTasks.length} onOpen={openTomorrowSheet} />
+      )}
+
+      {tomorrowSheetOpen && (
+        <TomorrowSheet
+          tasks={activeTomorrowTasks}
+          timezone={profile.timezone}
+          aggressivityLevel={level}
+          voiceSeed={planningVoiceSeed}
+          onAdd={handleAddTomorrow}
+          onAddSubtask={handleAddTomorrowSubtask}
+          onSetDeadline={handleSetTomorrowDeadline}
+          onAnnihilate={handleAnnihilateTomorrow}
+          onBringToToday={handleBringToToday}
+          addingSubtaskParentId={addingTomorrowSubtaskParentId}
+          isAdding={isAddingTomorrow}
+          pendingMutationIds={pendingMutationIds}
+          onClose={() => setTomorrowSheetOpen(false)}
+        />
       )}
 
       {coachStep && (
