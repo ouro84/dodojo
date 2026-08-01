@@ -11,6 +11,9 @@ interface PenaltiesBreakdown {
 
 interface HeroBarProps {
   heroName: string;
+  // Issue #139 : titre équipé (lib/achievements.ts), affiché "Pseudo - Titre".
+  // Absent/vide = rien après le pseudo (aucun titre débloqué).
+  title?: string;
   currentHp: number;
   maxHp: number;
   alarm?: boolean;
@@ -23,6 +26,7 @@ interface HeroBarProps {
 
 export default function HeroBar({
   heroName,
+  title,
   currentHp,
   maxHp,
   alarm = false,
@@ -83,9 +87,15 @@ export default function HeroBar({
   );
 
   const footer = (
-    <div className="flex items-center justify-between font-display text-sm uppercase tracking-wide text-ink drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-      <span>{heroName}</span>
-      <span className="font-hud text-xs tabular-nums text-muted">
+    <div className="flex items-center justify-between gap-2 font-display text-sm uppercase tracking-wide text-ink drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+      <span
+        className="min-w-0 truncate"
+        title={title ? `${heroName} - ${title}` : undefined}
+      >
+        {heroName}
+        {title && <span className="text-muted"> - {title}</span>}
+      </span>
+      <span className="shrink-0 font-hud text-xs tabular-nums text-muted">
         {currentHp}/{maxHp} HP
       </span>
     </div>
