@@ -90,7 +90,12 @@ export const scheduleDeadlineReminder = inngest.createFunction(
     cancelOn: [{ event: "task/deadline-reminder-cleared", match: "data.taskId" }],
     // Dédoublonne un run identique (même tâche, même deadline) — un changement
     // de deadline change la clé, donc ne dédoublonne jamais un vrai reschedule.
-    idempotency: "event.data.taskId + \"-\" + event.data.deadlineAt",
+    // Inclut offsetMinutes (pas seulement taskId+deadlineAt) : le snooze
+    // (amélioration C ci-dessous) réémet le même event avec un offsetMinutes
+    // synthétique différent pour reprogrammer un nouveau réveil — sans
+    // offsetMinutes dans la clé, ce second event serait à tort dédoublonné
+    // contre le premier (même taskId+deadlineAt) et jamais programmé.
+    idempotency: "event.data.taskId + \"-\" + event.data.deadlineAt + \"-\" + event.data.offsetMinutes",
     onFailure: async ({ event, error }) => {
       console.error("[inngest:schedule-deadline-reminder] échec définitif", {
         taskId: event.data.event.data.taskId,
@@ -258,6 +263,50 @@ Un `<select>` supplémentaire dans le popover, sous le champ heure, label `"Me n
 
 `Task.reminder_offset_minutes: number | null` existe déjà (`types/index.ts:71`). Ajouter uniquement `reminder_enabled: boolean` (nouveau, colonne de la migration ci-dessus).
 
+## Améliorations A + B + C (identifiées en 2e passe de brainstorming)
+
+Trois gaps réels identifiés une fois le moteur de base spec'é :
+1. **Aucun filet si push n'est pas activé** — toute la mécanique tourne pour rien (`context.subs.length === 0` → return silencieux), l'utilisateur ne reçoit jamais rien sans le savoir.
+2. **Clic sur la notif → juste `/`** — pas de deep-link vers la tâche concernée.
+3. **Popover muet sur l'état push** — possible de configurer un rappel qui ne partira jamais, sans avertissement.
+
+### A. Filet in-app (toast si l'Arène est ouverte)
+
+Complète le polling deadline existant (~45s, US-05, `Arena.tsx`) plutôt que d'en créer un second : à chaque tick, calcule aussi `upcomingReminders` — tâches avec `deadline_at` non nul, `reminder_enabled`, non complétées/abandonnées, où `now` est dans la fenêtre `[deadlineAt − offsetEffectif, deadlineAt[`. Même mécanique de suivi "nouvellement franchi" qu'`missedDeadlineTasks` (`Set` de refs, pas de comparaison d'égalité de tableau) pour ne déclencher qu'une fois par tâche par fenêtre.
+
+Sur franchissement : `FloatingText`/toast local avec le texte de `buildDeadlineReminderPayload(taskTitle, offsetMinutes, aggressivityLevel)` (fonction pure `lib/copy/deadline.ts`, importable côté client sans souci — aucune dépendance serveur). **Aucune dépendance à push** : fonctionne même sans permission notif accordée.
+
+Optionnel, non bloquant : le handler `push` du service worker pourrait vérifier `self.clients.matchAll({ type: "window" })` et ne pas appeler `showNotification` si un client visible existe déjà, pour éviter un double rappel (toast + notif système) quand l'app est au premier plan. À trancher en implémentation si le doublon gêne à l'usage — pas un prérequis.
+
+### B. Deep-link + highlight de la tâche
+
+`buildDeadlineReminderPayload` retourne `url: "/?highlightTask=${taskId}"` (au lieu de `"/"` fixe) pour ce type de notif spécifiquement.
+
+Côté `Arena.tsx` (déjà client component) : `useSearchParams()` (`next/navigation`) au montage, si `highlightTask` présent → `document.getElementById(`task-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })` + classe CSS d'un flash temporaire (même famille que les pulses existants, `triggerPulse`/`triggerXpPulse`, 1 nouvelle variante courte). Nettoyer le paramètre d'URL ensuite (`router.replace("/", { scroll: false })` ou équivalent) pour ne pas re-déclencher au prochain refresh. Nécessite que chaque `TaskRow` racine porte un `id={`task-${task.id}`}` sur son conteneur (vérifier/ajouter si absent).
+
+### C. Snooze directement depuis la notification (Notification Actions API)
+
+Un bouton "+15 min" sur la notif elle-même — repousse **le rappel**, pas la deadline (garde-fou volontaire : silencieusement repousser la vraie deadline via une action de notif contournerait la pénalité HP de l'Attaque Surprise sans aucune friction en jeu, contraire à la philosophie du jeu). Sémantique : "renvoie-moi un rappel dans 15 min", identique à un snooze de réveil téléphone — ne touche jamais `tasks.deadline_at`/`reminder_offset_minutes`.
+
+**Réutilise la fonction Inngest existante** (`scheduleDeadlineReminder`/event `task/deadline-reminder-set`) avec un `offsetMinutes` synthétique calculé pour que le réveil retombe ~15 min plus tard — aucune nouvelle fonction Inngest à créer.
+
+**`app/sw.ts`** — extension du `push`/`notificationclick` déjà en place (US-11, actions `later`/snooze déjà supportées par `NotificationOptionsWithActions`) :
+- `push` : si `payload.taskId` présent (discrimine "rappel de deadline" du rappel quotidien générique), ajoute une 2e action `{ action: "snooze15", title: "+15 min" }` à côté de `later` existant, et pose `data: { url, taskId, userId }` (au lieu de `{ url }` seul).
+- `notificationclick` : nouveau branch `event.action === "snooze15"` → `fetch("/api/push/snooze-deadline-reminder", { method: "POST", body: JSON.stringify({ taskId, userId }) })` dans `event.waitUntil(...)`, `return` avant le focus/openWindow existant (pas d'ouverture d'onglet, comme "later").
+
+**`PushReminderPayload`** (`lib/copy/notifications.ts`) étendu : `taskId?: string; userId?: string` (optionnels, absents pour le rappel quotidien existant — aucun changement sur `buildReminderPayload`/`send-reminder.ts`). `buildDeadlineReminderPayload` les renseigne.
+
+**Nouvelle route `app/api/push/snooze-deadline-reminder/route.ts`** (`export const runtime = "nodejs"`), même patron que `app/api/webhook/add-task/route.ts` : client Supabase **service-role** (pas de cookie — l'appel vient du service worker, pas d'un onglet avec session active garantie), déjà exempté de la garde de session par `isPublicRoute` (`/api/*`, cf. entrée CLAUDE.md existante).
+
+Logique :
+1. `POST` body `{ taskId: string, userId: string }`.
+2. Fetch `tasks` : `select("id, deadline_at, is_completed, is_abandoned, reminder_enabled").eq("id", taskId).eq("user_id", userId).maybeSingle()` — le filtre combiné `id`+`user_id` fait déjà office de vérification d'appartenance (pas de token supplémentaire à générer : un payload push n'est déjà déliverable qu'à l'appareil réellement souscrit, canal chiffré VAPID — même niveau de confiance assumé que la route `share-card`, cf. CLAUDE.md).
+3. Si tâche introuvable / complétée / abandonnée / `reminder_enabled=false` / `deadline_at` nul → `return NextResponse.json({ scheduled: false })` (no-op silencieux, rien à afficher côté SW).
+4. `candidateWake = Date.now() + 15 * 60_000`. Si `candidateWake >= new Date(deadline_at).getTime()` → `{ scheduled: false, reason: "too-close" }` (pas de snooze au-delà de la deadline elle-même — au-delà, c'est le flow Attaque Surprise existant qui prend le relai).
+5. Sinon, `offsetMinutes = Math.round((deadlineAtMs − candidateWake) / 60_000)`, `await scheduleDeadlineReminder({ taskId, userId, deadlineAt: deadline_at, offsetMinutes })` (le helper existant du ticket 2, cancelOn n'a rien à annuler ici — le run précédent est déjà terminé au moment du clic). `return { scheduled: true }`.
+
+Pas de nouvelle colonne DB, pas de nouvelle fonction Inngest — uniquement un nouvel appelant de l'event existant avec un `offsetMinutes` calculé à la volée (jamais persisté en base, donc pas soumis au CHECK `between 0 and 240` de la migration — c'est une valeur de scheduling éphémère, pas un réglage utilisateur).
+
 ## UI — Page Profil (réglage par défaut)
 
 Nouveau composant `components/qg/ReminderOffsetDefaultSection.tsx`, même patron exact que `PlanTomorrowSection.tsx` (état local + `useTransition` + rollback), inséré dans le bloc "Préférences de jeu" de `/vestiaire/profil` (spec #69), après `PlanTomorrowSection` :
@@ -286,11 +335,19 @@ Nécessite d'ajouter `reminder_offset_minutes` à la requête `profiles` de `app
 
 Tickets 2-3-4 peuvent être menés en parallèle. Ticket 5 avant ticket 6 (partage le même helper). Tickets 7-8 après 1, en parallèle de 2-6. Ticket 9 en dernier (dépend de #69).
 
+**Améliorations A/B/C** (indépendantes du reste, à mener après le ticket 4 — ont besoin de `buildDeadlineReminderPayload`/`scheduleDeadlineReminder`) :
+
+10. **(A)** Calcul `upcomingReminders` + toast dans `Arena.tsx` (même patron que `missedDeadlineTasks`). Indépendant de B/C.
+11. **(B)** `url: "/?highlightTask=${taskId}"` dans `buildDeadlineReminderPayload` + lecture `useSearchParams`/scroll/flash dans `Arena.tsx` + `id={`task-${task.id}`}` sur `TaskRow`. Indépendant de A/C.
+12. **(C)** Extension `PushReminderPayload` (`taskId?`/`userId?`) + `app/sw.ts` (action `snooze15`) + nouvelle route `app/api/push/snooze-deadline-reminder/route.ts`. Dépend du ticket 2 (`scheduleDeadlineReminder`) et de la correction d'idempotency ci-dessus. Indépendant de A/B.
+
 ## Tests à couvrir
 
 - `lib/inngest/functions/schedule-deadline-reminder.test.ts` : re-check DB (tâche complétée/abandonnée/deadline changée/`reminder_enabled=false` → aucun envoi), résolution offset (task override vs héritage profil), même patron que `send-reminder.test.ts`/`reminder-fanout.test.ts` existants.
 - `app/actions/tasks.test.ts` (existe déjà, `tasks.test.ts`) : cas `setTaskDeadline` avec/sans paramètres reminder, résolution effective.
 - `lib/copy/deadline.test.ts` si inexistant : variantes présentes pour les 3 niveaux, pas de variante vide.
+- `app/api/push/snooze-deadline-reminder/route.test.ts` : tâche introuvable/complétée/abandonnée/`reminder_enabled=false` → `scheduled: false` ; `candidateWake >= deadlineAt` → `{ scheduled: false, reason: "too-close" }` ; cas nominal → `scheduled: true` avec `offsetMinutes` calculé correct (vérifier l'arrondi).
+- Vérification manuelle post-déploiement obligatoire pour C (comme le reste de la stack push, US-11) : les actions de notification (`notification.actions`) ne sont pas simulables en Vitest/Playwright de façon fiable — tester sur un vrai appareil (Android Chrome a des comportements différents d'iOS Safari sur les actions de notif PWA, cf. limites connues de la plateforme).
 
 ## Documentation
 
