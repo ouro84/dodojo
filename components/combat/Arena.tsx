@@ -1613,6 +1613,7 @@ export default function Arena({
           <VersusScene
             heroName={equippedHero.name}
             heroLabel={profile.username}
+            heroTitle={activeTitleText || undefined}
             heroSpriteBase={equippedHeroSpriteBase}
             heroSlug={equippedHero.slug}
             heroHp={heroHp}

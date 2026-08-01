@@ -22,6 +22,8 @@ interface HeroPenaltiesBreakdown {
 interface VersusSceneProps {
   heroName: string;
   heroLabel?: string;
+  // Issue #139 : titre équipé (lib/achievements.ts), affiché à côté du pseudo.
+  heroTitle?: string;
   heroSpriteBase: string;
   heroSlug: string;
   heroHp: number;
@@ -61,6 +63,7 @@ interface VersusSceneProps {
 export default function VersusScene({
   heroName,
   heroLabel,
+  heroTitle,
   heroSpriteBase,
   heroSlug,
   heroHp,
@@ -110,6 +113,7 @@ export default function VersusScene({
         <div className="flex-1">
           <HeroBar
             heroName={heroLabel ?? heroName}
+            title={heroTitle}
             currentHp={heroHp}
             maxHp={heroMaxHp}
             alarm={heroAlarm}
