@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #140 : le sélecteur de titre actif (`/tableau-de-chasse/succes`) n'est plus un `<select>` HTML natif mais un vrai radiogroup ARIA cohérent avec le design system — navigation clavier flèches Haut/Bas (roving tabindex) + Entrée/Espace, `aria-checked` par option.
 - Issue #149 (suite de #146) : décocher une tâche déclenche désormais une contre-attaque du Boss (héros en `hurt`), jamais une attaque du héros — comportement documenté mais jamais implémenté jusqu'ici. A aussi révélé et corrigé un bug latent : `heroAnim` n'était jamais remis à `idle` après une attaque, bloquant silencieusement toute contre-attaque ultérieure du Boss (deadline, rage quit, recap) dans une file d'attente qui ne se vidait jamais.
 - Issue #116 : section "Demain" dans l'Arène (réglable, 12h-23h) — créer une tâche directement pour demain, reporter une tâche du jour vers demain sans malus, ou la ramener à aujourd'hui. Réglage dans Le Vestiaire, ligne de La Voix au premier déblocage du jour.
 - Issue #48 : Animations de combat : le héros attaque avec un effet propre à son élément, le Boss encaisse et meurt, et contre-attaque sur une deadline ratée ou un Rage Quit. Hit-stop, recul, jauge fantôme et « K.O. » qui claque.
