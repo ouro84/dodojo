@@ -163,6 +163,31 @@ export async function resetAchievementsState(): Promise<void> {
     .eq("id", uid);
 }
 
+// Issue #142 : remet level=1 et best_streak=0 sur le profil pour rendre les
+// KPI de rareté déterministes. Sans ça, les paliers LEVEL_10/LEVEL_20 (bronze)
+// se débloquent sur le level résiduel du compte partagé et faussent les
+// compteurs attendus. Complémentaire à resetAchievementsState (qui ne touche
+// qu'unlocked_achievements + equipped_title_code).
+export async function resetProfileForKpi(): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error("Reset profile KPI e2e : env manquant.");
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const testUser = users.find((u) => u.email === email);
+  if (!testUser) throw new Error("Reset profile KPI e2e : utilisateur de test introuvable.");
+  const uid = testUser.id;
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ level: 1, best_streak: 0, streak_days: 0 })
+    .eq("id", uid);
+  if (error) throw new Error(`resetProfileForKpi a échoué : ${error.message}`);
+}
+
 // US-29 : supprime le user auth de test onboarding (cascade profiles /
 // unlocked_heroes / daily_boss) pour repartir d'un signup vierge à chaque run.
 export async function resetOnboardingUser(): Promise<void> {

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   ACHIEVEMENTS,
+  ALL_ACHIEVEMENT_DEFS,
   PLATINUM_CODE,
   TOTAL_ACHIEVEMENTS_COUNT,
   achievementProgressFor,
   bestTitleCode,
   evaluateAchievements,
   getAchievement,
+  rarityCounts,
   type AchievementContext,
 } from "./achievements";
 import { HEROES } from "./heroes";
@@ -181,5 +183,59 @@ describe("catalogue", () => {
 
   it("résout le titre Platine", () => {
     expect(getAchievement(PLATINUM_CODE)?.title).toBe("Démon Vaincu");
+  });
+});
+
+describe("rarityCounts", () => {
+  it("renvoie unlocked=0 pour chaque rareté quand rien n'est débloqué", () => {
+    const counts = rarityCounts(new Set());
+    for (const rarity of ["bronze", "argent", "or", "platine"] as const) {
+      expect(counts[rarity].unlocked).toBe(0);
+    }
+  });
+
+  it("calcule Y = nombre d'entrées de cette rareté dans ALL_ACHIEVEMENT_DEFS", () => {
+    const counts = rarityCounts(new Set());
+    for (const rarity of ["bronze", "argent", "or", "platine"] as const) {
+      const expectedTotal = ALL_ACHIEVEMENT_DEFS.filter((d) => d.rarity === rarity).length;
+      expect(counts[rarity].total).toBe(expectedTotal);
+    }
+  });
+
+  it("compte le platine à 1/1 exclusivement (PLATINUM_CODE)", () => {
+    const counts = rarityCounts(new Set());
+    expect(counts.platine.total).toBe(1);
+    expect(counts.platine.unlocked).toBe(0);
+
+    const withPlatinum = rarityCounts(new Set([PLATINUM_CODE]));
+    expect(withPlatinum.platine.unlocked).toBe(1);
+  });
+
+  it("incrémente chaque rareté quand un code de cette rareté est débloqué", () => {
+    const sample = rarityCounts(
+      new Set(["HERO_FIRE_KNIGHT", "STREAK_7", "ALL_HEROES", PLATINUM_CODE]),
+    );
+    expect(sample.bronze.unlocked).toBeGreaterThanOrEqual(1);
+    expect(sample.argent.unlocked).toBeGreaterThanOrEqual(1);
+    expect(sample.or.unlocked).toBeGreaterThanOrEqual(1);
+    expect(sample.platine.unlocked).toBe(1);
+  });
+
+  it("tous débloqués -> unlocked === total pour chaque rareté", () => {
+    const all = new Set(ALL_ACHIEVEMENT_DEFS.map((d) => d.code));
+    const counts = rarityCounts(all);
+    for (const rarity of ["bronze", "argent", "or", "platine"] as const) {
+      expect(counts[rarity].unlocked).toBe(counts[rarity].total);
+    }
+  });
+
+  it("les paliers extrêmes (or, countsTowardPlatinum=false) sont inclus dans le total or", () => {
+    const extremeOrCodes = ALL_ACHIEVEMENT_DEFS.filter(
+      (d) => d.rarity === "or" && !d.countsTowardPlatinum,
+    ).map((d) => d.code);
+    expect(extremeOrCodes.length).toBeGreaterThan(0);
+
+    const withExtreme = rarityCounts(new Set(extremeOrCodes));
+    expect(withExtreme.or.unlocked).toBe(extremeOrCodes.length);
   });
 });

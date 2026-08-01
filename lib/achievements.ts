@@ -335,3 +335,27 @@ export function achievementProgressFor(
       return null;
   }
 }
+
+// Issue #142 : KPI de succès par rareté. Y = total du catalogue (toutes
+// entrées de ALL_ACHIEVEMENT_DEFS, y compris paliers extrêmes or non
+// éligibles au platine). X = succès effectivement débloqués. Le platine
+// (PLATINUM_CODE, entrée unique de rareté "platine") est comptabilisé
+// séparément — l'affichage le met sur une ligne dédiée.
+export type RarityCounts = Record<
+  AchievementRarity,
+  { unlocked: number; total: number }
+>;
+
+export function rarityCounts(unlockedCodes: Set<string>): RarityCounts {
+  const counts: RarityCounts = {
+    bronze: { unlocked: 0, total: 0 },
+    argent: { unlocked: 0, total: 0 },
+    or: { unlocked: 0, total: 0 },
+    platine: { unlocked: 0, total: 0 },
+  };
+  for (const def of ALL_ACHIEVEMENT_DEFS) {
+    counts[def.rarity].total += 1;
+    if (unlockedCodes.has(def.code)) counts[def.rarity].unlocked += 1;
+  }
+  return counts;
+}

@@ -5,6 +5,7 @@ import {
   ALL_ACHIEVEMENT_DEFS,
   TOTAL_ACHIEVEMENTS_COUNT,
   achievementProgressFor,
+  rarityCounts,
   type AchievementContext,
   type AchievementRarity,
 } from "@/lib/achievements";
@@ -93,6 +94,8 @@ export default async function AchievementsPage() {
   // État Empty (règle projet n°3) : 0 succès débloqué — le catalogue reste
   // affiché, entièrement grisé (pas un état séparé, cf. spec §7).
 
+  const counts = rarityCounts(unlockedCodes);
+
   return (
     <main className="screen-main gap-3 px-4 py-6">
       <BackLink href="/tableau-de-chasse" label="Retour au Tableau de Chasse" />
@@ -102,6 +105,29 @@ export default async function AchievementsPage() {
       <p className="text-center text-xs text-muted">
         {unlockedCodes.size} / {TOTAL_ACHIEVEMENTS_COUNT} succès débloqués
       </p>
+
+      {/* Issue #142 : KPI par rareté — bronze/argent/or inline, platine séparé. */}
+      <section
+        aria-label="Avancée par rareté"
+        className="flex flex-col gap-1 text-center text-xs text-muted"
+      >
+        <div className="flex justify-center gap-4">
+          <span>
+            <span aria-hidden="true">🥉</span> {counts.bronze.unlocked}/{counts.bronze.total}
+          </span>
+          <span>
+            <span aria-hidden="true">🥈</span> {counts.argent.unlocked}/{counts.argent.total}
+          </span>
+          <span>
+            <span aria-hidden="true">🥇</span> {counts.or.unlocked}/{counts.or.total}
+          </span>
+        </div>
+        <div>
+          <span>
+            <span aria-hidden="true">💎</span> {counts.platine.unlocked}/{counts.platine.total}
+          </span>
+        </div>
+      </section>
 
       <TitleSelector
         unlockedCodes={[...unlockedCodes]}
