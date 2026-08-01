@@ -1,13 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-    # PR/push purement documentaires : pas de CI (aucun code touché).
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "LICENSE"
+  # Pas de trigger push:main — redondant avec pull_request (déjà vérifié avant merge).
   pull_request:
     branches: [main]
     paths-ignore:
