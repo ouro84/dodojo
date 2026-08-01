@@ -47,12 +47,13 @@ test.describe("Issue #72 Succès & Titres", () => {
     await page.goto("/");
     await page.goto("/tableau-de-chasse/succes");
     // `getByText("Aube")` seul est ambigu : la carte catalogue ET l'option
-    // du <select> de titre contiennent toutes deux "Aube" une fois débloqué.
-    // On cible la carte catalogue (un <li>), pas l'option du sélecteur.
+    // radio du sélecteur de titre contiennent toutes deux "Aube" une fois
+    // débloqué. On cible la carte catalogue (un <li>), pas l'option radio.
     await expect(page.locator("li", { hasText: "Aube" })).toBeVisible();
 
-    await page.getByRole("combobox").selectOption("FIRST_VICTORY");
-    await expect(page.getByRole("combobox")).toHaveValue("FIRST_VICTORY");
+    // Issue #140 : le <select> natif est remplacé par un radiogroup ARIA.
+    await page.getByRole("radio", { name: "Aube" }).click();
+    await expect(page.getByRole("radio", { name: "Aube" })).toHaveAttribute("aria-checked", "true");
   });
 });
 

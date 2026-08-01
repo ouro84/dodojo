@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #140 : le sélecteur de titre actif (`/tableau-de-chasse/succes`) n'est plus un `<select>` HTML natif mais un vrai radiogroup ARIA cohérent avec le design system — navigation clavier flèches Haut/Bas (roving tabindex) + Entrée/Espace, `aria-checked` par option.
 - Issue #139 : le titre équipé (issue #72) s'affiche désormais à côté du pseudo du joueur dans l'Arène (`HeroBar`), format « Pseudo - Titre ». Aucun titre débloqué → seul le pseudo s'affiche.
 - Issue #143 : correction de la barre de progression du succès "La moitié du chemin" (`HALF_BOSSES`), qui affichait à tort le total complet du roster (27) au lieu de la moitié (14), la rendant visuellement indiscernable du succès "A vaincu une armée" (`ALL_BOSSES`).
 - Issue #149 (suite de #146) : décocher une tâche déclenche désormais une contre-attaque du Boss (héros en `hurt`), jamais une attaque du héros — comportement documenté mais jamais implémenté jusqu'ici. A aussi révélé et corrigé un bug latent : `heroAnim` n'était jamais remis à `idle` après une attaque, bloquant silencieusement toute contre-attaque ultérieure du Boss (deadline, rage quit, recap) dans une file d'attente qui ne se vidait jamais.
