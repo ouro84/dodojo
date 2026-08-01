@@ -65,9 +65,15 @@ export default function SpriteAnimator({
   useEffect(() => {
     if (staticFrame) {
       // Pas d'animation : l'impact et la fin sont immédiats pour ne jamais
-      // faire attendre un utilisateur en reduced-motion (cf. spec §9).
-      onImpactRef.current?.();
-      onEndRef.current?.();
+      // faire attendre un utilisateur en reduced-motion (cf. spec §9). Mêmes
+      // gardes que la branche animée ci-dessous (impactFrame !== null / !loop)
+      // — sans elles, n'importe quel remount d'un sprite idle (boucle, donc
+      // sans impactFrame) rappelait onImpact/onEnd à tort. Pour le Boss, ça
+      // rappelait onBossImpact hors de toute vraie attaque, remettant le
+      // héros en "hurt" en boucle, sans jamais revenir à "idle" côté Arena
+      // (issue #146 : anim "jouée en double").
+      if (impactFrame !== null) onImpactRef.current?.();
+      if (!loop) onEndRef.current?.();
       return;
     }
     const timers: ReturnType<typeof setTimeout>[] = [];
