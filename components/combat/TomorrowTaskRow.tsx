@@ -75,7 +75,7 @@ export default function TomorrowTaskRow({
         aria-label={`Ramener "${task.title}" à aujourd'hui`}
         className="shrink-0 rounded px-2 py-2.5 text-xs text-faint hover:text-ink focus-visible:text-ink disabled:cursor-wait disabled:opacity-40"
       >
-        ← Aujourd'hui
+        ← Aujourd&apos;hui
       </button>
       <button
         type="button"
