@@ -366,8 +366,25 @@ body {
   animation: achievement-pop 0.25s ease-out;
 }
 
+@keyframes tomorrow-sheet-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.tomorrow-sheet {
+  animation: tomorrow-sheet-in 0.2s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .achievement-toast {
+    animation: none;
+  }
+  .tomorrow-sheet {
     animation: none;
   }
   .combo-pop {
