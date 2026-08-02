@@ -30,14 +30,22 @@ export interface AchievementDef {
   isUnlocked: (ctx: AchievementContext) => boolean;
 }
 
-const HERO_TITLES: Record<string, { title: string; description: string }> = {
-  fire_knight: { title: "Flamme Intérieure", description: "Chevalier de Feu débloqué." },
-  water_priestess: { title: "Marée Calme", description: "Prêtresse de l'Eau débloquée." },
-  ground_monk: { title: "Racines", description: "Moine de la Terre débloqué." },
-  wind_hashashin: { title: "Souffle", description: "Hashashin du Vent débloqué." },
-  leaf_ranger: { title: "Mue", description: "Rôdeuse des Feuilles débloquée." },
-  crystal_mauler: { title: "Facette", description: "Massacreur de Cristal débloqué." },
-  metal_bladekeeper: { title: "Lame Froide", description: "Gardien de Lame débloqué." },
+// Issue #156 : la table ne garde que le TITRE du succès — « Souffle », « Lame
+// Froide »… qui sont bien des titres, pas des noms de héros — plus le genre,
+// pour l'accord du participe. La description se compose depuis `hero.name`.
+// Les descriptions écrites en dur avaient dérivé du catalogue sur quatre
+// héros sur sept (Hashashin/Assassin du Vent, Rôdeuse/Rôdeur des Feuilles,
+// Massacreur/Broyeur de Cristal, Gardien de Lame/des Lames) — application
+// directe de la leçon du reframe #51 : toute valeur d'un type partagé
+// dupliquée en dur ailleurs que dans sa source casse au prochain renommage.
+const HERO_TITLES: Record<string, { title: string; feminine?: boolean }> = {
+  fire_knight: { title: "Flamme Intérieure" },
+  water_priestess: { title: "Marée Calme", feminine: true },
+  ground_monk: { title: "Racines" },
+  wind_hashashin: { title: "Souffle" },
+  leaf_ranger: { title: "Mue" },
+  crystal_mauler: { title: "Facette" },
+  metal_bladekeeper: { title: "Lame Froide" },
 };
 
 const HERO_ACHIEVEMENTS: AchievementDef[] = HEROES.map((hero) => {
@@ -47,7 +55,7 @@ const HERO_ACHIEVEMENTS: AchievementDef[] = HEROES.map((hero) => {
     category: "hero",
     rarity: "bronze",
     title: copy.title,
-    description: copy.description,
+    description: `${hero.name} débloqué${copy.feminine ? "e" : ""}.`,
     countsTowardPlatinum: true,
     displayMode: "mystery",
     isUnlocked: (ctx) => ctx.unlockedHeroIds.includes(hero.id),

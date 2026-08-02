@@ -244,3 +244,18 @@ describe("rarityCounts", () => {
     expect(withExtreme.or.unlocked).toBe(extremeOrCodes.length);
   });
 });
+
+describe("noms de héros dans les succès (issue #156)", () => {
+  it("chaque description reprend littéralement le nom du catalogue", () => {
+    for (const hero of HEROES) {
+      const def = ALL_ACHIEVEMENT_DEFS.find(
+        (d) => d.code === `HERO_${hero.id.toUpperCase()}`,
+      );
+      expect(def, `succès manquant pour ${hero.id}`).toBeDefined();
+      expect(
+        def!.description,
+        `"${def!.description}" ne contient pas "${hero.name}"`,
+      ).toContain(hero.name);
+    }
+  });
+});
