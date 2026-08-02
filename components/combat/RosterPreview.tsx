@@ -230,25 +230,45 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
                   className="object-cover [image-rendering:pixelated]"
                 />
               )}
+              {/* Issue #156 : même ancrage que VersusScene (25 % / 75 % sur la
+                  silhouette idle). Sans ça cet écran de calage mentirait sur
+                  le rendu réel de l'Arène et ne pourrait plus servir à valider
+                  un ajout de boss. */}
               {hero && (
-                <CharacterSprite
-                  spriteBase={hero.spriteBase}
-                  meta={heroSpriteMeta(hero.slug)}
-                  baseHeight={88}
-                  state="idle"
-                  alt={hero.name}
-                  className="absolute bottom-2 left-4 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-                />
+                <div
+                  className="absolute bottom-2"
+                  style={{
+                    left: "25%",
+                    transform: `translateX(-${heroSpriteMeta(hero.slug).idleAnchorX * 100}%)`,
+                  }}
+                >
+                  <CharacterSprite
+                    spriteBase={hero.spriteBase}
+                    meta={heroSpriteMeta(hero.slug)}
+                    baseHeight={88}
+                    state="idle"
+                    alt={hero.name}
+                    className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+                  />
+                </div>
               )}
-              <CharacterSprite
-                spriteBase={boss.spriteBase}
-                meta={bossMeta}
-                baseHeight={96}
-                state="idle"
-                flip={flips[boss.id]}
-                alt={boss.name}
-                className="absolute bottom-2 right-6 [image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-              />
+              <div
+                className="absolute bottom-2"
+                style={{
+                  left: "75%",
+                  transform: `translateX(-${(flips[boss.id] ? 1 - bossMeta.idleAnchorX : bossMeta.idleAnchorX) * 100}%)`,
+                }}
+              >
+                <CharacterSprite
+                  spriteBase={boss.spriteBase}
+                  meta={bossMeta}
+                  baseHeight={96}
+                  state="idle"
+                  flip={flips[boss.id]}
+                  alt={boss.name}
+                  className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+                />
+              </div>
               <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-ink">
                 {bg?.name ?? bgId}
               </span>
