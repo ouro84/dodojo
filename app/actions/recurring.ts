@@ -68,16 +68,32 @@ export async function generateRecurringInstances(): Promise<{
     .eq("user_id", user.id)
     .eq("day_date", today);
 
+  // Issue #156 (P2) : restes actifs d'un jour antérieur portés par une routine.
+  // Le Réveil va les traiter ; générer une instance fraîche maintenant créerait
+  // un doublon dès que l'utilisateur clique « Reporter ».
+  const { data: overdueRecurring } = await supabase
+    .from("tasks")
+    .select("recurring_template_id")
+    .eq("user_id", user.id)
+    .lt("day_date", today)
+    .eq("is_completed", false)
+    .eq("is_abandoned", false)
+    .not("recurring_template_id", "is", null);
+
   const existingIds = new Set(
     (existingToday ?? []).map((r) => r.recurring_template_id as string),
   );
   const restIds = new Set((restDays ?? []).map((r) => r.template_id as string));
+  const overdueIds = new Set(
+    (overdueRecurring ?? []).map((r) => r.recurring_template_id as string),
+  );
 
   const toCreate = planRecurringGeneration(
     templates as RecurringTemplateRule[],
     today,
     existingIds,
     restIds,
+    overdueIds,
   );
   if (toCreate.length === 0) return { error: null, created: 0 };
 
