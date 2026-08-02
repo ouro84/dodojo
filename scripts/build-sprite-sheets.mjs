@@ -251,6 +251,12 @@ async function buildHeroes() {
       // en fraction de la tuile. Le rendu décale le sprite de cette valeur vers
       // le bas pour que la ligne de sol reste exactement où elle est aujourd'hui.
       groundOffset: (box.top + box.height - (idleBox.top + idleBox.height)) / box.height,
+      // Issue #156 : pendant horizontal de groundOffset. Centre de la
+      // silhouette idle dans la tuile, en fraction de largeur — permet
+      // d'ancrer le PERSONNAGE et non la boîte, dont le ratio varie du
+      // simple au double selon le pack source.
+      idleAnchorX: (idleBox.left - box.left + idleBox.width / 2) / box.width,
+      idleWidthRatio: idleBox.width / box.width,
       anims,
     };
     console.log(`héros ${slug} : tuile ${box.width}x${box.height}, scale ${meta[slug].renderScale.toFixed(3)}`);
@@ -411,6 +417,8 @@ async function emitBoss(slug, loaded) {
     tileH: box.height,
     renderScale: box.height / legacy,
     groundOffset: (box.top + box.height - (idleBox.top + idleBox.height)) / box.height,
+    idleAnchorX: (idleBox.left - box.left + idleBox.width / 2) / box.width,
+    idleWidthRatio: idleBox.width / box.width,
     anims,
   };
 }

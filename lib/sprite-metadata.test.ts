@@ -88,4 +88,33 @@ describe("sprite-metadata.generated.json", () => {
     expect(raw.bosses.minotaur.anims).not.toHaveProperty("hurt");
     expect(raw.bosses.minotaur.anims).not.toHaveProperty("death");
   });
+
+  it("expose une ancre horizontale d'idle pour chaque héros et chaque boss", () => {
+    const all = [
+      ...Object.entries(raw.heroes).map(([slug, m]) => [`héros ${slug}`, m] as const),
+      ...Object.entries(raw.bosses).map(([slug, m]) => [`boss ${slug}`, m] as const),
+    ];
+
+    for (const [label, meta] of all) {
+      expect(typeof meta.idleAnchorX, `${label} : idleAnchorX manquant`).toBe("number");
+      expect(typeof meta.idleWidthRatio, `${label} : idleWidthRatio manquant`).toBe("number");
+
+      // L'ancre est le centre de la silhouette idle, en fraction de tuile.
+      expect(meta.idleAnchorX, `${label} : ancre hors tuile`).toBeGreaterThan(0);
+      expect(meta.idleAnchorX, `${label} : ancre hors tuile`).toBeLessThan(1);
+
+      // La silhouette idle ne peut pas être plus large que la tuile (qui est
+      // l'union de toutes les anims, donc toujours au moins aussi large).
+      expect(meta.idleWidthRatio, `${label} : largeur idle nulle`).toBeGreaterThan(0);
+      expect(meta.idleWidthRatio, `${label} : largeur idle > tuile`).toBeLessThanOrEqual(1);
+
+      // Cohérence : la silhouette centrée sur l'ancre reste dans la tuile.
+      const half = meta.idleWidthRatio / 2;
+      expect(meta.idleAnchorX - half, `${label} : silhouette débordant à gauche`)
+        .toBeGreaterThanOrEqual(-1e-9);
+      expect(meta.idleAnchorX + half, `${label} : silhouette débordant à droite`)
+        .toBeLessThanOrEqual(1 + 1e-9);
+    }
+  });
+
 });

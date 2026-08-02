@@ -12,6 +12,8 @@ const meta: CharacterSpriteMeta = {
   tileH: 72,
   renderScale: 1.5,
   groundOffset: 0.1,
+  idleAnchorX: 0.5,
+  idleWidthRatio: 0.5,
   anims: {
     idle: { frames: 8, impactFrame: null },
     atk1: { frames: 10, impactFrame: 4 },
