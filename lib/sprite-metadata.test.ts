@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { HEROES } from "./heroes";
 import { BOSSES } from "./bosses";
 import rawJson from "./sprite-metadata.generated.json";
-import type { CharacterSpriteMeta, VfxMeta } from "./sprite-metadata";
+import type { CharacterSpriteMeta } from "./sprite-metadata";
 
 // Le JSON importé infère un type littéral distinct par personnage (les clés
 // `anims` diffèrent entre héros et boss, et minotaur n'a pas hurt/death) :
@@ -11,7 +11,6 @@ import type { CharacterSpriteMeta, VfxMeta } from "./sprite-metadata";
 const raw = rawJson as {
   heroes: Record<string, CharacterSpriteMeta>;
   bosses: Record<string, CharacterSpriteMeta>;
-  vfx: Record<string, Record<string, VfxMeta>>;
 };
 
 // Référence figée par scripts/build-sprite-sheets.mjs (issue #74). Dupliquée
@@ -77,11 +76,8 @@ describe("sprite-metadata.generated.json", () => {
     }
   });
 
-  it("donne au moins deux variantes de VFX à chaque héros", () => {
-    for (const hero of HEROES) {
-      const variants = Object.keys(raw.vfx[hero.slug] ?? {});
-      expect(variants.length, `VFX manquants : ${hero.slug}`).toBeGreaterThanOrEqual(2);
-    }
+  it("ne contient plus de VFX (issue #156 : remplacés par le flash blanc)", () => {
+    expect(rawJson).not.toHaveProperty("vfx");
   });
 
   it("laisse minotaur sans hurt ni death (pack incomplet, fallback CSS)", () => {

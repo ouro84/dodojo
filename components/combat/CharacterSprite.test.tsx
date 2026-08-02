@@ -4,6 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import CharacterSprite from "./CharacterSprite";
 import type { CharacterSpriteMeta } from "@/lib/sprite-metadata";
+import { HURT_DURATION_MS } from "@/lib/combat-animation";
 
 afterEach(cleanup);
 
@@ -69,7 +70,7 @@ describe("CharacterSprite", () => {
       ...meta,
       anims: { idle: { frames: 8, impactFrame: null } },
     };
-    render(<CharacterSprite {...base} meta={partial} state="hurt" fallbackHurtDeath />);
+    render(<CharacterSprite {...base} meta={partial} state="hurt" />);
     const el = screen.getByRole("img", { name: "Héros" });
     expect(el.style.backgroundImage).toContain("/anim/idle.png");
     expect(screen.getByTestId("character-sprite")).toHaveAttribute("data-anim-fallback", "true");
@@ -84,5 +85,35 @@ describe("CharacterSprite", () => {
     const el = screen.getByRole("img", { name: "Héros" });
     expect(el.style.backgroundImage).toContain("/anim/take_hit.png");
     expect(screen.getByTestId("character-sprite")).not.toHaveAttribute("data-anim-fallback");
+  });
+
+  it("pose le flash blanc sur l'état hurt", () => {
+    render(<CharacterSprite {...base} state="hurt" />);
+    expect(screen.getByTestId("character-flash")).toHaveClass("white-flash");
+  });
+
+  it("ne pose aucun flash hors de l'état hurt", () => {
+    render(<CharacterSprite {...base} state="idle" />);
+    expect(screen.getByTestId("character-flash")).not.toHaveClass("white-flash");
+  });
+
+  it("ne pose aucun flash sous reduced-motion", () => {
+    render(<CharacterSprite {...base} state="hurt" reducedMotion />);
+    expect(screen.getByTestId("character-flash")).not.toHaveClass("white-flash");
+  });
+
+  it("le flash suit `rendered`, pas la prop `state` reçue du parent (issue #156)", () => {
+    // `heroAnim`/`bossAnim` côté Arena ne repassent pas forcément à "idle"
+    // tout seuls après un coup (cf. issue #149) — le flash ne doit donc pas
+    // dépendre de la prop `state` telle quelle, mais de `rendered`, qui se
+    // corrige toujours via `onEnd` une fois l'anim non bouclée terminée.
+    vi.useFakeTimers();
+    render(<CharacterSprite {...base} state="hurt" />);
+    expect(screen.getByTestId("character-flash")).toHaveClass("white-flash");
+    act(() => {
+      vi.advanceTimersByTime(HURT_DURATION_MS);
+    });
+    expect(screen.getByTestId("character-flash")).not.toHaveClass("white-flash");
+    vi.useRealTimers();
   });
 });

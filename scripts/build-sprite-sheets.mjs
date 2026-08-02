@@ -423,76 +423,18 @@ async function emitBoss(slug, loaded) {
   };
 }
 
-// Mapping VFX par héros (issue #48). Chemins vérifiés dans assets/VFX/.
-// TOUJOURS reconstruire la feuille depuis le dossier Frames/ du pack : le
-// sprite-sheet.png fourni n'a pas de disposition horizontale garantie.
-const HERO_VFX = {
-  "fire-knight": {
-    slash1: "Pixel Art Animations - Slashes/128x128/Slash 1/color2/Frames",
-    slash2: "Pixel Art Animations - Slashes/128x128/Slash 2/color2/Frames",
-    slash3: "Pixel Art Animations - Slashes/128x128/Slash 3/color2/Frames",
-  },
-  "water-priestess": {
-    frost1: "Pixel Art VFX - Frost Knight - FREE Version/VFX1/frames",
-    frost2: "Pixel Art VFX - Frost Knight - FREE Version/VFX2/frames",
-    frost3: "Pixel Art VFX - Frost Knight - FREE Version/VFX3/frames",
-    burst: "animated-explosion-sprite-pack/PNG/Explosion_8",
-  },
-  "wind-hashashin": {
-    warrior4: "Pixel Art Animations - Warrior (FREE)/VFX 4/Frames",
-    rogue1: "Pixel Art VFX - Rogue - FREE Version/VFX1/frames",
-    rogue2: "Pixel Art VFX - Rogue - FREE Version/VFX2/frames",
-    burst: "animated-explosion-sprite-pack/PNG/Explosion_6",
-  },
-  "metal-bladekeeper": {
-    warrior1: "Pixel Art Animations - Warrior (FREE)/VFX 1/Frames",
-    lightning4: "Pixel Art Skill Animations - Lightning/VFX4/Frames",
-  },
-  "ground-monk": {
-    quake1: "animated-explosion-sprite-pack/PNG/Explosion_4/2",
-    quake2: "animated-explosion-sprite-pack/PNG/Explosion_3",
-    quake3: "animated-explosion-sprite-pack/PNG/Explosion_2",
-  },
-  "leaf-ranger": {
-    rogue3: "Pixel Art VFX - Rogue - FREE Version/VFX3/frames",
-    rogue4: "Pixel Art VFX - Rogue - FREE Version/VFX4/frames",
-    rogue5: "Pixel Art VFX - Rogue - FREE Version/VFX5/frames",
-  },
-  "crystal-mauler": {
-    warrior5: "Pixel Art Animations - Warrior (FREE)/VFX 5/Frames",
-    lightning3: "Pixel Art Skill Animations - Lightning/VFX3/Frames",
-  },
-};
-
-async function buildVfx() {
-  const meta = {};
-  for (const [slug, variants] of Object.entries(HERO_VFX)) {
-    meta[slug] = {};
-    await fs.rm(PUB(`vfx/hero/${slug}`), { recursive: true, force: true });
-    for (const [variant, rel] of Object.entries(variants)) {
-      const frames = await loadFramesFromDir(A(path.join("VFX", rel)));
-      const box = unionBox(frames);
-      await writeSheet(frames, box, PUB(`vfx/hero/${slug}/${variant}.png`));
-      meta[slug][variant] = { frames: frames.length, tileW: box.width, tileH: box.height };
-    }
-    console.log(`vfx ${slug} : ${Object.keys(variants).join(", ")}`);
-  }
-  return meta;
-}
-
 async function main() {
   const heroes = await buildHeroes();
   const bosses = await buildBosses();
-  const vfx = await buildVfx();
   const out = path.join(ROOT, "lib", "sprite-metadata.generated.json");
-  await fs.writeFile(out, `${JSON.stringify({ heroes, bosses, vfx }, null, 2)}\n`, "utf8");
+  await fs.writeFile(out, `${JSON.stringify({ heroes, bosses }, null, 2)}\n`, "utf8");
   console.log(`\nMétadonnées écrites : ${out}`);
 }
 
 export {
   A, PUB, LEGACY_IDLE_HEIGHTS, numericSort,
   loadFramesFromDir, sliceSheet, unionBox, writeSheet, writeStill,
-  buildHeroes, buildBosses, buildVfx,
+  buildHeroes, buildBosses,
 };
 
 await main();

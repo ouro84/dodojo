@@ -6,7 +6,6 @@ import CharacterSprite, { type CharacterAnimState } from "./CharacterSprite";
 import HeroBar from "./HeroBar";
 import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
-import HeroVfx from "./HeroVfx";
 import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
 import { isBossInDanger } from "@/lib/game-engine";
 
@@ -41,8 +40,6 @@ interface VersusSceneProps {
   /** Issue #156 : combo affiché sous la jauge du Boss, plus par-dessus. */
   comboCount?: number;
   dimmed?: boolean;
-  /** VFX d'impact du héros équipé, joué sur le Boss (issue #48). */
-  vfxVariant?: string | null;
   reducedMotion?: boolean;
   heroState?: CharacterAnimState;
   heroAttackAnim?: string;
@@ -51,8 +48,6 @@ interface VersusSceneProps {
   bossStateKey?: number;
   /** Hit-stop : gèle les deux sprites sans réinitialiser l'anim CSS. */
   frozen?: boolean;
-  /** minotaur : pack sans hurt ni death (cf. lib/bosses.ts). */
-  bossFallbackHurtDeath?: boolean;
   /** Frame de contact de l'attaque du Boss (deadline ratée / rage quit). */
   onBossImpact?: () => void;
   /** Fin de l'anim d'attaque du Héros : rejoue une attaque Boss en attente. */
@@ -82,7 +77,6 @@ export default function VersusScene({
   upcomingDeadlineCount = 0,
   comboCount = 0,
   dimmed = false,
-  vfxVariant = null,
   reducedMotion = false,
   heroState = "idle",
   heroAttackAnim,
@@ -90,7 +84,6 @@ export default function VersusScene({
   bossState = "idle",
   bossStateKey = 0,
   frozen = false,
-  bossFallbackHurtDeath = false,
   onBossImpact,
   onHeroAttackEnd,
 }: VersusSceneProps) {
@@ -227,7 +220,6 @@ export default function VersusScene({
             state={bossState}
             stateKey={bossStateKey}
             frozen={frozen}
-            fallbackHurtDeath={bossFallbackHurtDeath}
             reducedMotion={reducedMotion}
             danger={bossDanger}
             flip={bossFlip}
@@ -235,14 +227,6 @@ export default function VersusScene({
             alt={`Le Boss du jour : ${bossName}`}
             className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
           />
-          {vfxVariant && (
-            <HeroVfx
-              heroSlug={heroSlug}
-              variant={vfxVariant}
-              bossHeight={96 * bossMeta.renderScale}
-              reducedMotion={reducedMotion}
-            />
-          )}
         </div>
       </div>
     </div>

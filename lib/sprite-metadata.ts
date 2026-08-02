@@ -27,15 +27,8 @@ export interface CharacterSpriteMeta {
   anims: Record<string, AnimMeta>;
 }
 
-export interface VfxMeta {
-  frames: number;
-  tileW: number;
-  tileH: number;
-}
-
 const HEROES_META = raw.heroes as Record<string, CharacterSpriteMeta>;
 const BOSSES_META = raw.bosses as Record<string, CharacterSpriteMeta>;
-const VFX_META = raw.vfx as Record<string, Record<string, VfxMeta>>;
 
 export function heroSpriteMeta(slug: string): CharacterSpriteMeta {
   const meta = HEROES_META[slug];
@@ -46,15 +39,5 @@ export function heroSpriteMeta(slug: string): CharacterSpriteMeta {
 export function bossSpriteMeta(slug: string): CharacterSpriteMeta {
   const meta = BOSSES_META[slug];
   if (!meta) throw new Error(`Métadonnées de sprite introuvables pour le boss ${slug}`);
-  return meta;
-}
-
-export function heroVfxVariants(slug: string): string[] {
-  return Object.keys(VFX_META[slug] ?? {});
-}
-
-export function vfxMeta(slug: string, variant: string): VfxMeta {
-  const meta = VFX_META[slug]?.[variant];
-  if (!meta) throw new Error(`VFX introuvable : ${slug}/${variant}`);
   return meta;
 }

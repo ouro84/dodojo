@@ -109,7 +109,6 @@ import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
 import TomorrowBanner from "./TomorrowBanner";
 import TomorrowSheet from "./TomorrowSheet";
-import { pickVfxVariant } from "./HeroVfx";
 import KoSlam from "./KoSlam";
 
 interface ArenaProps {
@@ -251,7 +250,6 @@ export default function Arena({
     key: 0,
   }));
   const [frozen, setFrozen] = useState(false);
-  const [vfxVariant, setVfxVariant] = useState<string | null>(null);
   const pendingHitRef = useRef<PendingHits | null>(null);
   const animKeyRef = useRef(0);
   // Issue #144 : sérialise les écritures de position par groupe de fratrie
@@ -642,7 +640,6 @@ export default function Arena({
     const key = animKeyRef.current;
     const anim = pickAttackAnim(comboCount, isFatal, Math.random);
     setHeroAnim({ state: "attack", anim, key });
-    setVfxVariant(pickVfxVariant(equippedHero.slug));
 
     const meta = heroSpriteMeta(equippedHero.slug).anims[anim];
     const delay = impactDelayMs(
@@ -1684,14 +1681,12 @@ export default function Arena({
             bossSpriteBase={boss.spriteBase}
             bossSlug={boss.slug}
             bossFlip={boss.flip}
-            bossFallbackHurtDeath={boss.fallbackHurtDeath}
             backgroundPath={background.publicPath}
             currentHp={currentHp}
             maxHp={maxHp}
             upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
             comboCount={comboCount}
             dimmed={isEmpty}
-            vfxVariant={vfxVariant}
             reducedMotion={reducedMotion}
             heroState={heroAnim?.state ?? "idle"}
             heroAttackAnim={heroAnim?.anim}

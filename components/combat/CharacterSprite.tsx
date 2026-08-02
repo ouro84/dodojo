@@ -27,8 +27,6 @@ interface CharacterSpriteProps {
   frozen?: boolean;
   extraDelayMs?: number;
   danger?: boolean;
-  /** minotaur : pack sans hurt ni death, on retombe sur l'idle + effet CSS. */
-  fallbackHurtDeath?: boolean;
   /** Écran de calage (RosterPreview) : ralentit l'anim sans changer impactFrame. */
   speedMultiplier?: number;
   reducedMotion?: boolean;
@@ -62,7 +60,6 @@ export default function CharacterSprite({
   frozen = false,
   extraDelayMs = 0,
   danger = false,
-  fallbackHurtDeath = false,
   speedMultiplier = 1,
   reducedMotion = false,
   onImpact,
@@ -128,32 +125,43 @@ export default function CharacterSprite({
         filter: danger ? "saturate(1.15) brightness(0.92)" : undefined,
       }}
     >
-      <SpriteAnimator
-        sheetSrc={`${spriteBase}/anim/${animName}.png`}
-        frames={anim.frames}
-        tileW={meta.tileW}
-        tileH={meta.tileH}
-        renderedHeight={renderedHeight}
-        durationMs={duration}
-        loop={loop}
-        animKey={`${animName}-${stateKey}`}
-        flip={flip}
-        frozen={frozen}
-        extraDelayMs={extraDelayMs}
-        impactFrame={anim.impactFrame}
-        ariaLabel={alt}
-        staticFrame={
-          reducedMotion ? (rendered === "death" ? "last" : "first") : undefined
-        }
-        onImpact={onImpact}
-        onEnd={() => {
-          if (rendered !== "death") setRendered("idle");
-          onStateEnd?.();
-        }}
-      />
-      {fallbackHurtDeath && !available && rendered === "hurt" && (
-        <div className="hit-flash-overlay pointer-events-none absolute inset-0" />
-      )}
+      {/* Issue #156 : nœud dédié au flash blanc, dérivé de `rendered` (l'état
+          interne auto-corrigé) et non de la prop `state` reçue du parent —
+          celle-ci (heroAnim/bossAnim côté Arena) ne repasse pas forcément à
+          "idle" toute seule (cf. issue #149/#156, corrigé côté Arena par
+          nextAnimStateAfterEnd), alors que `rendered` s'y remet toujours via
+          `onEnd` ci-dessous. Il ne peut pas vivre sur le parent, qui porte
+          déjà un `filter` inline conditionnel (danger) — l'animation CSS
+          l'écraserait silencieusement. */}
+      <div
+        data-testid="character-flash"
+        className={rendered === "hurt" && !reducedMotion ? "white-flash" : ""}
+        key={stateKey}
+      >
+        <SpriteAnimator
+          sheetSrc={`${spriteBase}/anim/${animName}.png`}
+          frames={anim.frames}
+          tileW={meta.tileW}
+          tileH={meta.tileH}
+          renderedHeight={renderedHeight}
+          durationMs={duration}
+          loop={loop}
+          animKey={`${animName}-${stateKey}`}
+          flip={flip}
+          frozen={frozen}
+          extraDelayMs={extraDelayMs}
+          impactFrame={anim.impactFrame}
+          ariaLabel={alt}
+          staticFrame={
+            reducedMotion ? (rendered === "death" ? "last" : "first") : undefined
+          }
+          onImpact={onImpact}
+          onEnd={() => {
+            if (rendered !== "death") setRendered("idle");
+            onStateEnd?.();
+          }}
+        />
+      </div>
     </div>
   );
 }

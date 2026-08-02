@@ -80,4 +80,27 @@ test.describe("Animations de combat (issue #48)", () => {
     await expect(hero).toHaveAttribute("data-anim-state", "idle", { timeout: 3000 });
     await expect(boss).toHaveAttribute("data-anim-state", "idle", { timeout: 3000 });
   });
+
+  // Issue #156 : les VFX d'impact par héros sont remplacés par un flash blanc
+  // sur le personnage touché (filter: brightness(0) invert(1) sur un noeud
+  // dédié, cf. CharacterSprite.tsx). Le flash s'active pendant "hurt" et
+  // disparaît une fois l'anim terminée, exactement comme data-anim-state.
+  test("le Boss flashe en blanc quand il encaisse", async ({ page }) => {
+    bufferTitle = `E2E anim buffer flash ${Date.now()}`;
+    await page.getByLabel("Ajouter une tâche").fill(bufferTitle);
+    await page.getByRole("button", { name: "Ajouter" }).click();
+    await page.waitForTimeout(300);
+
+    taskTitle = `E2E flash ${Date.now()}`;
+    const bossFlash = page.getByTestId("character-flash").last();
+
+    await page.getByLabel("Ajouter une tâche").fill(taskTitle);
+    await page.getByRole("button", { name: "Ajouter" }).click();
+    await expect(page.getByText(taskTitle)).toBeVisible();
+
+    await expect(bossFlash).not.toHaveClass(/white-flash/);
+    await page.getByLabel(`Marquer "${taskTitle}" comme accomplie`).check();
+    await expect(bossFlash).toHaveClass(/white-flash/, { timeout: 3000 });
+    await expect(bossFlash).not.toHaveClass(/white-flash/, { timeout: 3000 });
+  });
 });
