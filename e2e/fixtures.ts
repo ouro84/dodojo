@@ -74,17 +74,43 @@ export async function login(page: Page): Promise<void> {
 // dernier échouait systématiquement. Fix : attendre la réponse réseau de la
 // server action déclenchée par le clic de confirmation avant de rendre la
 // main à l'appelant.
-export async function abandonViaUi(page: Page, title: string): Promise<void> {
-  // Issue #156 : l'overlay K.O./Perfect est un modal plein écran depuis que
-  // PerfectOverlay est passé en `fixed inset-0` (Task 3) — n'importe quel test
-  // qui termine assez de tâches pour vider le Boss (compte e2e propre, boss
-  // parfois réduit à une poignée de HP) peut le faire apparaître en cours de
-  // route et bloquer tout clic ultérieur, y compris celui-ci en afterEach.
-  // Avant, l'overlay ne bloquait pas les clics et ce cas passait inaperçu.
+// Issue #156 : l'overlay K.O./Perfect est un modal plein écran depuis que
+// PerfectOverlay est passé en `fixed inset-0` (Task 3) — n'importe quel test
+// qui termine assez de tâches pour vider le Boss (compte e2e propre, donc un
+// boss parfois réduit à une poignée de HP) peut le faire apparaître en cours
+// de route et bloquer tout clic ultérieur derrière lui. Avant ce fix, l'overlay
+// ne bloquait pas les clics et ce cas passait inaperçu. Exporté (pas seulement
+// utilisé par `abandonViaUi`) car plusieurs specs déclenchent un K.O. par
+// inadvertance en cochant toutes leurs tâches (compte propre + petit nombre de
+// tâches = boss facilement vidé), pas seulement au moment du nettoyage.
+export async function dismissKoOverlayIfPresent(page: Page): Promise<void> {
   const koOverlay = page.getByRole("alertdialog", { name: /Boss vaincu/ });
   if (await koOverlay.isVisible().catch(() => false)) {
     await koOverlay.getByRole("button", { name: /Continuer le combat/ }).click();
+    return;
   }
+  // Piège trouvé en reproduisant en direct (pas seulement supposé) : l'overlay
+  // peut apparaître jusqu'à ~2.4s APRÈS le coup fatal qui l'a déclenché
+  // (DEATH_DURATION_MS + KO_FADE_MS + KO_OVERLAY_EXTRA_DELAY_MS,
+  // lib/combat-animation.ts) — un simple `isVisible()` immédiat le rate si le
+  // K.O. vient tout juste de se produire, et l'overlay finit par apparaître
+  // PENDANT le clic suivant (repro : task-reorder-race.spec.ts, toggle-cascade
+  // .spec.ts — le cochage qui vide le Boss est la toute dernière action avant
+  // l'abandon). On n'attend cette apparition différée QUE si le Boss est
+  // effectivement à 0 HP maintenant (sinon aucun K.O. n'est en cours).
+  const bossBar = page.getByRole("progressbar", { name: /Vie du Boss/ });
+  const currentHp = await bossBar.getAttribute("aria-valuenow").catch(() => null);
+  if (currentHp !== "0") return;
+  try {
+    await koOverlay.waitFor({ state: "visible", timeout: 2600 });
+  } catch {
+    return; // jamais apparu (renaissance entre-temps, ou pas de K.O. réel) : rien à fermer.
+  }
+  await koOverlay.getByRole("button", { name: /Continuer le combat/ }).click();
+}
+
+export async function abandonViaUi(page: Page, title: string): Promise<void> {
+  await dismissKoOverlayIfPresent(page);
 
   const trigger = page.getByLabel(`Abandonner "${title}"`);
   if (!(await trigger.count())) return;

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { abandonViaUi, login } from "./fixtures";
+import { abandonViaUi, dismissKoOverlayIfPresent, login } from "./fixtures";
 
 // Scénario : cocher/décocher une tâche propage sur sa hiérarchie parent/
 // sous-tâches (2 niveaux, RG-01) — dans les deux sens. Chaque assertion
@@ -79,6 +79,11 @@ test.describe("Cascade de complétion parent/sous-tâches", () => {
     await expect(bossBar).toHaveAttribute("aria-valuenow", String(beforeS2 - 30));
     await expect(checkboxR).toBeChecked();
     await waitForMutationSettled();
+    // Issue #156 : sur un compte e2e propre, R+S1+S2 (40 HP) peuvent
+    // constituer TOUT le HP du Boss — cocher S2 le vide alors entièrement et
+    // ouvre l'overlay K.O., un modal plein écran (Task 3) qui bloquerait le
+    // prochain clic (`checkboxS1.uncheck()` ci-dessous) sans ce dismiss.
+    await dismissKoOverlayIfPresent(page);
 
     const beforeUncheck = await hpNow();
     await checkboxS1.uncheck();
