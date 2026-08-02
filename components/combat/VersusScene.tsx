@@ -38,6 +38,8 @@ interface VersusSceneProps {
   currentHp: number;
   maxHp: number;
   upcomingDeadlineCount?: number;
+  /** Issue #156 : combo affiché sous la jauge du Boss, plus par-dessus. */
+  comboCount?: number;
   dimmed?: boolean;
   /** VFX d'impact du héros équipé, joué sur le Boss (issue #48). */
   vfxVariant?: string | null;
@@ -78,6 +80,7 @@ export default function VersusScene({
   currentHp,
   maxHp,
   upcomingDeadlineCount = 0,
+  comboCount = 0,
   dimmed = false,
   vfxVariant = null,
   reducedMotion = false,
@@ -145,6 +148,14 @@ export default function VersusScene({
               aria-label={`${upcomingDeadlineCount} deadline${upcomingDeadlineCount > 1 ? "s" : ""} à venir aujourd'hui`}
             >
               ⏰ {upcomingDeadlineCount} à venir
+            </p>
+          )}
+          {comboCount >= 2 && (
+            <p
+              aria-label={`Combo en cours : ${comboCount} coups`}
+              className="mt-0.5 text-right font-display text-xs uppercase tracking-wider text-gold/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+            >
+              combo ×{comboCount}
             </p>
           )}
         </div>

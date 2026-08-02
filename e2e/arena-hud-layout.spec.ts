@@ -29,4 +29,36 @@ test.describe("HUD de l'Arène (issue #156)", () => {
     // une colonne qui a mangé l'espace de l'autre (régression #139/#152).
     expect(Math.abs(heroBox.width - bossBox.width)).toBeLessThanOrEqual(1);
   });
+
+  test("le badge combo ne recouvre jamais la jauge du Boss", async ({ page }) => {
+    const titles = [`E2E combo A ${Date.now()}`, `E2E combo B ${Date.now()}`];
+
+    for (const title of titles) {
+      await page.getByLabel("Ajouter une tâche").fill(title);
+      await page.getByRole("button", { name: "Ajouter" }).click();
+      await expect(page.getByText(title)).toBeVisible();
+    }
+
+    // Deux complétions rapprochées (< 15 min) montent le combo à x2.
+    for (const title of titles) {
+      await page.getByRole("checkbox", { name: new RegExp(title) }).click();
+    }
+
+    const badge = page.getByLabel(/Combo en cours/);
+    await expect(badge).toBeVisible({ timeout: 10_000 });
+
+    const badgeBox = await badge.boundingBox();
+    const bossBox = await page
+      .getByRole("progressbar", { name: /Vie du Boss/ })
+      .boundingBox();
+    if (!badgeBox || !bossBox) throw new Error("Badge ou jauge sans boîte englobante");
+
+    const overlaps =
+      badgeBox.x < bossBox.x + bossBox.width &&
+      badgeBox.x + badgeBox.width > bossBox.x &&
+      badgeBox.y < bossBox.y + bossBox.height &&
+      badgeBox.y + badgeBox.height > bossBox.y;
+
+    expect(overlaps, "le badge combo recouvre la jauge du Boss").toBe(false);
+  });
 });

@@ -1645,6 +1645,7 @@ export default function Arena({
             currentHp={currentHp}
             maxHp={maxHp}
             upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
+            comboCount={comboCount}
             dimmed={isEmpty}
             vfxVariant={vfxVariant}
             reducedMotion={reducedMotion}
@@ -1664,14 +1665,6 @@ export default function Arena({
               label={comboFlash.label}
               intensity={comboFlash.intensity}
             />
-          )}
-          {comboCount >= 2 && (
-            <span
-              aria-label={`Combo en cours : ${comboCount} coups`}
-              className="pointer-events-none absolute right-2 top-2 z-30 font-display text-xs uppercase tracking-wider text-gold/90"
-            >
-              combo ×{comboCount}
-            </span>
           )}
           {pulse && <FloatingText amount={pulse.amount} kind={pulse.kind} />}
           {heroPulse && (
