@@ -1598,6 +1598,50 @@ export default function Arena({
           onPlanTomorrow={planningUnlocked ? openTomorrowSheet : undefined}
         />
       )}
+      {koState && (
+        <PerfectOverlay
+          tier={koState.tier}
+          bossName={bossName}
+          aggressivityLevel={level}
+          username={profile.username}
+          damageDealt={koState.damageDealt}
+          monstersDefeated={koState.monstersDefeated}
+          milestone={koState.milestone}
+          firstVictory={koState.firstVictory}
+          shareCardParams={buildShareCardParams(summarizeDay(tasks, "manual"), {
+            username: profile.username,
+            heroId: profile.equipped_hero_id,
+            bossId: boss.id,
+            level: profile.level,
+            title: activeTitleText,
+            streak: currentStreak(
+              [
+                ...dayResults.filter((r) => r.day_date !== today),
+                { day_date: today, outcome: "victory" },
+              ],
+              today,
+            ).length,
+            dayDate: today,
+          })}
+          onCrepuscule={() => {
+            setKoState(null);
+            void handleCrepuscule();
+          }}
+          onContinue={() => setKoState(null)}
+          // Issue #156 : les deux sont désormais des modaux plein écran de
+          // même rang — sans fermeture préalable ils se superposeraient
+          // (même piège que la sheet « Demain » de l'issue #147, qui
+          // occulte physiquement tout ce qui est derrière elle).
+          onPlanTomorrow={
+            planningUnlocked
+              ? () => {
+                  setKoState(null);
+                  openTomorrowSheet();
+                }
+              : undefined
+          }
+        />
+      )}
       <div
         key={pulse ? `fx-${pulse.key}` : "fx-idle"}
         className={`relative flex flex-col gap-3 ${
@@ -1683,39 +1727,6 @@ export default function Arena({
           )}
           {xpPulse && (
             <FloatingText amount={xpPulse.amount} kind={xpPulse.kind} unit="XP" />
-          )}
-          {koState && (
-            <PerfectOverlay
-              tier={koState.tier}
-              bossName={bossName}
-              aggressivityLevel={level}
-              username={profile.username}
-              damageDealt={koState.damageDealt}
-              monstersDefeated={koState.monstersDefeated}
-              milestone={koState.milestone}
-              firstVictory={koState.firstVictory}
-              shareCardParams={buildShareCardParams(summarizeDay(tasks, "manual"), {
-                username: profile.username,
-                heroId: profile.equipped_hero_id,
-                bossId: boss.id,
-                level: profile.level,
-                title: activeTitleText,
-                streak: currentStreak(
-                  [
-                    ...dayResults.filter((r) => r.day_date !== today),
-                    { day_date: today, outcome: "victory" },
-                  ],
-                  today,
-                ).length,
-                dayDate: today,
-              })}
-              onCrepuscule={() => {
-                setKoState(null);
-                void handleCrepuscule();
-              }}
-              onContinue={() => setKoState(null)}
-              onPlanTomorrow={planningUnlocked ? openTomorrowSheet : undefined}
-            />
           )}
           {levelUpValue !== null && (
             <LevelUpOverlay
