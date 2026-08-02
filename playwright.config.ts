@@ -26,6 +26,14 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // Runner GitHub Actions ~1.5-2x plus lent que le poste local (constaté sur
+  // les deux premiers runs CI réels de la suite, 2026-08-02 : 16-19min contre
+  // 9.5min en local pour les mêmes 52 tests) — jamais mesuré avant faute d'un
+  // job E2E qui allait jusqu'au bout en CI (cf. CLAUDE.md, fix Node 20→24).
+  // Le timeout par défaut (30s) échouait alors de façon déterministe (pas du
+  // bruit : 3 tentatives consécutives, mêmes tests) sur des attentes qui
+  // passent en ~15-20s en local. Doublé pour absorber cet écart de matériel.
+  timeout: process.env.CI ? 60_000 : 30_000,
   reporter: "html",
   use: {
     baseURL,
