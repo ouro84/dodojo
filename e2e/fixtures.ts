@@ -261,6 +261,90 @@ export async function seedOverdueRecurringInstance(title: string): Promise<void>
   }
 }
 
+// Issue #156 (P1) : `createRecurringTemplate` génère l'instance du jour dans
+// la foulée (effet immédiat) — il n'y a donc plus de fenêtre de course à
+// tester une fois la routine créée. Ce fixture rouvre artificiellement cette
+// fenêtre : déplace l'instance déjà générée sur demain (retour à "rien pour
+// aujourd'hui") et efface le cache de saut (`last_recurring_gen_day`).
+//
+// Piège découvert en écrivant ce fixture : `generateRecurringInstances`
+// considère un template "déjà généré" dès qu'une ligne existe pour
+// `day_date = today`, SANS filtrer `is_abandoned` — annihiler la ligne (au
+// lieu de la déplacer) ne rouvre donc pas la fenêtre, elle continue de
+// bloquer la génération via `existingIds` malgré son statut abandonné.
+// Déplacer vers demain sort la ligne des deux exclusions (`existingToday` ne
+// regarde que `today`, `overdueTemplateIds` que `< today`) sans dépendre de
+// ce détail — et sans réintroduire le chemin P2 (demain n'est pas un reste).
+export async function reopenRecurringGenerationWindow(title: string): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "Reopen recurring window : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
+    );
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("Reopen recurring window : utilisateur test introuvable.");
+
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const { error: taskError } = await admin
+    .from("tasks")
+    .update({ day_date: tomorrow })
+    .eq("user_id", uid)
+    .eq("title", title)
+    .eq("is_abandoned", false)
+    .not("recurring_template_id", "is", null);
+  if (taskError) {
+    throw new Error(`Reopen recurring window : déplacement échoué (${taskError.message}).`);
+  }
+
+  const { error: profileError } = await admin
+    .from("profiles")
+    .update({ last_recurring_gen_day: null })
+    .eq("id", uid);
+  if (profileError) {
+    throw new Error(`Reopen recurring window : reset cache échoué (${profileError.message}).`);
+  }
+}
+
+// Issue #156 (P1) : compte les instances ACTIVES (non abandonnées) d'une
+// routine sur le jour local courant du compte e2e fixe — invariant direct du
+// test de concurrence (doit toujours valoir 1, jamais 2).
+export async function countActiveRecurringToday(title: string): Promise<number> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "Count active recurring : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
+    );
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("Count active recurring : utilisateur test introuvable.");
+
+  // Compte du jour de l'app : dayKey résout au calendrier local du profil, ici
+  // "UTC" pour le compte e2e fixe (vérifié) — le découpage UTC naïf de
+  // toISOString() coïncide donc exactement avec `today` côté serveur.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await admin
+    .from("tasks")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("title", title)
+    .eq("day_date", today)
+    .eq("is_abandoned", false)
+    .not("recurring_template_id", "is", null);
+  if (error) {
+    throw new Error(`Count active recurring : requête échouée (${error.message}).`);
+  }
+  return data?.length ?? 0;
+}
+
 // US-05 (issue #101 A3 / A4) : sème une tâche avec une deadline horaire
 // déjà dans le passé (≤ now), pour court-circuiter le polling ~45s de
 // l'Arène. La tâche est détectée comme `missedDeadlineTasks` dès le 1er

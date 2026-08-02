@@ -32,20 +32,34 @@ test.describe("Routines sans doublon (issue #156)", () => {
   });
 
   test("deux chargements concurrents de l'Arène ne créent qu'une instance", async ({
-    page,
     context,
   }) => {
     routineTitle = `E2E routine ${Date.now()}`;
-    await createRoutine(page, routineTitle);
 
-    // Deux onglets chargent / en même temps : c'est la course reproduite par
-    // le prefetch RSC de BottomNav en usage réel.
-    const second = await context.newPage();
-    await Promise.all([page.goto("/"), second.goto("/")]);
-    await second.close();
+    // Page dédiée pour la création — jamais réutilisée pour la course
+    // ci-dessous : une même Page qui essuie un goto() concurrent à un autre
+    // onglet du même contexte peut rester bloquée sur son URL précédente
+    // (reproduit : l'assertion finale lisait encore la page "Mes Routines").
+    const setupPage = await context.newPage();
+    await createRoutine(setupPage, routineTitle);
+    await setupPage.close();
 
-    await page.reload();
-    await expect(page.getByText(routineTitle, { exact: false })).toHaveCount(1);
+    // createRecurringTemplate génère l'instance du jour dans la foulée (effet
+    // immédiat) : sans rouvrir la fenêtre, il n'y aurait plus rien à créer en
+    // double au moment de la course ci-dessous, et le test ne prouverait rien.
+    const { reopenRecurringGenerationWindow, countActiveRecurringToday } = await import(
+      "./fixtures"
+    );
+    await reopenRecurringGenerationWindow(routineTitle);
+
+    // Deux onglets chargent / en même temps, chacun sur sa propre Page : c'est
+    // la course reproduite par le prefetch RSC de BottomNav en usage réel.
+    const [pageA, pageB] = await Promise.all([context.newPage(), context.newPage()]);
+    await Promise.all([pageA.goto("/"), pageB.goto("/")]);
+    await pageA.close();
+    await pageB.close();
+
+    expect(await countActiveRecurringToday(routineTitle)).toBe(1);
   });
 
   test("Reporter un reste de routine au Réveil ne crée pas de doublon", async ({ page }) => {
@@ -54,7 +68,9 @@ test.describe("Routines sans doublon (issue #156)", () => {
 
     // L'instance du jour vient d'être générée : on la déplace sur hier pour
     // fabriquer un reste, via l'API admin (impossible depuis l'UI).
-    const { seedOverdueRecurringInstance } = await import("./fixtures");
+    const { seedOverdueRecurringInstance, countActiveRecurringToday } = await import(
+      "./fixtures"
+    );
     await seedOverdueRecurringInstance(routineTitle);
 
     await page.goto("/");
@@ -65,5 +81,6 @@ test.describe("Routines sans doublon (issue #156)", () => {
 
     // Sans rechargement : couvre à la fois D1 et la propagation createdTasks.
     await expect(page.getByText(routineTitle, { exact: false })).toHaveCount(1);
+    expect(await countActiveRecurringToday(routineTitle)).toBe(1);
   });
 });
