@@ -75,6 +75,17 @@ export async function login(page: Page): Promise<void> {
 // server action déclenchée par le clic de confirmation avant de rendre la
 // main à l'appelant.
 export async function abandonViaUi(page: Page, title: string): Promise<void> {
+  // Issue #156 : l'overlay K.O./Perfect est un modal plein écran depuis que
+  // PerfectOverlay est passé en `fixed inset-0` (Task 3) — n'importe quel test
+  // qui termine assez de tâches pour vider le Boss (compte e2e propre, boss
+  // parfois réduit à une poignée de HP) peut le faire apparaître en cours de
+  // route et bloquer tout clic ultérieur, y compris celui-ci en afterEach.
+  // Avant, l'overlay ne bloquait pas les clics et ce cas passait inaperçu.
+  const koOverlay = page.getByRole("alertdialog", { name: /Boss vaincu/ });
+  if (await koOverlay.isVisible().catch(() => false)) {
+    await koOverlay.getByRole("button", { name: /Continuer le combat/ }).click();
+  }
+
   const trigger = page.getByLabel(`Abandonner "${title}"`);
   if (!(await trigger.count())) return;
   await trigger.first().click();
