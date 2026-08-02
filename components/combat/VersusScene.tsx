@@ -109,8 +109,16 @@ export default function VersusScene({
         className="object-cover [image-rendering:pixelated]"
       />
       <div className="absolute inset-x-0 top-0 z-[5] h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
-      <div className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 p-2">
-        <div className="flex-1">
+      {/* Issue #156 : grille explicite plutôt qu'un flex à trois `flex-1`.
+          Les deux `1fr` DÉCLARENT l'égalité de largeur au lieu de la laisser
+          émerger d'un calcul d'espace libre — et surtout, `min-w-0` ramène à 0
+          le `min-width:auto` des colonnes latérales. Sans lui, le `truncate`
+          (donc `white-space: nowrap`) du pseudo+titre de HeroBar fait remonter
+          le plancher de la colonne héros à la largeur du texte ENTIER non
+          tronqué, qui affame alors la colonne Boss. C'est la régression
+          introduite par l'ajout du titre équipé (#139, PR #152). */}
+      <div className="absolute inset-x-0 top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-start gap-2 p-2">
+        <div className="min-w-0">
           <HeroBar
             heroName={heroLabel ?? heroName}
             title={heroTitle}
@@ -129,7 +137,7 @@ export default function VersusScene({
         <div className="flex flex-col items-center pt-1">
           <MidnightTimer />
         </div>
-        <div className="flex-1">
+        <div className="min-w-0">
           <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} danger={bossDanger} />
           {upcomingDeadlineCount > 0 && (
             <p
