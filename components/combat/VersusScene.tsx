@@ -52,6 +52,9 @@ interface VersusSceneProps {
   onBossImpact?: () => void;
   /** Fin de l'anim d'attaque du Héros : rejoue une attaque Boss en attente. */
   onHeroAttackEnd?: () => void;
+  /** Issue #156 : fin de n'importe quelle anim non bouclée du Boss — remet
+   * bossAnim à idle côté Arena (jamais fait tout seul avant ce correctif). */
+  onBossStateEnd?: () => void;
 }
 
 // Décor + Boss dynamiques : le boss du jour et son décor cohérent sont tirés par
@@ -86,6 +89,7 @@ export default function VersusScene({
   frozen = false,
   onBossImpact,
   onHeroAttackEnd,
+  onBossStateEnd,
 }: VersusSceneProps) {
   const heroMeta = heroSpriteMeta(heroSlug);
   const bossMeta = bossSpriteMeta(bossSlug);
@@ -224,6 +228,7 @@ export default function VersusScene({
             danger={bossDanger}
             flip={bossFlip}
             onImpact={onBossImpact}
+            onStateEnd={onBossStateEnd}
             alt={`Le Boss du jour : ${bossName}`}
             className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
           />

@@ -93,3 +93,34 @@ export function shouldForceFlush(pending: PendingHits | null, now: number): bool
   if (!pending) return false;
   return now - pending.firstAt >= COALESCE_MAX_WAIT_MS;
 }
+
+/** État d'animation piloté par l'Arène (distinct de l'état interne du sprite). */
+export interface AnimState {
+  state: "idle" | "attack" | "hurt" | "death";
+  key: number;
+  anim?: string;
+}
+
+/**
+ * Issue #156 : état suivant à la fin d'une animation non bouclée, quel que soit
+ * l'état qui vient de s'achever.
+ *
+ * L'issue #149 n'avait traité que le cas « fin d'attaque du héros ». Après un
+ * `hurt`, l'état restait figé pour le reste de la session, et les gardes
+ * anti-chevauchement (qui lisent `heroAnimRef` / `bossAnimRef`) raisonnaient
+ * sur une valeur périmée.
+ *
+ * Attention : `data-anim-state` du DOM expose l'état INTERNE de
+ * CharacterSprite, qui revient bien à l'idle tout seul. C'est l'état côté
+ * Arène — celui-ci — qui restait bloqué, et qu'aucun test e2e ne voyait.
+ *
+ * `death` est traité comme `idle` : le Boss mort ne se relève pas de
+ * lui-même, seule la renaissance le remet debout (cf. `koOutcome`).
+ *
+ * Retourne l'objet d'origine (identité préservée) si rien ne change, pour
+ * qu'un appelant puisse éviter un re-render inutile.
+ */
+export function nextAnimStateAfterEnd(current: AnimState): AnimState {
+  if (current.state === "idle" || current.state === "death") return current;
+  return { state: "idle", key: current.key + 1 };
+}

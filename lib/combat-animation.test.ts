@@ -4,6 +4,7 @@ import {
   COALESCE_MAX_WAIT_MS,
   hitStopMs,
   impactDelayMs,
+  nextAnimStateAfterEnd,
   pickAttackAnim,
   shouldForceFlush,
 } from "./combat-animation";
@@ -64,5 +65,35 @@ describe("coalescing des rafales", () => {
 
   it("ne force jamais le flush sans coup en attente", () => {
     expect(shouldForceFlush(null, 99999)).toBe(false);
+  });
+});
+
+describe("nextAnimStateAfterEnd (issue #156)", () => {
+  it("ramène une attaque terminée à l'idle en incrémentant la clé", () => {
+    expect(nextAnimStateAfterEnd({ state: "attack", key: 7, anim: "atk2" })).toEqual({
+      state: "idle",
+      key: 8,
+    });
+  });
+
+  it("ramène AUSSI un hurt terminé à l'idle", () => {
+    // #149 n'avait traité que le cas "attack" : après un hurt, l'état restait
+    // figé et les gardes anti-chevauchement lisaient une valeur périmée.
+    expect(nextAnimStateAfterEnd({ state: "hurt", key: 3 })).toEqual({
+      state: "idle",
+      key: 4,
+    });
+  });
+
+  it("laisse un état déjà idle inchangé", () => {
+    const idle = { state: "idle" as const, key: 5 };
+    expect(nextAnimStateAfterEnd(idle)).toBe(idle);
+  });
+
+  it("laisse un Boss mort inchangé", () => {
+    // Le Boss mort ne se relève pas de lui-même : seule la renaissance le
+    // remet debout (cf. koOutcome, garde prevBossHp === 0).
+    const dead = { state: "death" as const, key: 9 };
+    expect(nextAnimStateAfterEnd(dead)).toBe(dead);
   });
 });

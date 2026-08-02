@@ -65,6 +65,7 @@ import {
   addPendingHit,
   hitStopMs,
   impactDelayMs,
+  nextAnimStateAfterEnd,
   pickAttackAnim,
   shouldForceFlush,
   type HeroAttackAnim,
@@ -268,6 +269,10 @@ export default function Arena({
   // au montage) — lire heroAnim directement y renverrait toujours sa valeur
   // initiale (null) et désactiverait la garde anti-chevauchement des animes.
   const heroAnimRef = useRef(heroAnim);
+  // Issue #156 : miroir de bossAnim, même patron que heroAnimRef — nécessaire
+  // pour qu'onBossStateEnd (fermeture d'un handler passé en prop) lise la
+  // dernière valeur plutôt que celle figée au montage.
+  const bossAnimRef = useRef(bossAnim);
   // Task 4.2 : une seule attaque récapitulative par montage de l'Arène.
   const recapPlayedRef = useRef(false);
 
@@ -468,6 +473,10 @@ export default function Arena({
   useEffect(() => {
     heroAnimRef.current = heroAnim;
   }, [heroAnim]);
+
+  useEffect(() => {
+    bossAnimRef.current = bossAnim;
+  }, [bossAnim]);
 
   // Task 4.2 : ce qui était déjà raté avant l'ouverture de l'Arène (deadlines
   // dépassées, restes reportés au Réveil) se solde par une seule attaque du
@@ -709,26 +718,46 @@ export default function Arena({
 
   // Rejoue une attaque du Boss mise en attente pendant que le héros frappait.
   function onHeroAttackEnd() {
-    // Issue #149 : rien ne remettait jamais `heroAnim.state` à "idle" après
-    // une attaque (seul `rendered`, local à CharacterSprite, se réinitialise
-    // visuellement) — le garde anti-chevauchement de `triggerBossAttack`
-    // (`heroAnimRef.current?.state === "attack"`) restait donc bloqué à vrai
-    // pour le reste de la session dès la première attaque du héros, mettant
-    // toute contre-attaque du Boss ultérieure (deadline, rage quit, recap,
-    // et le nouveau cas décochage) en file d'attente indéfiniment au lieu de
-    // se jouer. Mutation directe de `heroAnimRef` (pas seulement `setHeroAnim`,
-    // dont le miroir ne se met à jour qu'à l'effet du prochain rendu) pour que
-    // `triggerBossAttack`, appelée juste en dessous, voie l'état à jour tout
-    // de suite si une attaque était justement en attente.
-    if (heroAnimRef.current?.state === "attack") {
-      const next = { state: "idle" as const, key: heroAnimRef.current.key + 1 };
-      heroAnimRef.current = next;
-      setHeroAnim(next);
+    // Issue #149 puis #156 : rien ne remettait `heroAnim` à "idle" après une
+    // anim — d'abord jamais du tout, puis seulement après une attaque. Après un
+    // `hurt`, l'état restait donc figé pour le reste de la session, et le garde
+    // anti-chevauchement de `triggerBossAttack` lisait une valeur périmée.
+    // La transition est désormais une fonction pure de lib/combat-animation.ts
+    // (règle projet n° 2), appliquée quel que soit l'état qui s'achève.
+    //
+    // Mutation directe de `heroAnimRef` en plus de `setHeroAnim` : le miroir de
+    // l'effet ne se met à jour qu'au rendu suivant, or `triggerBossAttack` est
+    // appelée juste en dessous et doit voir l'état à jour tout de suite.
+    const current = heroAnimRef.current;
+    if (current) {
+      const next = nextAnimStateAfterEnd(current);
+      if (next !== current) {
+        // `next.state` vaut toujours "idle" ici : heroAnim ne connaît jamais
+        // "death" (seul le Boss meurt), nextAnimStateAfterEnd ne peut donc
+        // renvoyer que idle ou l'entrée inchangée pour ce type d'appelant.
+        const heroNext = { state: "idle" as const, key: next.key };
+        heroAnimRef.current = heroNext;
+        setHeroAnim(heroNext);
+      }
     }
     if (bossAttackPendingRef.current) {
       const reason = bossAttackPendingRef.current;
       bossAttackPendingRef.current = null;
       triggerBossAttack(reason);
+    }
+  }
+
+  // Issue #156 : symétrique de onHeroAttackEnd. `bossAnim` restait bloqué sur
+  // "attack" ou "hurt" après la première contre-attaque, pour la même raison.
+  // Le cas "death" est géré par nextAnimStateAfterEnd, qui laisse l'état tel
+  // quel : le Boss mort ne se relève pas de lui-même.
+  function onBossStateEnd() {
+    const current = bossAnimRef.current;
+    if (!current) return;
+    const next = nextAnimStateAfterEnd(current);
+    if (next !== current) {
+      bossAnimRef.current = next;
+      setBossAnim(next);
     }
   }
 
@@ -1699,6 +1728,7 @@ export default function Arena({
             frozen={frozen}
             onBossImpact={onBossImpact}
             onHeroAttackEnd={onHeroAttackEnd}
+            onBossStateEnd={onBossStateEnd}
           />
           {koSlam && <KoSlam />}
           {comboFlash && (
