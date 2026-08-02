@@ -233,6 +233,34 @@ export async function seedOverdueTask(title: string, daysAgo = 1): Promise<strin
   return data.id as string;
 }
 
+// Issue #156 : transforme l'instance du jour d'une routine en reste de la
+// veille, pour reproduire le chemin de duplication P2 (Réveil + Reporter).
+export async function seedOverdueRecurringInstance(title: string): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "Seed overdue recurring : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
+    );
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("Seed overdue recurring : utilisateur test introuvable.");
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const { error } = await admin
+    .from("tasks")
+    .update({ day_date: yesterday })
+    .eq("user_id", uid)
+    .eq("title", title)
+    .not("recurring_template_id", "is", null);
+  if (error) {
+    throw new Error(`Seed overdue recurring : update échoué (${error.message}).`);
+  }
+}
+
 // US-05 (issue #101 A3 / A4) : sème une tâche avec une deadline horaire
 // déjà dans le passé (≤ now), pour court-circuiter le polling ~45s de
 // l'Arène. La tâche est détectée comme `missedDeadlineTasks` dès le 1er

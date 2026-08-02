@@ -8,6 +8,7 @@ import {
   planRecurringGeneration,
   type RecurringTemplateRule,
 } from "@/lib/game-engine";
+import type { Task } from "@/types";
 
 interface RecurringActionResult {
   error: string | null;
@@ -31,15 +32,14 @@ async function userToday(
 // déjà présentes) et ne génère jamais pour un jour passé (D6 : seul `today`).
 // Appelée au chargement de l'Arène (couvre les jours sans reste, où Le Réveil
 // Réveil bloquant ne se monte pas) — pas de revalidate ici, la page lit ensuite.
-export async function generateRecurringInstances(): Promise<{
-  error: string | null;
-  created: number;
-}> {
+export async function generateRecurringInstances(
+  options: { force?: boolean } = {},
+): Promise<{ error: string | null; created: number; createdTasks: Task[] }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: null, created: 0 };
+  if (!user) return { error: null, created: 0, createdTasks: [] };
 
   const today = await userToday(supabase, user.id);
 
@@ -50,7 +50,7 @@ export async function generateRecurringInstances(): Promise<{
     .eq("is_active", true);
 
   if (templatesError || !templates || templates.length === 0) {
-    return { error: null, created: 0 };
+    return { error: null, created: 0, createdTasks: [] };
   }
 
   // Instances déjà présentes aujourd'hui pour ces routines (fraîches OU restes
@@ -95,7 +95,7 @@ export async function generateRecurringInstances(): Promise<{
     restIds,
     overdueIds,
   );
-  if (toCreate.length === 0) return { error: null, created: 0 };
+  if (toCreate.length === 0) return { error: null, created: 0, createdTasks: [] };
 
   // Position en tête de la fratrie racine du jour.
   const { data: roots } = await supabase
@@ -119,10 +119,29 @@ export async function generateRecurringInstances(): Promise<{
     };
   });
 
-  const { error } = await supabase.from("tasks").insert(rows);
-  if (error) return { error: "Impossible de générer les quêtes du jour.", created: 0 };
+  // Bug #70 : les lignes créées sont renvoyées explicitement. WakeUpRitual est
+  // un overlay client bloquant — revalidatePath n'atteint pas le state déjà
+  // hydraté d'Arena, qui initialise `tasks` une seule fois depuis les props
+  // serveur. Sans ce retour, une routine régénérée en fin de rituel resterait
+  // invisible jusqu'au prochain rechargement complet.
+  const { data: inserted, error } = await supabase
+    .from("tasks")
+    .insert(rows)
+    .select();
 
-  return { error: null, created: rows.length };
+  if (error) {
+    return {
+      error: "Impossible de générer les quêtes du jour.",
+      created: 0,
+      createdTasks: [],
+    };
+  }
+
+  return {
+    error: null,
+    created: inserted?.length ?? 0,
+    createdTasks: (inserted ?? []) as Task[],
+  };
 }
 
 // US-17 : crée une routine. Effet immédiat : si aujourd'hui matche, l'instance du

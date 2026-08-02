@@ -1558,14 +1558,17 @@ export default function Arena({
           overdueTasks={overdueTasks}
           timezone={profile.timezone}
           aggressivityLevel={level}
-          onResolved={(deferredTasks) => {
+          onResolved={({ deferredTasks, createdTasks }) => {
             setShowWakeUp(false);
             // Bug #70 : "Reporter" ramenait la tâche en base (day_date du
             // jour) mais l'Arène gardait son state initial (fetché avant
             // l'ouverture du Réveil) — la tâche restait invisible, comme si
             // elle avait été annihilée. On la fusionne explicitement ici.
-            if (deferredTasks.length > 0) {
-              setTasks((previous) => [...previous, ...deferredTasks]);
+            // Issue #156 : même traitement pour les routines régénérées en
+            // fin de rituel, qui n'existaient pas non plus au fetch initial.
+            const merged = [...deferredTasks, ...createdTasks];
+            if (merged.length > 0) {
+              setTasks((previous) => [...previous, ...merged]);
             }
           }}
         />

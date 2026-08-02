@@ -21,6 +21,7 @@ import {
   type TaskActionResult,
 } from "@/app/actions/tasks";
 import { backfillMissedDays } from "@/app/actions/day";
+import { generateRecurringInstances } from "@/app/actions/recurring";
 
 interface WakeUpRitualProps {
   overdueTasks: Task[];
@@ -29,7 +30,9 @@ interface WakeUpRitualProps {
   // Bug #70 : "Reporter" doit faire réapparaître la tâche dans l'Arène — le
   // parent reçoit donc les tâches effectivement reportées (day_date/deadline_at
   // à jour, renvoyées par le serveur) pour les fusionner dans son propre state.
-  onResolved: (deferredTasks: Task[]) => void;
+  // Issue #156 : les routines régénérées en fin de rituel voyagent par le même
+  // canal — même raison (bug #70), même contrainte.
+  onResolved: (resolved: { deferredTasks: Task[]; createdTasks: Task[] }) => void;
 }
 
 function daysAgo(dayDate: string, todayKey: string): number {
@@ -92,7 +95,15 @@ export default function WakeUpRitual({
     setTasks(remaining);
     if (remaining.length === 0) {
       await backfillMissedDays();
-      onResolved(deferredAccumulatorRef.current);
+      // Issue #156 : les routines dont un reste traînait n'ont pas été
+      // générées au chargement (cf. planRecurringGeneration, overdueTemplateIds).
+      // Maintenant que les restes sont soldés, on relance — `force` court-circuite
+      // le cache de saut, déjà posé par le chargement de l'Arène.
+      const generated = await generateRecurringInstances({ force: true });
+      onResolved({
+        deferredTasks: deferredAccumulatorRef.current,
+        createdTasks: generated.createdTasks,
+      });
     }
   }
 
