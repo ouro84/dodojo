@@ -23,6 +23,11 @@ jobs:
   checks:
     name: Lint · Vitest · Build
     runs-on: ubuntu-latest
+    # Plafond de sécurité (défaut GitHub : 360 min). Ce job tourne en ~1 min ;
+    # au-delà de 15 min quelque chose est bloqué, pas lent. Les crédits Actions
+    # de ce repo ont déjà été épuisés une fois (cf. CLAUDE.md, refactor push
+    # Inngest) — un job qui part en boucle ne doit pas pouvoir les consommer.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
@@ -48,6 +53,11 @@ jobs:
     runs-on: ubuntu-latest
     # Inutile de lancer les e2e si le build/les tests unitaires échouent déjà.
     needs: checks
+    # Plafond de sécurité, même raison que le job `checks`. La suite tourne en
+    # 15-19 min en CI ; 45 min laissent la marge des 2 retries et du plafond de
+    # démarrage du webServer (600 s, cf. playwright.config.ts) sans laisser un
+    # run bloqué courir 6 h.
+    timeout-minutes: 45
     env:
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
       E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
@@ -69,8 +79,14 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Tests e2e (Playwright)
-        # webServer (playwright.config.ts) lance `npm run dev` ; CI=true force
-        # reuseExistingServer=false et active les retries.
+        # webServer (playwright.config.ts) lance un serveur de PRODUCTION
+        # (`npm run build && npm run start`), pas `npm run dev` — ce commentaire
+        # disait l'inverse, alors que la config impose le mode prod depuis
+        # longtemps (routes précompilées, sinon la 1re navigation compile à la
+        # demande et dépasse le timeout). Mesuré : ~29 s en CI pour
+        # prebuild + build + start + globalSetup.
+        # CI=true force reuseExistingServer=false, active les 2 retries et
+        # applique les timeouts CI (`timeout` par test et `expect.timeout`).
         run: npm run e2e
 
       - name: Upload rapport Playwright

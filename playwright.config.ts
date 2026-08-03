@@ -34,6 +34,16 @@ export default defineConfig({
   // bruit : 3 tentatives consécutives, mêmes tests) sur des attentes qui
   // passent en ~15-20s en local. Doublé pour absorber cet écart de matériel.
   timeout: process.env.CI ? 60_000 : 30_000,
+  // `timeout` ci-dessus est le budget PAR TEST ; il ne touche pas le timeout
+  // des assertions, qui reste au défaut Playwright de 5s tant qu'on ne pose pas
+  // `expect.timeout`. Relever l'un sans l'autre laisse échouer toute assertion
+  // placée juste après une server action lente : mesuré sur le run CI
+  // 30768754776, le POST de `closeDay` (≥ 10 aller-retours Supabase
+  // séquentiels, dont `assembleAchievementContext`) a mis **5 853 ms** depuis un
+  // runner en région `iad` — 853 ms de trop, et `journey-full-day.spec.ts`
+  // échouait de façon déterministe (3 tentatives, même signature
+  // `element(s) not found`) sur le récap qui n'était pas encore monté.
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   reporter: "html",
   use: {
     baseURL,
@@ -60,8 +70,21 @@ export default defineConfig({
     // Local : réutilise un serveur déjà lancé sur ce port (itération rapide,
     // pas de rebuild). CI : toujours un serveur frais.
     reuseExistingServer: !process.env.CI,
-    // Le build Next tourne pendant ce démarrage (plus lent en CI sans cache
-    // .next) : timeout large.
-    timeout: 240_000,
+    // Le build Next tourne pendant ce démarrage, d'où un plafond large. Ce
+    // n'est PAS un délai payé à chaque run : Playwright rend la main dès que
+    // `url` répond, donc relever cette valeur ne ralentit aucun run qui passe —
+    // elle évite seulement de tuer un build qui progresse encore. Pas de
+    // variante `process.env.CI` pour cette raison, et parce que le côté lent
+    // est le poste local, pas la CI : mesuré sur le run 30768754776, la CI met
+    // **29 s** pour prebuild + build + start + globalSetup (le job `checks`
+    // construit en 17 s), là où le même build dépasse 240 s sur un poste
+    // Windows (antivirus + worktree avec son propre node_modules).
+    //
+    // Le dépassement ne se contentait pas d'échouer proprement : le
+    // `npm run build` tué à mi-parcours laissait `.next` incomplet, et le run
+    // SUIVANT échouait sur « Could not find a production build in the '.next'
+    // directory » — un message qui pointe vers un build absent plutôt que vers
+    // le timeout qui l'a interrompu.
+    timeout: 600_000,
   },
 });
