@@ -12,13 +12,36 @@ async function knockOutBoss(page: Page, title: string): Promise<void> {
   // décale les positions dans le DOM — un index figé (.nth(i)) sur un compte
   // pris une seule fois pointe alors sur un autre élément après le 1er clic
   // (reproduit : la tâche fraîchement ajoutée restait décochée).
+  // La condition de sortie est les HP du Boss, pas un compteur de tours. Le
+  // `guard < 20` d'origine était la vraie cause du flake de ce fichier : le
+  // compte e2e est partagé et accumule les tâches au fil des runs (RG-04
+  // interdit tout DELETE), donc la liste dépasse depuis longtemps 20 entrées —
+  // la boucle rendait la main avec le Boss encore debout et l'overlay
+  // n'apparaissait jamais. Reproduit en local en mode CI : sortie à 20 tours
+  // avec « Vie du Boss : 20 sur 480 », une tâche non cochée restante.
+  // Le test échouait alors sur l'absence d'overlay, un symptôme sans rapport
+  // apparent avec la borne de boucle.
+  //
+  // Sortir dès 0 HP est aussi ce qui évite le clic intercepté : à partir de là
+  // l'overlay K.O. plein écran (`fixed inset-0 z-50`, issue #156) recouvre les
+  // checkboxes restantes (`locator.click: Test ended.` en CI, run 30766684078).
+  // Le `guard` ne reste qu'un garde-fou anti-boucle-infinie, volontairement
+  // large.
+  const bossBar = page.getByRole("progressbar", { name: /Vie du Boss/ });
   const unchecked = page.getByRole("checkbox", { checked: false });
-  for (let guard = 0; guard < 20; guard += 1) {
+  for (let guard = 0; guard < 200; guard += 1) {
+    if ((await bossBar.getAttribute("aria-valuenow")) === "0") break;
     const count = await unchecked.count();
     if (count === 0) break;
     await unchecked.first().click();
     await expect(unchecked).toHaveCount(count - 1, { timeout: 10_000 });
   }
+  // Échouer ici plutôt que de laisser le test échouer plus loin sur l'absence
+  // d'overlay : le message pointe alors la vraie cause.
+  await expect(bossBar, "le Boss n'est pas tombé à 0 HP, aucun K.O. à observer").toHaveAttribute(
+    "aria-valuenow",
+    "0",
+  );
 }
 
 test.describe("Overlay K.O. (issue #156)", () => {
