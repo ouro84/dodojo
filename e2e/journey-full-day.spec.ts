@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { abandonViaUi, deleteTaskById, login, seedOverdueTask } from "./fixtures";
+import {
+  abandonViaUi,
+  deleteTaskById,
+  dismissKoOverlayIfPresent,
+  login,
+  seedOverdueTask,
+} from "./fixtures";
 
 // Issue #50 : parcours de bout en bout traversant Le Réveil → Arène →
 // Terminer la journée → Tableau de Chasse → Vestiaire, en plus des e2e "simplistes"
@@ -35,16 +41,21 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
       await page.getByLabel(`Marquer "${taskTitle}" comme accomplie`).check();
       await expect(bossBar).toHaveAttribute("aria-valuenow", String(initialCurrentHp));
 
-      // 3. Terminer la journée : clôture manuelle non-bloquante → day_result. Si le
-      // Boss (compte partagé) tombe à 0 sur ce coup, un K.O. en direct (US-16)
-      // s'affiche avec son propre CTA "🌙 Terminer la journée" — sinon on utilise le
-      // bouton HUD permanent (name exact, sans emoji).
-      const koOverlay = page.getByRole("alertdialog", { name: /Boss vaincu/ });
-      if (await koOverlay.count()) {
-        await koOverlay.getByRole("button", { name: /Terminer la journée/ }).click();
-      } else {
-        await page.getByRole("button", { name: "Terminer la journée", exact: true }).click();
-      }
+      // 3. Terminer la journée : clôture manuelle non-bloquante → day_result.
+      // Le Boss (compte partagé) peut tomber à 0 sur ce coup et déclencher un
+      // K.O. en direct (US-16). Deux raisons de le solder AVANT de cliquer le
+      // bouton HUD, toutes deux introduites par l'issue #156 : (1) l'overlay
+      // n'apparaît que ~2,4s après le coup fatal (DEATH_DURATION_MS +
+      // KO_FADE_MS + KO_OVERLAY_EXTRA_DELAY_MS, lib/combat-animation.ts), donc
+      // un `count()` immédiat le rate systématiquement ; (2) c'est désormais un
+      // modal plein écran `fixed inset-0 z-50`, au-dessus de CrepusculeRecap
+      // (`z-40`) — passer par son propre CTA « Terminer la journée » laisserait
+      // le récap enfoui dessous et le clic « Continuer » ci-dessous serait
+      // intercepté. `dismissKoOverlayIfPresent` gère l'apparition différée
+      // (garde sur les HP du Boss puis `waitFor`) et ne fait rien s'il n'y a
+      // pas de K.O.
+      await dismissKoOverlayIfPresent(page);
+      await page.getByRole("button", { name: "Terminer la journée", exact: true }).click();
       const recap = page.getByRole("dialog", { name: "Terminer la journée" });
       await expect(recap).toBeVisible();
       await expect(recap).toHaveAttribute("data-outcome", /victory|retreat|defeat/);

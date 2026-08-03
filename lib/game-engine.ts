@@ -942,17 +942,26 @@ export function shouldGenerate(
 // reporté de cette routine — fait sauter la génération) et le no-rétroactif (D6 :
 // seul `today` génère, jamais un jour passé). `existingTemplateIdsToday` = set des
 // template_id ayant déjà une tâche sur `today`.
+//
+// Issue #156 (chemin P2) : `overdueTemplateIds` = templates ayant un reste
+// ACTIF sur un jour antérieur. On ne génère pas pour eux — Le Réveil va les
+// traiter, et « Reporter » ramènerait le reste sur `today` en doublon de
+// l'instance fraîche. La génération est relancée en fin de Réveil : si le
+// reste a été coché ou annihilé (son `day_date` restant au jour passé),
+// l'instance du jour est alors créée normalement.
 export function planRecurringGeneration(
   templates: RecurringTemplateRule[],
   today: string,
   existingTemplateIdsToday: Set<string>,
   restDayTemplateIds: Set<string> = new Set(),
+  overdueTemplateIds: Set<string> = new Set(),
 ): string[] {
   return templates
     .filter(
       (t) =>
         shouldGenerate(t, today, restDayTemplateIds) &&
-        !existingTemplateIdsToday.has(t.id),
+        !existingTemplateIdsToday.has(t.id) &&
+        !overdueTemplateIds.has(t.id),
     )
     .map((t) => t.id);
 }

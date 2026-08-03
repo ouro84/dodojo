@@ -6,7 +6,6 @@ import CharacterSprite, { type CharacterAnimState } from "./CharacterSprite";
 import HeroBar from "./HeroBar";
 import BossBar from "./BossBar";
 import MidnightTimer from "./MidnightTimer";
-import HeroVfx from "./HeroVfx";
 import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
 import { isBossInDanger } from "@/lib/game-engine";
 
@@ -38,9 +37,9 @@ interface VersusSceneProps {
   currentHp: number;
   maxHp: number;
   upcomingDeadlineCount?: number;
+  /** Issue #156 : combo affiché sous la jauge du Boss, plus par-dessus. */
+  comboCount?: number;
   dimmed?: boolean;
-  /** VFX d'impact du héros équipé, joué sur le Boss (issue #48). */
-  vfxVariant?: string | null;
   reducedMotion?: boolean;
   heroState?: CharacterAnimState;
   heroAttackAnim?: string;
@@ -49,12 +48,13 @@ interface VersusSceneProps {
   bossStateKey?: number;
   /** Hit-stop : gèle les deux sprites sans réinitialiser l'anim CSS. */
   frozen?: boolean;
-  /** minotaur : pack sans hurt ni death (cf. lib/bosses.ts). */
-  bossFallbackHurtDeath?: boolean;
   /** Frame de contact de l'attaque du Boss (deadline ratée / rage quit). */
   onBossImpact?: () => void;
   /** Fin de l'anim d'attaque du Héros : rejoue une attaque Boss en attente. */
   onHeroAttackEnd?: () => void;
+  /** Issue #156 : fin de n'importe quelle anim non bouclée du Boss — remet
+   * bossAnim à idle côté Arena (jamais fait tout seul avant ce correctif). */
+  onBossStateEnd?: () => void;
 }
 
 // Décor + Boss dynamiques : le boss du jour et son décor cohérent sont tirés par
@@ -78,8 +78,8 @@ export default function VersusScene({
   currentHp,
   maxHp,
   upcomingDeadlineCount = 0,
+  comboCount = 0,
   dimmed = false,
-  vfxVariant = null,
   reducedMotion = false,
   heroState = "idle",
   heroAttackAnim,
@@ -87,9 +87,9 @@ export default function VersusScene({
   bossState = "idle",
   bossStateKey = 0,
   frozen = false,
-  bossFallbackHurtDeath = false,
   onBossImpact,
   onHeroAttackEnd,
+  onBossStateEnd,
 }: VersusSceneProps) {
   const heroMeta = heroSpriteMeta(heroSlug);
   const bossMeta = bossSpriteMeta(bossSlug);
@@ -109,8 +109,16 @@ export default function VersusScene({
         className="object-cover [image-rendering:pixelated]"
       />
       <div className="absolute inset-x-0 top-0 z-[5] h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
-      <div className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 p-2">
-        <div className="flex-1">
+      {/* Issue #156 : grille explicite plutôt qu'un flex à trois `flex-1`.
+          Les deux `1fr` DÉCLARENT l'égalité de largeur au lieu de la laisser
+          émerger d'un calcul d'espace libre — et surtout, `min-w-0` ramène à 0
+          le `min-width:auto` des colonnes latérales. Sans lui, le `truncate`
+          (donc `white-space: nowrap`) du pseudo+titre de HeroBar fait remonter
+          le plancher de la colonne héros à la largeur du texte ENTIER non
+          tronqué, qui affame alors la colonne Boss. C'est la régression
+          introduite par l'ajout du titre équipé (#139, PR #152). */}
+      <div className="absolute inset-x-0 top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-start gap-2 p-2">
+        <div className="min-w-0">
           <HeroBar
             heroName={heroLabel ?? heroName}
             title={heroTitle}
@@ -129,7 +137,7 @@ export default function VersusScene({
         <div className="flex flex-col items-center pt-1">
           <MidnightTimer />
         </div>
-        <div className="flex-1">
+        <div className="min-w-0">
           <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} danger={bossDanger} />
           {upcomingDeadlineCount > 0 && (
             <p
@@ -139,79 +147,91 @@ export default function VersusScene({
               ⏰ {upcomingDeadlineCount} à venir
             </p>
           )}
+          {comboCount >= 2 && (
+            <p
+              aria-label={`Combo en cours : ${comboCount} coups`}
+              className="mt-0.5 text-right font-display text-xs uppercase tracking-wider text-gold/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+            >
+              combo ×{comboCount}
+            </p>
+          )}
         </div>
       </div>
-      {/* Issue #145 : héros/boss chacun de son côté, cohérent mobile/desktop
-          — un conteneur flex à deux zones de 50 % plutôt que deux `absolute
-          left-4`/`right-4` indépendants, dont la marge fixe occupait une
-          fraction bien plus grande de l'espace disponible sur un conteneur
-          étroit (mobile), "aspirant" les deux personnages vers le centre.
-          Deux zones `flex-1 min-w-0` (pas un simple `justify-between`) :
-          la boîte de recadrage d'un personnage (union alpha de toutes ses
-          anims, cf. CLAUDE.md § Sprites de combat) est bien plus large que
-          sa silhouette visible (marge transparente pour les anims d'attaque)
-          — avec `justify-between` seul, cette boîte surdimensionnée du héros
-          pousse littéralement le Boss hors du conteneur sur mobile. Chaque
-          zone à 50 % fixe (indépendante du contenu grâce à `min-w-0`) laisse
-          le débordement rester local à son propre côté, sans déplacer
-          l'autre personnage — même comportement que l'ancien positionnement
-          absolu, réparti proportionnellement au lieu d'une marge fixe. */}
-      <div className="absolute inset-x-0 bottom-2 z-[6] flex items-end px-4">
-        {/* Recul à l'impact : `key` sur le stateKey pour rejouer l'animation à
-            chaque coup encaissé. Le recul est sur ce wrapper, distinct du
-            `transform: translateY(...)` propre à CharacterSprite (sinon les
-            deux transforms se remplaceraient). */}
-        <div className="flex min-w-0 flex-1 justify-start">
-          <div
-            key={`hero-wrap-${heroStateKey}`}
-            className={heroState === "hurt" ? "is-knockback" : ""}
-            style={heroState === "hurt" ? ({ "--knockback-x": "-6px" } as CSSProperties) : undefined}
-          >
-            <CharacterSprite
-              spriteBase={heroSpriteBase}
-              meta={heroMeta}
-              baseHeight={88}
-              state={heroState}
-              attackAnim={heroAttackAnim}
-              stateKey={heroStateKey}
-              frozen={frozen}
-              reducedMotion={reducedMotion}
-              onStateEnd={onHeroAttackEnd}
-              alt={`Ton héros : ${heroName}`}
-              className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-            />
-          </div>
+      {/* Issue #156 : on ancre la SILHOUETTE, plus la tuile. La tuile est
+          l'union alpha de toutes les anims (cf. CLAUDE.md § Sprites de
+          combat) : sa largeur va de 274 px (ground-monk) à 497 px
+          (wind-hashashin) dans l'Arène, pour une demi-scène de ~172 px sur
+          mobile. Aligner ses bords — ce que faisaient les deux zones flex de
+          l'issue #145 — plaçait donc chaque héros à un endroit différent.
+
+          `left: 25%` / `left: 75%` pose le point d'ancrage, le
+          `translateX(-idleAnchorX × 100%)` recule le sprite de la position de
+          sa silhouette dans sa propre tuile. Le pourcentage d'un translateX se
+          rapporte à la largeur de l'élément — ici la largeur rendue du sprite,
+          donc le calcul est exact sans la connaître en JavaScript.
+
+          Trois niveaux imbriqués, chacun portant déjà un transform qui
+          s'écraserait sinon : positionneur (translateX) → wrapper de recul
+          (animation knockback) → CharacterSprite (translateY du groundOffset). */}
+      <div
+        data-testid="sprite-anchor-hero"
+        className="absolute bottom-2 z-[6]"
+        style={{
+          left: "25%",
+          transform: `translateX(-${heroMeta.idleAnchorX * 100}%)`,
+        }}
+      >
+        <div
+          key={`hero-wrap-${heroStateKey}`}
+          className={heroState === "hurt" ? "is-knockback" : ""}
+          style={heroState === "hurt" ? ({ "--knockback-x": "-6px" } as CSSProperties) : undefined}
+        >
+          <CharacterSprite
+            spriteBase={heroSpriteBase}
+            meta={heroMeta}
+            baseHeight={88}
+            state={heroState}
+            attackAnim={heroAttackAnim}
+            stateKey={heroStateKey}
+            frozen={frozen}
+            reducedMotion={reducedMotion}
+            onStateEnd={onHeroAttackEnd}
+            alt={`Ton héros : ${heroName}`}
+            className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+          />
         </div>
-        <div className="flex min-w-0 flex-1 justify-end">
-          <div
-            key={`boss-wrap-${bossStateKey}`}
-            className={bossState === "hurt" ? "is-knockback" : ""}
-            style={bossState === "hurt" ? ({ "--knockback-x": "6px" } as CSSProperties) : undefined}
-          >
-            <CharacterSprite
-              spriteBase={bossSpriteBase}
-              meta={bossMeta}
-              baseHeight={96}
-              state={bossState}
-              stateKey={bossStateKey}
-              frozen={frozen}
-              fallbackHurtDeath={bossFallbackHurtDeath}
-              reducedMotion={reducedMotion}
-              danger={bossDanger}
-              flip={bossFlip}
-              onImpact={onBossImpact}
-              alt={`Le Boss du jour : ${bossName}`}
-              className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
-            />
-            {vfxVariant && (
-              <HeroVfx
-                heroSlug={heroSlug}
-                variant={vfxVariant}
-                bossHeight={96 * bossMeta.renderScale}
-                reducedMotion={reducedMotion}
-              />
-            )}
-          </div>
+      </div>
+      <div
+        data-testid="sprite-anchor-boss"
+        className="absolute bottom-2 z-[6]"
+        style={{
+          left: "75%",
+          // Le flip applique scaleX(-1) à la tuile entière : l'ancre se
+          // miroite avec elle. Sans cette correction, la majorité du roster
+          // (qui est flippée pour regarder le héros) serait décalée.
+          transform: `translateX(-${(bossFlip ? 1 - bossMeta.idleAnchorX : bossMeta.idleAnchorX) * 100}%)`,
+        }}
+      >
+        <div
+          key={`boss-wrap-${bossStateKey}`}
+          className={bossState === "hurt" ? "is-knockback" : ""}
+          style={bossState === "hurt" ? ({ "--knockback-x": "6px" } as CSSProperties) : undefined}
+        >
+          <CharacterSprite
+            spriteBase={bossSpriteBase}
+            meta={bossMeta}
+            baseHeight={96}
+            state={bossState}
+            stateKey={bossStateKey}
+            frozen={frozen}
+            reducedMotion={reducedMotion}
+            danger={bossDanger}
+            flip={bossFlip}
+            onImpact={onBossImpact}
+            onStateEnd={onBossStateEnd}
+            alt={`Le Boss du jour : ${bossName}`}
+            className="[image-rendering:pixelated] drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+          />
         </div>
       </div>
     </div>

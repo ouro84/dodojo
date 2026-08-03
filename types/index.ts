@@ -27,6 +27,9 @@ export interface Profile {
   reminder_offset_minutes: number;
   // Issue #116 : heure locale (12-23) de déblocage de la section "Demain".
   plan_tomorrow_after_hour: number;
+  // Issue #156 : dernier jour local pour lequel les routines ont été générées.
+  // Cache de saut, pas un verrou (cf. migration 20260802120000).
+  last_recurring_gen_day: string | null;
   created_at: string;
 }
 

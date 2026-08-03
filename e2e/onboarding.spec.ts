@@ -38,9 +38,17 @@ test("Onboarding complet (US-29)", async ({ page }) => {
   await page.getByRole("button", { name: /Prendre en main Dodojo/ }).click();
   await expect(page.getByText(/vient de grandir/)).toBeVisible();
 
-  // Coach étape "strike" : cocher la tâche termine le tuto.
+  // Coach étape "strike" : cocher la tâche termine le tuto (et met le Boss à
+  // 0 HP — une seule tâche pour un profil neuf — donc déclenche PerfectOverlay,
+  // punchline "Premier sang").
   await page.getByLabel(/Marquer "Prendre en main Dodojo" comme accomplie/).check();
   await expect(page.getByText(/vient de grandir/)).toBeHidden();
+
+  // Issue #156 : l'overlay K.O. est désormais un modal plein écran (fixed
+  // inset-0), donc il intercepte les clics sur le BottomNav situé en dessous
+  // — avant le fix il était scopé à la scène de combat et laissait passer la
+  // navigation. Il faut le fermer explicitement avant de continuer le parcours.
+  await page.getByRole("button", { name: /Continuer le combat/ }).click();
 
   // Issue #50 : le parcours d'un nouvel utilisateur ne s'arrête pas au 1er
   // combat — il continue vers Le Vestiaire (où le ton "Brut" choisi plus haut

@@ -63,7 +63,12 @@ export default function PerfectOverlay({
       role="alertdialog"
       aria-modal="true"
       aria-label={isPerfect ? "Perfect — Boss vaincu" : "K.O. — Boss vaincu"}
-      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-lg bg-[oklch(0.08_0_0_/_78%)] px-4 text-center"
+      // Issue #156 : modal plein écran (même patron que WakeUpRitual et
+      // TomorrowSheet). En `absolute inset-0` sur la scène de combat, haute de
+      // 192 px seulement, le contenu (~330 px) débordait des DEUX côtés à cause
+      // de justify-center : le titre sortait par le haut, hors écran.
+      // `overflow-y-auto` couvre les écrans très courts en paysage.
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-[oklch(0.08_0_0_/_92%)] px-4 py-6 text-center"
     >
       {milestone !== null && (
         <span

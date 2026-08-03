@@ -32,11 +32,15 @@ export default function BossBar({ bossName, currentHp, maxHp, danger = false }: 
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="flex items-center justify-between font-display text-sm uppercase tracking-wide text-ink drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-        <span className="font-hud text-xs tabular-nums text-muted">
+      <div className="flex items-center justify-between gap-2 font-display text-sm uppercase tracking-wide text-ink drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+        <span className="shrink-0 font-hud text-xs tabular-nums text-muted">
           {currentHp}/{maxHp} HP
         </span>
-        <span>{bossName}</span>
+        {/* Issue #156 : sans truncate, « MINOTAURE ANCESTRAL » revenait à la
+            ligne puis se faisait couper net au bord du conteneur. */}
+        <span className="min-w-0 truncate" title={bossName}>
+          {bossName}
+        </span>
       </div>
     </div>
   );

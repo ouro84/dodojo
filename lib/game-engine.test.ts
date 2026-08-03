@@ -499,6 +499,24 @@ describe("planRecurringGeneration (US-17)", () => {
       planRecurringGeneration(templates, monday, new Set(), new Set(["A"])),
     ).toEqual([]);
   });
+
+  test("saute si un reste actif de cette routine traîne sur un jour passé (#156 P2)", () => {
+    expect(
+      planRecurringGeneration(templates, monday, new Set(), new Set(), new Set(["A"])),
+    ).toEqual([]);
+  });
+
+  test("génère si le reste concerne une autre routine (#156 P2)", () => {
+    expect(
+      planRecurringGeneration(templates, monday, new Set(), new Set(), new Set(["B"])),
+    ).toEqual(["A"]);
+  });
+
+  test("génère quand aucun reste n'est signalé (#156 P2)", () => {
+    expect(
+      planRecurringGeneration(templates, monday, new Set(), new Set(), new Set()),
+    ).toEqual(["A"]);
+  });
 });
 
 describe("tableauChasseStats (US-10)", () => {

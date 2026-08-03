@@ -17,7 +17,7 @@ declare const self: ServiceWorkerGlobalScope;
 // ne verra jamais la plupart des boss, cf.
 // docs/superpowers/specs/2026-07-22-pwa-design.md) : sprites de boss/héros,
 // décors, effets visuels.
-const RUNTIME_CACHED_IMAGE_PREFIXES = ["/sprites/", "/backgrounds/", "/vfx/"];
+const RUNTIME_CACHED_IMAGE_PREFIXES = ["/sprites/", "/backgrounds/"];
 
 const serwist = new Serwist({
   // self.__SW_MANIFEST est injecté par app/serwist/[path]/route.ts : les

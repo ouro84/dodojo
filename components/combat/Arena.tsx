@@ -65,6 +65,7 @@ import {
   addPendingHit,
   hitStopMs,
   impactDelayMs,
+  nextAnimStateAfterEnd,
   pickAttackAnim,
   shouldForceFlush,
   type HeroAttackAnim,
@@ -109,7 +110,6 @@ import WakeUpRitual from "./WakeUpRitual";
 import CrepusculeRecap from "./CrepusculeRecap";
 import TomorrowBanner from "./TomorrowBanner";
 import TomorrowSheet from "./TomorrowSheet";
-import { pickVfxVariant } from "./HeroVfx";
 import KoSlam from "./KoSlam";
 
 interface ArenaProps {
@@ -251,7 +251,6 @@ export default function Arena({
     key: 0,
   }));
   const [frozen, setFrozen] = useState(false);
-  const [vfxVariant, setVfxVariant] = useState<string | null>(null);
   const pendingHitRef = useRef<PendingHits | null>(null);
   const animKeyRef = useRef(0);
   // Issue #144 : sérialise les écritures de position par groupe de fratrie
@@ -270,6 +269,10 @@ export default function Arena({
   // au montage) — lire heroAnim directement y renverrait toujours sa valeur
   // initiale (null) et désactiverait la garde anti-chevauchement des animes.
   const heroAnimRef = useRef(heroAnim);
+  // Issue #156 : miroir de bossAnim, même patron que heroAnimRef — nécessaire
+  // pour qu'onBossStateEnd (fermeture d'un handler passé en prop) lise la
+  // dernière valeur plutôt que celle figée au montage.
+  const bossAnimRef = useRef(bossAnim);
   // Task 4.2 : une seule attaque récapitulative par montage de l'Arène.
   const recapPlayedRef = useRef(false);
 
@@ -471,6 +474,10 @@ export default function Arena({
     heroAnimRef.current = heroAnim;
   }, [heroAnim]);
 
+  useEffect(() => {
+    bossAnimRef.current = bossAnim;
+  }, [bossAnim]);
+
   // Task 4.2 : ce qui était déjà raté avant l'ouverture de l'Arène (deadlines
   // dépassées, restes reportés au Réveil) se solde par une seule attaque du
   // Boss, jamais une par élément. Ce comportement revient sur l'entrée
@@ -642,7 +649,6 @@ export default function Arena({
     const key = animKeyRef.current;
     const anim = pickAttackAnim(comboCount, isFatal, Math.random);
     setHeroAnim({ state: "attack", anim, key });
-    setVfxVariant(pickVfxVariant(equippedHero.slug));
 
     const meta = heroSpriteMeta(equippedHero.slug).anims[anim];
     const delay = impactDelayMs(
@@ -712,26 +718,46 @@ export default function Arena({
 
   // Rejoue une attaque du Boss mise en attente pendant que le héros frappait.
   function onHeroAttackEnd() {
-    // Issue #149 : rien ne remettait jamais `heroAnim.state` à "idle" après
-    // une attaque (seul `rendered`, local à CharacterSprite, se réinitialise
-    // visuellement) — le garde anti-chevauchement de `triggerBossAttack`
-    // (`heroAnimRef.current?.state === "attack"`) restait donc bloqué à vrai
-    // pour le reste de la session dès la première attaque du héros, mettant
-    // toute contre-attaque du Boss ultérieure (deadline, rage quit, recap,
-    // et le nouveau cas décochage) en file d'attente indéfiniment au lieu de
-    // se jouer. Mutation directe de `heroAnimRef` (pas seulement `setHeroAnim`,
-    // dont le miroir ne se met à jour qu'à l'effet du prochain rendu) pour que
-    // `triggerBossAttack`, appelée juste en dessous, voie l'état à jour tout
-    // de suite si une attaque était justement en attente.
-    if (heroAnimRef.current?.state === "attack") {
-      const next = { state: "idle" as const, key: heroAnimRef.current.key + 1 };
-      heroAnimRef.current = next;
-      setHeroAnim(next);
+    // Issue #149 puis #156 : rien ne remettait `heroAnim` à "idle" après une
+    // anim — d'abord jamais du tout, puis seulement après une attaque. Après un
+    // `hurt`, l'état restait donc figé pour le reste de la session, et le garde
+    // anti-chevauchement de `triggerBossAttack` lisait une valeur périmée.
+    // La transition est désormais une fonction pure de lib/combat-animation.ts
+    // (règle projet n° 2), appliquée quel que soit l'état qui s'achève.
+    //
+    // Mutation directe de `heroAnimRef` en plus de `setHeroAnim` : le miroir de
+    // l'effet ne se met à jour qu'au rendu suivant, or `triggerBossAttack` est
+    // appelée juste en dessous et doit voir l'état à jour tout de suite.
+    const current = heroAnimRef.current;
+    if (current) {
+      const next = nextAnimStateAfterEnd(current);
+      if (next !== current) {
+        // `next.state` vaut toujours "idle" ici : heroAnim ne connaît jamais
+        // "death" (seul le Boss meurt), nextAnimStateAfterEnd ne peut donc
+        // renvoyer que idle ou l'entrée inchangée pour ce type d'appelant.
+        const heroNext = { state: "idle" as const, key: next.key };
+        heroAnimRef.current = heroNext;
+        setHeroAnim(heroNext);
+      }
     }
     if (bossAttackPendingRef.current) {
       const reason = bossAttackPendingRef.current;
       bossAttackPendingRef.current = null;
       triggerBossAttack(reason);
+    }
+  }
+
+  // Issue #156 : symétrique de onHeroAttackEnd. `bossAnim` restait bloqué sur
+  // "attack" ou "hurt" après la première contre-attaque, pour la même raison.
+  // Le cas "death" est géré par nextAnimStateAfterEnd, qui laisse l'état tel
+  // quel : le Boss mort ne se relève pas de lui-même.
+  function onBossStateEnd() {
+    const current = bossAnimRef.current;
+    if (!current) return;
+    const next = nextAnimStateAfterEnd(current);
+    if (next !== current) {
+      bossAnimRef.current = next;
+      setBossAnim(next);
     }
   }
 
@@ -1561,14 +1587,17 @@ export default function Arena({
           overdueTasks={overdueTasks}
           timezone={profile.timezone}
           aggressivityLevel={level}
-          onResolved={(deferredTasks) => {
+          onResolved={({ deferredTasks, createdTasks }) => {
             setShowWakeUp(false);
             // Bug #70 : "Reporter" ramenait la tâche en base (day_date du
             // jour) mais l'Arène gardait son state initial (fetché avant
             // l'ouverture du Réveil) — la tâche restait invisible, comme si
             // elle avait été annihilée. On la fusionne explicitement ici.
-            if (deferredTasks.length > 0) {
-              setTasks((previous) => [...previous, ...deferredTasks]);
+            // Issue #156 : même traitement pour les routines régénérées en
+            // fin de rituel, qui n'existaient pas non plus au fetch initial.
+            const merged = [...deferredTasks, ...createdTasks];
+            if (merged.length > 0) {
+              setTasks((previous) => [...previous, ...merged]);
             }
           }}
         />
@@ -1596,6 +1625,50 @@ export default function Arena({
           })}
           onDismiss={() => setRecap(null)}
           onPlanTomorrow={planningUnlocked ? openTomorrowSheet : undefined}
+        />
+      )}
+      {koState && (
+        <PerfectOverlay
+          tier={koState.tier}
+          bossName={bossName}
+          aggressivityLevel={level}
+          username={profile.username}
+          damageDealt={koState.damageDealt}
+          monstersDefeated={koState.monstersDefeated}
+          milestone={koState.milestone}
+          firstVictory={koState.firstVictory}
+          shareCardParams={buildShareCardParams(summarizeDay(tasks, "manual"), {
+            username: profile.username,
+            heroId: profile.equipped_hero_id,
+            bossId: boss.id,
+            level: profile.level,
+            title: activeTitleText,
+            streak: currentStreak(
+              [
+                ...dayResults.filter((r) => r.day_date !== today),
+                { day_date: today, outcome: "victory" },
+              ],
+              today,
+            ).length,
+            dayDate: today,
+          })}
+          onCrepuscule={() => {
+            setKoState(null);
+            void handleCrepuscule();
+          }}
+          onContinue={() => setKoState(null)}
+          // Issue #156 : les deux sont désormais des modaux plein écran de
+          // même rang — sans fermeture préalable ils se superposeraient
+          // (même piège que la sheet « Demain » de l'issue #147, qui
+          // occulte physiquement tout ce qui est derrière elle).
+          onPlanTomorrow={
+            planningUnlocked
+              ? () => {
+                  setKoState(null);
+                  openTomorrowSheet();
+                }
+              : undefined
+          }
         />
       )}
       <div
@@ -1640,13 +1713,12 @@ export default function Arena({
             bossSpriteBase={boss.spriteBase}
             bossSlug={boss.slug}
             bossFlip={boss.flip}
-            bossFallbackHurtDeath={boss.fallbackHurtDeath}
             backgroundPath={background.publicPath}
             currentHp={currentHp}
             maxHp={maxHp}
             upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
+            comboCount={comboCount}
             dimmed={isEmpty}
-            vfxVariant={vfxVariant}
             reducedMotion={reducedMotion}
             heroState={heroAnim?.state ?? "idle"}
             heroAttackAnim={heroAnim?.anim}
@@ -1656,6 +1728,7 @@ export default function Arena({
             frozen={frozen}
             onBossImpact={onBossImpact}
             onHeroAttackEnd={onHeroAttackEnd}
+            onBossStateEnd={onBossStateEnd}
           />
           {koSlam && <KoSlam />}
           {comboFlash && (
@@ -1664,14 +1737,6 @@ export default function Arena({
               label={comboFlash.label}
               intensity={comboFlash.intensity}
             />
-          )}
-          {comboCount >= 2 && (
-            <span
-              aria-label={`Combo en cours : ${comboCount} coups`}
-              className="pointer-events-none absolute right-2 top-2 z-30 font-display text-xs uppercase tracking-wider text-gold/90"
-            >
-              combo ×{comboCount}
-            </span>
           )}
           {pulse && <FloatingText amount={pulse.amount} kind={pulse.kind} />}
           {heroPulse && (
@@ -1690,39 +1755,6 @@ export default function Arena({
           )}
           {xpPulse && (
             <FloatingText amount={xpPulse.amount} kind={xpPulse.kind} unit="XP" />
-          )}
-          {koState && (
-            <PerfectOverlay
-              tier={koState.tier}
-              bossName={bossName}
-              aggressivityLevel={level}
-              username={profile.username}
-              damageDealt={koState.damageDealt}
-              monstersDefeated={koState.monstersDefeated}
-              milestone={koState.milestone}
-              firstVictory={koState.firstVictory}
-              shareCardParams={buildShareCardParams(summarizeDay(tasks, "manual"), {
-                username: profile.username,
-                heroId: profile.equipped_hero_id,
-                bossId: boss.id,
-                level: profile.level,
-                title: activeTitleText,
-                streak: currentStreak(
-                  [
-                    ...dayResults.filter((r) => r.day_date !== today),
-                    { day_date: today, outcome: "victory" },
-                  ],
-                  today,
-                ).length,
-                dayDate: today,
-              })}
-              onCrepuscule={() => {
-                setKoState(null);
-                void handleCrepuscule();
-              }}
-              onContinue={() => setKoState(null)}
-              onPlanTomorrow={planningUnlocked ? openTomorrowSheet : undefined}
-            />
           )}
           {levelUpValue !== null && (
             <LevelUpOverlay

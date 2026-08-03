@@ -59,6 +59,18 @@ test.describe("Rafale ajouter/cocher/décocher (issues #95/#96)", () => {
   }
 
   test("ajouter puis cocher et décocher en rafale n'affiche aucune erreur", async ({ page }) => {
+    // Issue #156 : tampon laissé non coché, garantit que la tâche de la rafale
+    // ci-dessous ne peut jamais à elle seule vider tout le Boss — sans lui,
+    // sur un compte propre (bossMaxHp initial à 0), cocher l'unique tâche
+    // déclenche un K.O., dont l'overlay est désormais un modal plein écran
+    // (issue #156, Task 3) qui bloque réellement les clics suivants, alors
+    // qu'il laissait passer les interactions avant ce correctif.
+    const bufferTitle = `E2E RAF buffer ${Date.now()}`;
+    cleanupTitles.push(bufferTitle);
+    await page.getByLabel("Ajouter une tâche").fill(bufferTitle);
+    await page.getByRole("button", { name: "Ajouter" }).click();
+    await expect(page.getByText(bufferTitle)).toBeVisible();
+
     const title = `E2E RAF ${Date.now()}`;
     cleanupTitles.push(title);
 
@@ -131,6 +143,16 @@ test.describe("Rafale ajouter/cocher/décocher (issues #95/#96)", () => {
   });
 
   test("cinq coches très rapides sur la même tâche ne laisse aucune erreur", async ({ page }) => {
+    // Issue #156 : même tampon que le test précédent — sans lui, cocher
+    // l'unique tâche de la rafale peut vider tout le Boss (compte propre) et
+    // faire apparaître l'overlay K.O., qui bloque désormais réellement les
+    // clics suivants (modal plein écran, Task 3).
+    const bufferTitle = `E2E RAF5 buffer ${Date.now()}`;
+    cleanupTitles.push(bufferTitle);
+    await page.getByLabel("Ajouter une tâche").fill(bufferTitle);
+    await page.getByRole("button", { name: "Ajouter" }).click();
+    await expect(page.getByText(bufferTitle)).toBeVisible();
+
     const title = `E2E RAF5 ${Date.now()}`;
     cleanupTitles.push(title);
 

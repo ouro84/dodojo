@@ -125,17 +125,7 @@ Mapping gameplay recommandé :
 - **Level up** → `Symbols/symbol_level_up_text_001` (44 frames, texte animé prêt à l'emploi)
 - **Tâche en retard / échec** → `Symbols/symbol_warning_001` ou `symbol_failure_001`
 
-**VFX d'impact par héros (issue #48)** — Chaque héros a 2 à 4 variantes de VFX jouées sur le Boss au moment de l'impact (`components/combat/HeroVfx.tsx`, `pickVfxVariant` tire au hasard), extraites en spritesheets vers `public/vfx/hero/<slug>/<variant>.png` par `scripts/build-sprite-sheets.mjs` (toujours reconstruites depuis le dossier `Frames/` du pack source, jamais depuis un éventuel `sprite-sheet.png` fourni — disposition horizontale non garantie). Remplace l'ancien `public/vfx/impact/` (Gigapack, générique, non lié au héros équipé).
-
-| Héros | Variantes | Packs sources |
-|---|---|---|
-| Fire Knight | slash1, slash2, slash3 | Pixel Art Animations - Slashes |
-| Water Priestess | frost1, frost2, frost3, burst | Pixel Art VFX - Frost Knight ; animated-explosion-sprite-pack |
-| Wind Hashashin | warrior4, rogue1, rogue2, burst | Pixel Art Animations - Warrior ; Pixel Art VFX - Rogue ; animated-explosion-sprite-pack |
-| Metal Bladekeeper | warrior1, lightning4 | Pixel Art Animations - Warrior ; Pixel Art Skill Animations - Lightning |
-| Ground Monk | quake1, quake2, quake3 | animated-explosion-sprite-pack (Explosion_4/3/2) |
-| Leaf Ranger | rogue3, rogue4, rogue5 | Pixel Art VFX - Rogue |
-| Crystal Mauler | warrior5, lightning3 | Pixel Art Animations - Warrior ; Pixel Art Skill Animations - Lightning |
+⚠️ **Issue #156** : les VFX d'impact par héros (`components/combat/HeroVfx.tsx`, `public/vfx/hero/<slug>/`) ont été supprimés au profit d'un flash blanc CSS sur le personnage touché (`filter: brightness(0) invert(1)`, cf. `CharacterSprite.tsx`). Les packs sources listés ci-dessus (Slashes, Warrior, Lightning, Frost Knight, Rogue, animated-explosion-sprite-pack) restent dans `assets/VFX/` mais ne sont plus consommés par `scripts/build-sprite-sheets.mjs`.
 
 ⚠️ **Licence Frostwindz — accord fourni en `.docx`, non vérifié** : les packs Slashes, Warrior, Lightning, Frost Knight et Rogue portent chacun un `Frostwindz Asset License Agreement.docx` à la racine du pack (non lu/vérifié, format binaire) — à consulter avant toute prod monétisée. Le pack Fire Mage porte la même licence mais n'est utilisé par aucun héros.
 

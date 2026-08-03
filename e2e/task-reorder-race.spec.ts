@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { abandonViaUi, login } from "./fixtures";
+import { abandonViaUi, dismissKoOverlayIfPresent, login } from "./fixtures";
 
 // Issue #144 : régression de l'ordre des tâches — vérifie qu'après un
 // rechargement complet (donc en lisant l'état réellement persisté en base,
@@ -75,6 +75,10 @@ test.describe("Ordre des tâches persiste après reorder (issue #144)", () => {
     await expect(page.getByLabel(`Déplacer "${completedTitle}"`)).toBeEnabled({
       timeout: 15_000,
     });
+    // Issue #156 : sur un compte e2e propre, cocher l'unique tâche active peut
+    // vider tout le Boss et ouvrir l'overlay K.O. (modal plein écran, Task 3),
+    // qui bloquerait sinon le clic "Ajouter" ci-dessous.
+    await dismissKoOverlayIfPresent(page);
 
     await page.getByLabel("Ajouter une tâche").fill(newTitle);
     await page.getByRole("button", { name: "Ajouter" }).click();

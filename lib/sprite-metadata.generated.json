@@ -5,6 +5,8 @@
       "tileH": 106,
       "renderScale": 2.409090909090909,
       "groundOffset": 0.009433962264150943,
+      "idleAnchorX": 0.281437125748503,
+      "idleWidthRatio": 0.3592814371257485,
       "anims": {
         "idle": {
           "frames": 8,
@@ -37,6 +39,8 @@
       "tileH": 89,
       "renderScale": 2.3421052631578947,
       "groundOffset": 0,
+      "idleAnchorX": 0.22826086956521738,
+      "idleWidthRatio": 0.2536231884057971,
       "anims": {
         "idle": {
           "frames": 8,
@@ -69,6 +73,8 @@
       "tileH": 61,
       "renderScale": 1.7428571428571429,
       "groundOffset": 0.06557377049180328,
+      "idleAnchorX": 0.16055045871559634,
+      "idleWidthRatio": 0.22935779816513763,
       "anims": {
         "idle": {
           "frames": 6,
@@ -101,6 +107,8 @@
       "tileH": 112,
       "renderScale": 3.027027027027027,
       "groundOffset": 0.008928571428571428,
+      "idleAnchorX": 0.4784688995215311,
+      "idleWidthRatio": 0.19138755980861244,
       "anims": {
         "idle": {
           "frames": 8,
@@ -133,6 +141,8 @@
       "tileH": 101,
       "renderScale": 2.2954545454545454,
       "groundOffset": 0,
+      "idleAnchorX": 0.25384615384615383,
+      "idleWidthRatio": 0.2512820512820513,
       "anims": {
         "idle": {
           "frames": 12,
@@ -165,6 +175,8 @@
       "tileH": 92,
       "renderScale": 2.358974358974359,
       "groundOffset": 0,
+      "idleAnchorX": 0.3208955223880597,
+      "idleWidthRatio": 0.21393034825870647,
       "anims": {
         "idle": {
           "frames": 8,
@@ -197,6 +209,8 @@
       "tileH": 58,
       "renderScale": 1.380952380952381,
       "groundOffset": 0,
+      "idleAnchorX": 0.43915343915343913,
+      "idleWidthRatio": 0.24338624338624337,
       "anims": {
         "idle": {
           "frames": 8,
@@ -231,6 +245,8 @@
       "tileH": 96,
       "renderScale": 1.0434782608695652,
       "groundOffset": 0.03125,
+      "idleAnchorX": 0.5027173913043478,
+      "idleWidthRatio": 0.44021739130434784,
       "anims": {
         "idle": {
           "frames": 6,
@@ -255,6 +271,8 @@
       "tileH": 124,
       "renderScale": 1.158878504672897,
       "groundOffset": 0,
+      "idleAnchorX": 0.6,
+      "idleWidthRatio": 0.4380952380952381,
       "anims": {
         "idle": {
           "frames": 6,
@@ -279,6 +297,8 @@
       "tileH": 67,
       "renderScale": 1.046875,
       "groundOffset": 0,
+      "idleAnchorX": 0.29850746268656714,
+      "idleWidthRatio": 0.44776119402985076,
       "anims": {
         "idle": {
           "frames": 15,
@@ -303,6 +323,8 @@
       "tileH": 122,
       "renderScale": 1.1296296296296295,
       "groundOffset": 0.02459016393442623,
+      "idleAnchorX": 0.696078431372549,
+      "idleWidthRatio": 0.5098039215686274,
       "anims": {
         "idle": {
           "frames": 16,
@@ -319,6 +341,8 @@
       "tileH": 89,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.421875,
+      "idleWidthRatio": 0.390625,
       "anims": {
         "idle": {
           "frames": 7,
@@ -343,6 +367,8 @@
       "tileH": 67,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.3735632183908046,
+      "idleWidthRatio": 0.40229885057471265,
       "anims": {
         "idle": {
           "frames": 6,
@@ -367,6 +393,8 @@
       "tileH": 37,
       "renderScale": 1.121212121212121,
       "groundOffset": 0,
+      "idleAnchorX": 0.5211267605633803,
+      "idleWidthRatio": 0.4225352112676056,
       "anims": {
         "idle": {
           "frames": 7,
@@ -391,6 +419,8 @@
       "tileH": 93,
       "renderScale": 1.0941176470588236,
       "groundOffset": 0,
+      "idleAnchorX": 0.3625,
+      "idleWidthRatio": 0.5416666666666666,
       "anims": {
         "idle": {
           "frames": 7,
@@ -415,6 +445,8 @@
       "tileH": 66,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.2529411764705882,
+      "idleWidthRatio": 0.38823529411764707,
       "anims": {
         "idle": {
           "frames": 7,
@@ -439,6 +471,8 @@
       "tileH": 85,
       "renderScale": 1.3492063492063493,
       "groundOffset": 0,
+      "idleAnchorX": 0.26956521739130435,
+      "idleWidthRatio": 0.5391304347826087,
       "anims": {
         "idle": {
           "frames": 7,
@@ -463,6 +497,8 @@
       "tileH": 76,
       "renderScale": 1.0555555555555556,
       "groundOffset": 0,
+      "idleAnchorX": 0.51,
+      "idleWidthRatio": 0.44,
       "anims": {
         "idle": {
           "frames": 6,
@@ -487,6 +523,8 @@
       "tileH": 74,
       "renderScale": 1.15625,
       "groundOffset": 0,
+      "idleAnchorX": 0.30180180180180183,
+      "idleWidthRatio": 0.38738738738738737,
       "anims": {
         "idle": {
           "frames": 4,
@@ -511,6 +549,8 @@
       "tileH": 75,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.2967032967032967,
+      "idleWidthRatio": 0.3076923076923077,
       "anims": {
         "idle": {
           "frames": 7,
@@ -535,6 +575,8 @@
       "tileH": 76,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.37790697674418605,
+      "idleWidthRatio": 0.4069767441860465,
       "anims": {
         "idle": {
           "frames": 6,
@@ -559,6 +601,8 @@
       "tileH": 74,
       "renderScale": 1.0724637681159421,
       "groundOffset": 0,
+      "idleAnchorX": 0.47058823529411764,
+      "idleWidthRatio": 0.35294117647058826,
       "anims": {
         "idle": {
           "frames": 6,
@@ -583,6 +627,8 @@
       "tileH": 66,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.515625,
+      "idleWidthRatio": 0.625,
       "anims": {
         "idle": {
           "frames": 6,
@@ -607,6 +653,8 @@
       "tileH": 77,
       "renderScale": 1.1492537313432836,
       "groundOffset": 0,
+      "idleAnchorX": 0.48125,
+      "idleWidthRatio": 0.4375,
       "anims": {
         "idle": {
           "frames": 7,
@@ -631,6 +679,8 @@
       "tileH": 93,
       "renderScale": 1.0941176470588236,
       "groundOffset": 0,
+      "idleAnchorX": 0.49583333333333335,
+      "idleWidthRatio": 0.5416666666666666,
       "anims": {
         "idle": {
           "frames": 7,
@@ -655,6 +705,8 @@
       "tileH": 93,
       "renderScale": 1.0941176470588236,
       "groundOffset": 0,
+      "idleAnchorX": 0.4625,
+      "idleWidthRatio": 0.5416666666666666,
       "anims": {
         "idle": {
           "frames": 7,
@@ -679,6 +731,8 @@
       "tileH": 71,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.3602150537634409,
+      "idleWidthRatio": 0.3118279569892473,
       "anims": {
         "idle": {
           "frames": 7,
@@ -703,6 +757,8 @@
       "tileH": 71,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.3941176470588235,
+      "idleWidthRatio": 0.3411764705882353,
       "anims": {
         "idle": {
           "frames": 7,
@@ -727,6 +783,8 @@
       "tileH": 74,
       "renderScale": 1.15625,
       "groundOffset": 0,
+      "idleAnchorX": 0.30180180180180183,
+      "idleWidthRatio": 0.38738738738738737,
       "anims": {
         "idle": {
           "frames": 4,
@@ -751,6 +809,8 @@
       "tileH": 74,
       "renderScale": 1.15625,
       "groundOffset": 0,
+      "idleAnchorX": 0.30180180180180183,
+      "idleWidthRatio": 0.38738738738738737,
       "anims": {
         "idle": {
           "frames": 4,
@@ -775,6 +835,8 @@
       "tileH": 99,
       "renderScale": 1.5,
       "groundOffset": 0,
+      "idleAnchorX": 0.3434343434343434,
+      "idleWidthRatio": 0.5252525252525253,
       "anims": {
         "idle": {
           "frames": 8,
@@ -799,6 +861,8 @@
       "tileH": 94,
       "renderScale": 1.010752688172043,
       "groundOffset": 0,
+      "idleAnchorX": 0.375,
+      "idleWidthRatio": 0.609375,
       "anims": {
         "idle": {
           "frames": 10,
@@ -823,6 +887,8 @@
       "tileH": 95,
       "renderScale": 1.1046511627906976,
       "groundOffset": 0,
+      "idleAnchorX": 0.4032258064516129,
+      "idleWidthRatio": 0.6612903225806451,
       "anims": {
         "idle": {
           "frames": 10,
@@ -847,6 +913,8 @@
       "tileH": 93,
       "renderScale": 1,
       "groundOffset": 0,
+      "idleAnchorX": 0.4583333333333333,
+      "idleWidthRatio": 0.65,
       "anims": {
         "idle": {
           "frames": 10,
@@ -864,127 +932,6 @@
           "frames": 5,
           "impactFrame": null
         }
-      }
-    }
-  },
-  "vfx": {
-    "fire-knight": {
-      "slash1": {
-        "frames": 9,
-        "tileW": 101,
-        "tileH": 87
-      },
-      "slash2": {
-        "frames": 7,
-        "tileW": 108,
-        "tileH": 122
-      },
-      "slash3": {
-        "frames": 9,
-        "tileW": 88,
-        "tileH": 87
-      }
-    },
-    "water-priestess": {
-      "frost1": {
-        "frames": 14,
-        "tileW": 238,
-        "tileH": 121
-      },
-      "frost2": {
-        "frames": 9,
-        "tileW": 102,
-        "tileH": 94
-      },
-      "frost3": {
-        "frames": 11,
-        "tileW": 175,
-        "tileH": 109
-      },
-      "burst": {
-        "frames": 10,
-        "tileW": 626,
-        "tileH": 400
-      }
-    },
-    "wind-hashashin": {
-      "warrior4": {
-        "frames": 7,
-        "tileW": 121,
-        "tileH": 102
-      },
-      "rogue1": {
-        "frames": 9,
-        "tileW": 109,
-        "tileH": 101
-      },
-      "rogue2": {
-        "frames": 6,
-        "tileW": 151,
-        "tileH": 68
-      },
-      "burst": {
-        "frames": 10,
-        "tileW": 759,
-        "tileH": 407
-      }
-    },
-    "metal-bladekeeper": {
-      "warrior1": {
-        "frames": 10,
-        "tileW": 91,
-        "tileH": 91
-      },
-      "lightning4": {
-        "frames": 5,
-        "tileW": 128,
-        "tileH": 234
-      }
-    },
-    "ground-monk": {
-      "quake1": {
-        "frames": 6,
-        "tileW": 289,
-        "tileH": 496
-      },
-      "quake2": {
-        "frames": 10,
-        "tileW": 675,
-        "tileH": 370
-      },
-      "quake3": {
-        "frames": 10,
-        "tileW": 517,
-        "tileH": 348
-      }
-    },
-    "leaf-ranger": {
-      "rogue3": {
-        "frames": 9,
-        "tileW": 88,
-        "tileH": 98
-      },
-      "rogue4": {
-        "frames": 8,
-        "tileW": 189,
-        "tileH": 90
-      },
-      "rogue5": {
-        "frames": 17,
-        "tileW": 192,
-        "tileH": 102
-      }
-    },
-    "crystal-mauler": {
-      "warrior5": {
-        "frames": 8,
-        "tileW": 114,
-        "tileH": 121
-      },
-      "lightning3": {
-        "frames": 5,
-        "tileW": 119,
-        "tileH": 247
       }
     }
   }

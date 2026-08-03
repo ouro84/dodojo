@@ -260,6 +260,28 @@ body {
 .hit-flash-overlay {
   animation: hit-flash 420ms ease-out;
 }
+
+/* Issue #156 : flash blanc à l'impact, façon Street Fighter II, en
+   remplacement des VFX d'impact par héros. brightness(0) rend noir tout pixel
+   non transparent, invert(1) le passe en blanc — le canal alpha est préservé,
+   donc on obtient la silhouette pleine sans masque ni asset supplémentaire.
+   Trois clignotements sur la durée de l'anim hurt (HURT_DURATION_MS = 350 ms). */
+@keyframes white-flash {
+  0%,
+  22%,
+  44% {
+    filter: brightness(0) invert(1);
+  }
+  11%,
+  33%,
+  100% {
+    filter: none;
+  }
+}
+.white-flash {
+  animation: white-flash 350ms steps(1, end);
+}
+
 .floating-text {
   animation: float-up 900ms ease-out forwards;
 }
@@ -401,6 +423,10 @@ body {
   }
   .is-hit {
     animation: none;
+  }
+  .white-flash {
+    animation: none;
+    filter: none;
   }
   .hit-flash-overlay {
     animation: none;
