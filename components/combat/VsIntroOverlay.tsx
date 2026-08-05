@@ -28,8 +28,14 @@ export default function VsIntroOverlay({
   const [fading, setFading] = useState(false);
   const [flash, setFlash] = useState(false);
   const doneRef = useRef(onDone);
-  doneRef.current = onDone;
   const firedRef = useRef(false);
+
+  // Garde la dernière `onDone` sans redéclencher les effets de timing
+  // ci-dessous (deps `[]`) — mutation post-render, jamais pendant (règle
+  // react-hooks/refs : un ref ne se met à jour que dans un effet/handler).
+  useEffect(() => {
+    doneRef.current = onDone;
+  });
 
   function finish() {
     if (firedRef.current) return;
@@ -48,7 +54,6 @@ export default function VsIntroOverlay({
       setTimeout(finish, 5000),
     ];
     return () => timers.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -66,7 +71,6 @@ export default function VsIntroOverlay({
       window.removeEventListener("keydown", dismissEarly, { capture: true });
       window.removeEventListener("focusin", dismissEarly, { capture: true });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -79,11 +83,13 @@ export default function VsIntroOverlay({
     >
       {phase !== "fight" && (
         <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- sprite pixel-art fixe, next/image inutile */}
           <img
             src={heroBustSrc}
             alt=""
             className="vs-slide-in-left absolute left-4 w-[38vw] max-w-[220px] [image-rendering:pixelated]"
           />
+          {/* eslint-disable-next-line @next/next/no-img-element -- sprite pixel-art fixe, next/image inutile */}
           <img
             src={bossBustSrc}
             alt=""

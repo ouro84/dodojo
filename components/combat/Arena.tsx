@@ -513,6 +513,11 @@ export default function Arena({
   const vsIntroPlayedRef = useRef(false);
   const [showVsIntro, setShowVsIntro] = useState(false);
 
+  function armVsIntro() {
+    vsIntroPlayedRef.current = true;
+    setShowVsIntro(true);
+  }
+
   // Issue #135 : une fois par jour local, jamais silencieusement rejoué au
   // remontage — flag posé AVANT l'affichage (pas à la fin de la séquence),
   // pour qu'une navigation qui interrompt tôt ne la refasse pas rejouer.
@@ -523,8 +528,11 @@ export default function Arena({
     const key = `dodojo:vs-intro:${today}`;
     if (window.localStorage.getItem(key)) return;
     window.localStorage.setItem(key, "1");
-    vsIntroPlayedRef.current = true;
-    setShowVsIntro(true);
+    // Synchronise avec un système externe (localStorage), gardé par
+    // vsIntroPlayedRef : exactement le cas d'usage légitime documenté par la
+    // règle elle-même.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    armVsIntro();
   }, [reducedMotion, showWakeUp, today]);
 
   // Issue #114 (amélioration B) : deep-link depuis une notif de rappel
