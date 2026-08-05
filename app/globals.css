@@ -402,6 +402,34 @@ body {
   animation: tomorrow-sheet-in 0.2s ease-out;
 }
 
+/* Issue #135 : glissement des portraits VS depuis les bords. */
+@keyframes vs-slide-in-left {
+  from {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes vs-slide-in-right {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+.vs-slide-in-left {
+  animation: vs-slide-in-left 450ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.vs-slide-in-right {
+  animation: vs-slide-in-right 450ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .achievement-toast {
     animation: none;
@@ -454,5 +482,11 @@ body {
   }
   .boss-danger-blink {
     animation: none;
+  }
+  .vs-slide-in-left,
+  .vs-slide-in-right {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
