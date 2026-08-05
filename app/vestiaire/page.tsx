@@ -5,29 +5,21 @@ import { createClient } from "@/lib/supabase/server";
 import { currentStreak, dayKey } from "@/lib/game-engine";
 import StreakBadge from "@/components/combat/StreakBadge";
 import InstallCta from "@/components/pwa/InstallCta";
-import IntegrationsSection from "@/components/qg/IntegrationsSection";
-import PushReminderToggle from "@/components/qg/PushReminderToggle";
-import WebhookTokenSection from "@/components/qg/WebhookTokenSection";
-import GeminiConnectionSection from "@/components/qg/GeminiConnectionSection";
-import AggressivityLevelSection from "@/components/qg/AggressivityLevelSection";
-import PlanTomorrowSection from "@/components/qg/PlanTomorrowSection";
-import { isGeminiConnected } from "@/lib/oauth-gemini";
-import { resolveAggressivityLevel } from "@/lib/aggressivity";
 import BottomNav from "@/components/ui/BottomNav";
 
 export const metadata: Metadata = { title: "Le Vestiaire — Dodojo" };
 
-// Audit UX 2026-07-24 (P1) : Le Vestiaire est le hub obligé vers Tableau de Chasse/Marché Noir/
-// Guide/Routines (aucun autre onglet n'y mène) - remplace la pile de
-// liens soulignés multicolores par un vrai menu, affordance uniforme.
+// Issue #69 : redevient un pur hub de navigation — les réglages de compte
+// (Volume Intérieur, Planifier Demain, Intégrations, pseudo, mdp, email...)
+// ont déménagé vers /vestiaire/profil.
 const SECTIONS: Array<{ href: string; icon: string; label: string }> = [
+  { href: "/vestiaire/profil", icon: "👤", label: "Profil" },
   { href: "/tableau-de-chasse", icon: "🏆", label: "Tableau de Chasse" },
   { href: "/vestiaire/entrainement", icon: "🔁", label: "Mes Routines" },
   { href: "/marche-noir", icon: "🛒", label: "Le Marché Noir" },
   { href: "/guide", icon: "📖", label: "Le Guide" },
 ];
 
-// US-12 : Le Vestiaire affiche la série courante (dérivée de day_results) + le record.
 export default async function QgPage() {
   const supabase = await createClient();
   const {
@@ -35,35 +27,14 @@ export default async function QgPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Les 4 requêtes sont indépendantes entre elles (audit #67, PR4) — même
-  // pattern que le Marché Noir (app/echoppe/page.tsx), seul écran à déjà paralléliser correctement.
-  const [
-    { data: profile, error: profileError },
-    geminiConnected,
-    { data: dayResults, error: dayError },
-    { count: subscriptionCount, error: subscriptionError },
-  ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "best_streak, timezone, webhook_token_hash, webhook_token_last_used_at, aggressivity_level, plan_tomorrow_after_hour",
-      )
-      .eq("id", user.id)
-      .maybeSingle(),
-    isGeminiConnected(supabase, user.id),
-    supabase.from("day_results").select("day_date, outcome").eq("user_id", user.id),
-    // US-11 : état initial du toggle (affiné côté client par Notification.permission).
-    supabase
-      .from("push_subscriptions")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
-  ]);
+  const [{ data: profile, error: profileError }, { data: dayResults, error: dayError }] =
+    await Promise.all([
+      supabase.from("profiles").select("best_streak, timezone").eq("id", user.id).maybeSingle(),
+      supabase.from("day_results").select("day_date, outcome").eq("user_id", user.id),
+    ]);
 
-  // Audit #67, PR6 (règle projet n°3) : un échec ici dégradait silencieusement
-  // (profile undefined traité comme "pas encore rempli") au lieu de montrer
-  // un état d'erreur cohérent avec le reste de l'app.
-  if (profileError || dayError || subscriptionError) {
-    throw profileError ?? dayError ?? subscriptionError;
+  if (profileError || dayError) {
+    throw profileError ?? dayError;
   }
 
   const today = dayKey(new Date(), profile?.timezone ?? "UTC");
@@ -78,16 +49,6 @@ export default async function QgPage() {
         <StreakBadge state={streak} />
         <InstallCta />
       </div>
-      <AggressivityLevelSection initialLevel={resolveAggressivityLevel(profile?.aggressivity_level)} />
-      <PlanTomorrowSection initialHour={profile?.plan_tomorrow_after_hour ?? 18} />
-      <IntegrationsSection>
-        <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
-        <WebhookTokenSection
-          hasToken={Boolean(profile?.webhook_token_hash)}
-          lastUsedAt={profile?.webhook_token_last_used_at ?? null}
-        />
-        <GeminiConnectionSection isConnected={geminiConnected} />
-      </IntegrationsSection>
 
       <nav aria-label="Sections du Vestiaire" className="flex flex-col gap-2">
         <p className="text-center text-xs text-muted">Record : {profile?.best_streak ?? 0} jours</p>
