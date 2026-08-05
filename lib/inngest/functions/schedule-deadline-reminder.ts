@@ -101,9 +101,11 @@ export const scheduleDeadlineReminder = inngest.createFunction(
 
     await step.run("send-push", async () => {
       configureVapid();
-      const payload = JSON.stringify(
-        buildDeadlineReminderPayload(context.taskTitle, offsetMinutes, context.level),
-      );
+      // Issue #114 (amélioration B) : deep-link vers la tâche plutôt que l'URL
+      // fixe "/" de buildDeadlineReminderPayload — construit ici pour ne pas
+      // complexifier la signature d'une fonction pure de copy.
+      const basePayload = buildDeadlineReminderPayload(context.taskTitle, offsetMinutes, context.level);
+      const payload = JSON.stringify({ ...basePayload, url: `/?highlightTask=${taskId}` });
       const supabase = makeSupabaseClient();
       for (const sub of context.subs) {
         try {
