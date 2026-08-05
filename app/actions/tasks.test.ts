@@ -36,6 +36,26 @@ class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
     return this;
   }
 
+  or(): this {
+    this.filters.push(() => true);
+    return this;
+  }
+
+  lt(): this {
+    this.filters.push(() => true);
+    return this;
+  }
+
+  is(): this {
+    this.filters.push(() => true);
+    return this;
+  }
+
+  in(): this {
+    this.filters.push(() => true);
+    return this;
+  }
+
   private apply(): Row[] {
     if (this.mode === "insert" && this.insertedRow) {
       this.rows.push(this.insertedRow);
@@ -217,6 +237,176 @@ describe("Server actions — guards UUID (issues #95/#96)", () => {
     expect(result.error).toMatch(/pas encore prête/);
     expect(fakeClient.calls).toBe(0);
     expect(revalidateCalls).toBe(0);
+  });
+});
+
+describe("Annulation du rappel deadline sur transition (#114)", () => {
+  test("setTaskCompleted(true) annule le rappel de la tâche", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [
+        {
+          id: "55555555-5555-5555-5555-555555555555",
+          user_id: "u1",
+          is_completed: false,
+          is_abandoned: false,
+          xp_awarded: null,
+        },
+      ],
+    });
+    const { setTaskCompleted } = await import("./tasks");
+    await setTaskCompleted("55555555-5555-5555-5555-555555555555", true);
+    expect(cancelCalls).toContain("55555555-5555-5555-5555-555555555555");
+  });
+
+  test("setTaskCompleted(false) n'annule rien (décochage, pas de reschedule)", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [
+        {
+          id: "66666666-6666-6666-6666-666666666666",
+          user_id: "u1",
+          is_completed: true,
+          is_abandoned: false,
+          xp_awarded: 10,
+        },
+      ],
+    });
+    const { setTaskCompleted } = await import("./tasks");
+    await setTaskCompleted("66666666-6666-6666-6666-666666666666", false);
+    expect(cancelCalls).toEqual([]);
+  });
+
+  test("rageQuitTask annule le rappel de toutes les tâches de la cascade", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0 }],
+      tasks: [
+        {
+          id: "77777777-7777-7777-7777-777777777777",
+          user_id: "u1",
+          parent_id: null,
+          is_completed: false,
+          is_abandoned: false,
+        },
+        {
+          id: "88888888-8888-8888-8888-888888888888",
+          user_id: "u1",
+          parent_id: "77777777-7777-7777-7777-777777777777",
+          is_completed: false,
+          is_abandoned: false,
+        },
+      ],
+    });
+    const { rageQuitTask } = await import("./tasks");
+    await rageQuitTask("77777777-7777-7777-7777-777777777777");
+    expect(cancelCalls).toEqual(
+      expect.arrayContaining([
+        "77777777-7777-7777-7777-777777777777",
+        "88888888-8888-8888-8888-888888888888",
+      ]),
+    );
+  });
+});
+
+describe("Annulation du rappel deadline — actions du Réveil (#114)", () => {
+  test("completeOverdueTask annule le rappel de la tâche et de sa cascade", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0 }],
+      tasks: [
+        { id: "aaaaaaaa-0000-0000-0000-000000000001", user_id: "u1", is_abandoned: false },
+      ],
+    });
+    const { completeOverdueTask } = await import("./tasks");
+    await completeOverdueTask("aaaaaaaa-0000-0000-0000-000000000001");
+    expect(cancelCalls).toContain("aaaaaaaa-0000-0000-0000-000000000001");
+  });
+
+  test("annihilateOverdueTask annule le rappel de la tâche", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0 }],
+      tasks: [{ id: "aaaaaaaa-0000-0000-0000-000000000002", user_id: "u1" }],
+    });
+    const { annihilateOverdueTask } = await import("./tasks");
+    await annihilateOverdueTask("aaaaaaaa-0000-0000-0000-000000000002");
+    expect(cancelCalls).toContain("aaaaaaaa-0000-0000-0000-000000000002");
+  });
+
+  test("annihilateOverdueOlderThan annule le rappel de toutes les tâches affectées", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0 }],
+      tasks: [
+        {
+          id: "aaaaaaaa-0000-0000-0000-000000000003",
+          user_id: "u1",
+          day_date: "2026-01-01",
+          is_completed: false,
+          is_abandoned: false,
+        },
+      ],
+    });
+    const { annihilateOverdueOlderThan } = await import("./tasks");
+    await annihilateOverdueOlderThan(3);
+    expect(cancelCalls).toContain("aaaaaaaa-0000-0000-0000-000000000003");
+  });
+});
+
+describe("Annulation du rappel deadline — report/retour (#114)", () => {
+  test("deferOverdueTask annule le rappel des lignes reportées", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [{ id: "bbbbbbbb-0000-0000-0000-000000000001", user_id: "u1", is_abandoned: false }],
+    });
+    const { deferOverdueTask } = await import("./tasks");
+    await deferOverdueTask("bbbbbbbb-0000-0000-0000-000000000001");
+    expect(cancelCalls).toContain("bbbbbbbb-0000-0000-0000-000000000001");
+  });
+
+  test("deferAllOverdue annule le rappel de toutes les lignes reportées", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [
+        {
+          id: "bbbbbbbb-0000-0000-0000-000000000002",
+          user_id: "u1",
+          day_date: "2026-01-01",
+          is_completed: false,
+          is_abandoned: false,
+        },
+      ],
+    });
+    const { deferAllOverdue } = await import("./tasks");
+    await deferAllOverdue();
+    expect(cancelCalls).toContain("bbbbbbbb-0000-0000-0000-000000000002");
+  });
+
+  test("reportToTomorrow annule le rappel des lignes reportées", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [
+        {
+          id: "bbbbbbbb-0000-0000-0000-000000000003",
+          user_id: "u1",
+          day_date: "2026-08-01",
+          is_completed: false,
+          is_abandoned: false,
+        },
+      ],
+    });
+    const { reportToTomorrow } = await import("./tasks");
+    await reportToTomorrow("bbbbbbbb-0000-0000-0000-000000000003");
+    expect(cancelCalls).toContain("bbbbbbbb-0000-0000-0000-000000000003");
+  });
+
+  test("bringToToday annule le rappel des lignes ramenées", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [
+        { id: "bbbbbbbb-0000-0000-0000-000000000004", user_id: "u1", is_abandoned: false },
+      ],
+    });
+    const { bringToToday } = await import("./tasks");
+    await bringToToday("bbbbbbbb-0000-0000-0000-000000000004");
+    expect(cancelCalls).toContain("bbbbbbbb-0000-0000-0000-000000000004");
   });
 });
 
