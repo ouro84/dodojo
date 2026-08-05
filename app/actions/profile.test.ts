@@ -92,3 +92,19 @@ describe("updateTimezone", () => {
     expect(result.error).toMatch(/Réessaie/);
   });
 });
+
+describe("updateReminderOffsetDefault", () => {
+  test("rejette une valeur hors 0-240", async () => {
+    const { updateReminderOffsetDefault } = await import("./profile");
+    const result = await updateReminderOffsetDefault(300);
+    expect(result.error).toMatch(/invalide/i);
+    expect(updateCalls.length).toBe(0);
+  });
+
+  test("enregistre une valeur valide", async () => {
+    const { updateReminderOffsetDefault } = await import("./profile");
+    const result = await updateReminderOffsetDefault(60);
+    expect(result.error).toBeNull();
+    expect(updateCalls).toEqual([{ reminder_offset_minutes: 60 }]);
+  });
+});

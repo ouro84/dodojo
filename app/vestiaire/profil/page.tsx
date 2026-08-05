@@ -10,6 +10,7 @@ import PasswordSection from "@/components/qg/PasswordSection";
 import EmailSection from "@/components/qg/EmailSection";
 import AggressivityLevelSection from "@/components/qg/AggressivityLevelSection";
 import PlanTomorrowSection from "@/components/qg/PlanTomorrowSection";
+import ReminderOffsetDefaultSection from "@/components/qg/ReminderOffsetDefaultSection";
 import IntegrationsSection from "@/components/qg/IntegrationsSection";
 import PushReminderToggle from "@/components/qg/PushReminderToggle";
 import WebhookTokenSection from "@/components/qg/WebhookTokenSection";
@@ -38,7 +39,7 @@ export default async function ProfilPage() {
     supabase
       .from("profiles")
       .select(
-        "username, timezone, aggressivity_level, plan_tomorrow_after_hour, equipped_title_code, webhook_token_hash, webhook_token_last_used_at",
+        "username, timezone, aggressivity_level, plan_tomorrow_after_hour, equipped_title_code, webhook_token_hash, webhook_token_last_used_at, reminder_offset_minutes",
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -73,6 +74,7 @@ export default async function ProfilPage() {
 
       <AggressivityLevelSection initialLevel={resolveAggressivityLevel(profile.aggressivity_level)} />
       <PlanTomorrowSection initialHour={profile.plan_tomorrow_after_hour ?? 18} />
+      <ReminderOffsetDefaultSection initialMinutes={profile.reminder_offset_minutes} />
 
       <IntegrationsSection>
         <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
