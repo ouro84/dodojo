@@ -72,6 +72,10 @@ export interface Task {
   // Préparation issue #114 : override par tâche. null = hérite de
   // profiles.reminder_offset_minutes.
   reminder_offset_minutes: number | null;
+  // Issue #114 : désactive le rappel pour cette tâche précise (opt-out par
+  // tâche, indépendant de reminder_offset_minutes qui ne fait que régler le
+  // délai). true par défaut (migration 20260805140000).
+  reminder_enabled: boolean;
   day_date: string;
   position: number;
   created_at: string;
