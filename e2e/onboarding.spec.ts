@@ -51,15 +51,23 @@ test("Onboarding complet (US-29)", async ({ page }) => {
   await page.getByRole("button", { name: /Continuer le combat/ }).click();
 
   // Issue #50 : le parcours d'un nouvel utilisateur ne s'arrête pas au 1er
-  // combat — il continue vers Le Vestiaire (où le ton "Brut" choisi plus haut
-  // doit déjà être reflété, régression bug #70) puis Le Guide, avant de
-  // revenir à l'Arène.
+  // combat — il continue vers Le Vestiaire puis Le Profil (où le ton "Brut"
+  // choisi plus haut doit déjà être reflété, régression bug #70) puis Le
+  // Guide, avant de revenir à l'Arène.
+  // Issue #69 : AggressivityLevelSection a déménagé de /vestiaire vers
+  // /vestiaire/profil.
   await page.getByRole("link", { name: "Vestiaire" }).click();
   await page.waitForURL("/vestiaire");
+
+  await page.getByRole("link", { name: "Profil", exact: true }).click();
+  await page.waitForURL("/vestiaire/profil");
   const aggressivitySection = page.locator("section", { hasText: "Volume Intérieur" });
   await expect(
     aggressivitySection.getByRole("button", { name: "Brut" }),
   ).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("link", { name: "Retour au Vestiaire" }).click();
+  await page.waitForURL("/vestiaire");
 
   await page.getByRole("link", { name: "Le Guide", exact: true }).click();
   await page.waitForURL("/guide");
