@@ -410,6 +410,34 @@ export function deadlineHpPenalties(tasks: DeadlineTask[]): HeroHpPenaltyTask[] 
   return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_MISSED_DEADLINE }));
 }
 
+export type ReminderTask = Pick<
+  Task,
+  "id" | "title" | "deadline_at" | "is_completed" | "is_abandoned" | "reminder_enabled" | "reminder_offset_minutes"
+>;
+
+// Issue #114 (amélioration A) : tâches actuellement dans leur fenêtre de
+// rappel (deadline − offset effectif ≤ now < deadline), non complétées/
+// abandonnées, rappel activé. Alimente le filet in-app (toast, Arena.tsx)
+// quand l'app est ouverte — fonctionne indépendamment de push. `now` explicite
+// pour rester testable sans horloge système réelle (même patron que
+// missedDeadlineTasks).
+export function upcomingReminderTasks(
+  tasks: ReminderTask[],
+  now: Date,
+  profileDefaultOffsetMinutes: number,
+): ReminderTask[] {
+  const nowMs = now.getTime();
+  return tasks.filter((task) => {
+    if (task.deadline_at === null || task.is_completed || task.is_abandoned || !task.reminder_enabled) {
+      return false;
+    }
+    const deadlineMs = new Date(task.deadline_at).getTime();
+    const offsetMinutes = task.reminder_offset_minutes ?? profileDefaultOffsetMinutes;
+    const windowStart = deadlineMs - offsetMinutes * 60_000;
+    return nowMs >= windowStart && nowMs < deadlineMs;
+  });
+}
+
 // US-05 : construit l'ISO UTC d'une deadline "aujourd'hui à HH:MM" dans le
 // fuseau donné (valeur brute d'un <input type="time">). Jamais de date à
 // choisir — la deadline est toujours bornée au day_date de la tâche.
