@@ -70,3 +70,48 @@ export async function updatePlanTomorrowAfterHour(
   if (error) return { error: "Dodojo n'a pas pu enregistrer ce réglage. Réessaie." };
   return { error: null };
 }
+
+const MAX_USERNAME_LENGTH = 24;
+
+// Issue #69 : pseudo éditable à tout moment depuis Le Profil (fixé une seule
+// fois à l'onboarding jusqu'ici). Pas de contrainte d'unicité (aucune en
+// base sur profiles.username). Cap à 24 caractères : aligné sur la
+// troncature défensive déjà faite côté affichage (lib/share-card.ts).
+export async function updateUsername(username: string): Promise<{ error: string | null }> {
+  const trimmed = username.trim();
+  if (!trimmed) {
+    return { error: "Un pseudo, ça se choisit. Tape quelque chose." };
+  }
+  if (trimmed.length > MAX_USERNAME_LENGTH) {
+    return { error: `Le pseudo ne peut pas dépasser ${MAX_USERNAME_LENGTH} caractères.` };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const { error } = await supabase.from("profiles").update({ username: trimmed }).eq("id", user.id);
+  if (error) return { error: "Dodojo n'a pas pu enregistrer ton pseudo. Réessaie." };
+  return { error: null };
+}
+
+// Issue #69 : fuseau horaire éditable à tout moment (fixé une seule fois à
+// l'onboarding jusqu'ici, via Intl côté navigateur). Valide contre la même
+// liste IANA que le sélecteur (Intl.supportedValuesOf, dispo Node ≥18).
+export async function updateTimezone(timezone: string): Promise<{ error: string | null }> {
+  if (!Intl.supportedValuesOf("timeZone").includes(timezone)) {
+    return { error: "Fuseau horaire invalide." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const { error } = await supabase.from("profiles").update({ timezone }).eq("id", user.id);
+  if (error) return { error: "Dodojo n'a pas pu enregistrer ton fuseau. Réessaie." };
+  return { error: null };
+}

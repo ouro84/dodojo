@@ -15,7 +15,7 @@ Cette spec crée `/vestiaire/profil`, qui devient LE hub des réglages de compte
 
 Nouvelle route `app/vestiaire/profil/page.tsx` (Server Component), même patron que `app/vestiaire/entrainement/page.tsx` :
 - Garde : `!user` → `redirect("/login")` ; `!profile` → `redirect("/onboarding")` ; erreur de requête → composant d'erreur. Pas d'état vide (le profil existe toujours pour un utilisateur post-onboarding).
-- `BottomNav active="vestiaire"` (même onglet que le reste du Vestiaire).
+- `BottomNav active="qg"` (clé historique du composant, même onglet que le reste du Vestiaire — `type NavKey = "arene" | "qg" | "echoppe"`, `components/ui/BottomNav.tsx:3`).
 - `BackLink` vers `/vestiaire` en haut de page (pattern déjà en place pour `Le Guide article → sommaire`).
 
 ### Requête profil (une seule, colonnes exactes)
