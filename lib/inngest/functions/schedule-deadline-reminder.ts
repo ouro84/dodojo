@@ -104,8 +104,16 @@ export const scheduleDeadlineReminder = inngest.createFunction(
       // Issue #114 (amélioration B) : deep-link vers la tâche plutôt que l'URL
       // fixe "/" de buildDeadlineReminderPayload — construit ici pour ne pas
       // complexifier la signature d'une fonction pure de copy.
+      // Issue #114 (amélioration C) : taskId/userId permettent au service
+      // worker de distinguer ce rappel du rappel quotidien générique et
+      // d'ajouter l'action "snooze15".
       const basePayload = buildDeadlineReminderPayload(context.taskTitle, offsetMinutes, context.level);
-      const payload = JSON.stringify({ ...basePayload, url: `/?highlightTask=${taskId}` });
+      const payload = JSON.stringify({
+        ...basePayload,
+        url: `/?highlightTask=${taskId}`,
+        taskId,
+        userId,
+      });
       const supabase = makeSupabaseClient();
       for (const sub of context.subs) {
         try {
