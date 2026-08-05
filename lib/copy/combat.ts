@@ -211,3 +211,73 @@ export function milestoneLine(
   };
   return pickVariant(pools[level], seed)(milestone);
 }
+
+interface VsCardStakesArgs {
+  milestone: number | null;
+  atRisk: boolean;
+}
+
+// Issue #135 : ligne de tension sous le badge du VS card. Le milestone (7/30/100
+// franchi par une victoire aujourd'hui) prime sur atRisk s'ils sont vrais tous
+// les deux — un palier qui tombe est un enjeu plus fort qu'un simple risque.
+export function vsCardStakesLine(
+  level: AggressivityLevel,
+  { milestone, atRisk }: VsCardStakesArgs,
+  seed: number = randomSeed(),
+): string | null {
+  if (milestone !== null) {
+    const pools: Record<AggressivityLevel, Array<(n: number) => string>> = {
+      doux: [
+        (n) => `Une victoire aujourd'hui et la série atteint ${n}.`,
+        (n) => `${n} jours d'affilée, à portée de main aujourd'hui.`,
+        (n) => `Le palier de ${n} se joue sur ce combat.`,
+        (n) => `Encore un pas, et la série touche ${n}.`,
+        (n) => `${n} jours de constance, si aujourd'hui tient.`,
+      ],
+      direct: [
+        (n) => `Gagne aujourd'hui et la série passe à ${n} !`,
+        (n) => `Le palier ${n} se joue maintenant.`,
+        (n) => `À un combat du cap des ${n}.`,
+        (n) => `${n} jours d'affilée si tu closes aujourd'hui.`,
+        (n) => `Ce combat peut t'amener à ${n} de série.`,
+      ],
+      brut: [
+        (n) => `Gagne ça et t'exploses le cap des ${n}, putain !`,
+        (n) => `${n} de série à portée, magne-toi.`,
+        (n) => `Le palier ${n} se joue là, maintenant.`,
+        (n) => `Un combat de plus et ${n} tombe, merde.`,
+        (n) => `${n} d'affilée si tu te loupes pas aujourd'hui.`,
+      ],
+    };
+    return pickVariant(pools[level], seed)(milestone);
+  }
+
+  if (atRisk) {
+    const pools: Record<AggressivityLevel, string[]> = {
+      doux: [
+        "Le joker de la semaine est déjà posé. La série tient à un fil.",
+        "Plus de marge cette semaine. Ce combat compte double.",
+        "La série est fragile aujourd'hui. Un pas de plus suffit.",
+        "Le budget de la semaine est épuisé. Prends soin de la série.",
+        "Aucun joker en réserve. Aujourd'hui pèse plus lourd.",
+      ],
+      direct: [
+        "Plus de joker cette semaine — la série est en jeu.",
+        "Un faux pas aujourd'hui et la série casse.",
+        "Le budget hebdo est grillé. Ce combat compte.",
+        "Série fragile : plus de marge d'erreur cette semaine.",
+        "Zéro joker restant. Aujourd'hui, ça se joue pour de vrai.",
+      ],
+      brut: [
+        "Plus de joker, la série est en danger, putain.",
+        "Un faux pas et la série explose. Fais gaffe.",
+        "Budget hebdo cramé. Ce combat compte pour de vrai.",
+        "Zéro marge cette semaine. Ne fous pas en l'air la série.",
+        "La série tient sur un fil, merde. Assure aujourd'hui.",
+      ],
+    };
+    return pickVariant(pools[level], seed);
+  }
+
+  return null;
+}
