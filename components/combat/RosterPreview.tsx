@@ -219,6 +219,15 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
                 {boss.id} · {bossMeta.anims.idle.frames} frames
               </span>
             </div>
+            {/* Issue #135 : miniature du bust utilisé par le VS card — permet
+                de vérifier le cadrage tête/buste avant merge, sans lancer
+                l'app en conditions réelles pour chaque boss. */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- miniature fixe, next/image inutile */}
+            <img
+              src={`/sprites/bosses/${boss.slug}/bust.png`}
+              alt={`Bust de ${boss.name}`}
+              className="h-16 w-auto self-start border border-border [image-rendering:pixelated]"
+            />
             <p className="text-[11px] text-muted">{boss.lore}</p>
             <div className="relative h-48 w-full overflow-hidden rounded-lg border border-border">
               {bg && (
