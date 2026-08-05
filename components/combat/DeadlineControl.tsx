@@ -11,13 +11,35 @@ interface DeadlineControlProps {
   dayDate: string;
   timezone: string;
   disabled?: boolean;
-  onSave: (deadlineAt: string | null) => void;
+  // Issue #114 : état actuel du réglage de rappel de cette tâche.
+  reminderOffsetMinutes: number | null;
+  reminderEnabled: boolean;
+  profileDefaultOffsetMinutes: number;
+  onSave: (
+    deadlineAt: string | null,
+    reminderOffsetMinutes: number | null,
+    reminderEnabled: boolean,
+  ) => void;
+}
+
+const OFFSET_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 240];
+
+function offsetLabel(minutes: number): string {
+  if (minutes === 0) return "À l'heure";
+  if (minutes < 60) return `${minutes} min avant`;
+  return `${minutes / 60}h avant`;
+}
+
+function reminderSelectValue(reminderEnabled: boolean, reminderOffsetMinutes: number | null): string {
+  if (!reminderEnabled) return "off";
+  if (reminderOffsetMinutes === null) return "default";
+  return String(reminderOffsetMinutes);
 }
 
 // US-05 : icône ⏰ sur TaskRow (racine et sous-tâche) — popover inline avec un
 // sélecteur d'heure natif pour fixer/modifier/effacer la deadline du jour de
-// la tâche. Pas de date à choisir : la deadline est toujours bornée au
-// day_date de la tâche (cf. design).
+// la tâche. Issue #114 : ajoute un select "Me notifier" (délai avant deadline
+// + option "Pas de notif").
 export default function DeadlineControl({
   taskId,
   taskTitle,
@@ -25,26 +47,41 @@ export default function DeadlineControl({
   dayDate,
   timezone,
   disabled = false,
+  reminderOffsetMinutes,
+  reminderEnabled,
+  profileDefaultOffsetMinutes,
   onSave,
 }: DeadlineControlProps) {
   const [open, setOpen] = useState(false);
   const [time, setTime] = useState(() =>
     deadlineAt ? localTimeFromIso(deadlineAt, timezone) : "",
   );
+  const [reminderValue, setReminderValue] = useState(() =>
+    reminderSelectValue(reminderEnabled, reminderOffsetMinutes),
+  );
 
   function handleOpen() {
     setTime(deadlineAt ? localTimeFromIso(deadlineAt, timezone) : "");
+    setReminderValue(reminderSelectValue(reminderEnabled, reminderOffsetMinutes));
     setOpen(true);
+  }
+
+  function resolveReminder(): { offsetMinutes: number | null; enabled: boolean } {
+    if (reminderValue === "off") return { offsetMinutes: reminderOffsetMinutes, enabled: false };
+    if (reminderValue === "default") return { offsetMinutes: null, enabled: true };
+    return { offsetMinutes: Number(reminderValue), enabled: true };
   }
 
   function handleSave() {
     if (!time) return;
-    onSave(deadlineIso(dayDate, time, timezone));
+    const resolved = resolveReminder();
+    onSave(deadlineIso(dayDate, time, timezone), resolved.offsetMinutes, resolved.enabled);
     setOpen(false);
   }
 
   function handleClear() {
-    onSave(null);
+    const resolved = resolveReminder();
+    onSave(null, resolved.offsetMinutes, resolved.enabled);
     setOpen(false);
   }
 
@@ -87,6 +124,23 @@ export default function DeadlineControl({
             onChange={(event) => setTime(event.target.value)}
             className="rounded border border-border bg-transparent px-2 py-1 text-xs text-ink"
           />
+          <label htmlFor={`reminder-${taskId}`} className="text-xs text-muted">
+            Me notifier
+          </label>
+          <select
+            id={`reminder-${taskId}`}
+            value={reminderValue}
+            onChange={(event) => setReminderValue(event.target.value)}
+            className="rounded border border-border bg-transparent px-2 py-1 text-xs text-ink"
+          >
+            <option value="default">Par défaut ({profileDefaultOffsetMinutes} min)</option>
+            {OFFSET_OPTIONS.map((minutes) => (
+              <option key={minutes} value={minutes}>
+                {offsetLabel(minutes)}
+              </option>
+            ))}
+            <option value="off">Pas de notif</option>
+          </select>
           <div className="flex items-center gap-2">
             <button
               type="button"

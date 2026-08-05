@@ -8,7 +8,15 @@ interface TaskListProps {
   onToggle: (id: string, isCompleted: boolean) => void;
   onAbandon: (id: string) => void;
   onAddSubtask: (parentId: string, title: string) => void;
-  onSetDeadline: (id: string, deadlineAt: string | null) => void;
+  onSetDeadline: (
+    id: string,
+    deadlineAt: string | null,
+    reminderOffsetMinutes: number | null,
+    reminderEnabled: boolean,
+  ) => void;
+  // Issue #114 : défaut de rappel du profil, propagé jusqu'au select "Me
+  // notifier" de chaque DeadlineControl.
+  profileDefaultOffsetMinutes: number;
   onReportTomorrow: (id: string) => void;
   showReportTomorrow?: boolean;
   addingSubtaskParentId?: string | null;
@@ -32,6 +40,7 @@ export default function TaskList({
   onAbandon,
   onAddSubtask,
   onSetDeadline,
+  profileDefaultOffsetMinutes,
   onReportTomorrow,
   showReportTomorrow = false,
   addingSubtaskParentId = null,
@@ -45,7 +54,7 @@ export default function TaskList({
   return (
     <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
       {orderedTasks.map((task) => (
-        <li key={task.id}>
+        <li key={task.id} id={`task-${task.id}`}>
           <TaskRow
             task={task}
             timezone={timezone}
@@ -60,6 +69,7 @@ export default function TaskList({
             isMissedDeadline={missedDeadlineIds?.has(task.id) ?? false}
             isOverdueRest={overdueRestIds?.has(task.id) ?? false}
             dropIndicator={dragOverInfo?.overTaskId === task.id ? dragOverInfo : null}
+            profileDefaultOffsetMinutes={profileDefaultOffsetMinutes}
           />
         </li>
       ))}

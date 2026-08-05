@@ -115,3 +115,25 @@ export async function updateTimezone(timezone: string): Promise<{ error: string 
   if (error) return { error: "Dodojo n'a pas pu enregistrer ton fuseau. Réessaie." };
   return { error: null };
 }
+
+// Issue #114 : délai par défaut avant deadline, réglable depuis Le Profil.
+// Reflète le CHECK SQL existant (0-240 min, migration 20260730180000).
+export async function updateReminderOffsetDefault(minutes: number): Promise<{ error: string | null }> {
+  if (!Number.isInteger(minutes) || minutes < 0 || minutes > 240) {
+    return { error: "Délai de rappel invalide." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Session expirée. Reconnecte-toi." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ reminder_offset_minutes: minutes })
+    .eq("id", user.id);
+
+  if (error) return { error: "Dodojo n'a pas pu enregistrer ce réglage. Réessaie." };
+  return { error: null };
+}

@@ -18,7 +18,15 @@ interface TaskRowProps {
   onToggle: (id: string, isCompleted: boolean) => void;
   onAbandon: (id: string) => void;
   onAddSubtask: (parentId: string, title: string) => void;
-  onSetDeadline: (id: string, deadlineAt: string | null) => void;
+  onSetDeadline: (
+    id: string,
+    deadlineAt: string | null,
+    reminderOffsetMinutes: number | null,
+    reminderEnabled: boolean,
+  ) => void;
+  // Issue #114 : défaut de rappel du profil, affiché dans le select "Me
+  // notifier" du popover deadline (option "Par défaut (X min)").
+  profileDefaultOffsetMinutes: number;
   // Issue #116 : report proactif vers demain, gated par l'heure seuil
   // (profiles.plan_tomorrow_after_hour) — calculé côté Arena.
   onReportTomorrow: (id: string) => void;
@@ -45,6 +53,7 @@ export default function TaskRow({
   onAbandon,
   onAddSubtask,
   onSetDeadline,
+  profileDefaultOffsetMinutes,
   onReportTomorrow,
   showReportTomorrow = false,
   isAddingSubtask,
@@ -142,7 +151,12 @@ export default function TaskRow({
         dayDate={task.day_date}
         timezone={timezone}
         disabled={isLocked}
-        onSave={(deadlineAt) => onSetDeadline(task.id, deadlineAt)}
+        reminderOffsetMinutes={task.reminder_offset_minutes}
+        reminderEnabled={task.reminder_enabled}
+        profileDefaultOffsetMinutes={profileDefaultOffsetMinutes}
+        onSave={(deadlineAt, reminderOffsetMinutes, reminderEnabled) =>
+          onSetDeadline(task.id, deadlineAt, reminderOffsetMinutes, reminderEnabled)
+        }
       />
       {isMissedDeadline && (
         <span

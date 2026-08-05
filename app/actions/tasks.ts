@@ -19,6 +19,7 @@ import type { CascadeTask } from "@/lib/game-engine";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
 import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
+import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
 import type { Task } from "@/types";
 
 // Audit #67, PR5 : `id` alimente un filtre PostgREST `.or()` construit par
@@ -223,6 +224,13 @@ export async function setTaskCompleted(
     };
   }
 
+  // Issue #114 : une tâche complétée n'a plus besoin de son rappel de
+  // deadline — un décochage ne reschedule rien (l'utilisateur peut re-cocher
+  // avant la deadline, cf. setTaskDeadline pour la logique de (re)programmation).
+  if (isCompleted) {
+    await cancelDeadlineReminder(id);
+  }
+
   const isRealTransition = existingTask.is_completed !== isCompleted;
   let level: number | undefined;
   let xp: number | undefined;
@@ -363,6 +371,10 @@ export async function rageQuitTask(id: string): Promise<TaskActionResult> {
   if (error) {
     return { error: "Impossible d'abandonner cette tâche. Réessaie." };
   }
+
+  // Issue #114 : la cascade entière (racine + sous-tâches actives) n'a plus
+  // besoin de son rappel de deadline une fois abandonnée.
+  await Promise.allSettled(cascadeIds.map((cascadeId) => cancelDeadlineReminder(cascadeId)));
 
   // Malus XP unique, clampé, sans de-level (D3).
   let level: number | undefined;
@@ -545,14 +557,18 @@ export async function completeOverdueTask(id: string): Promise<TaskActionResult>
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("tasks")
     .update({ is_completed: true, deferred_at: null })
     .or(`id.eq.${id},parent_id.eq.${id}`)
     .eq("user_id", user.id)
-    .eq("is_abandoned", false);
+    .eq("is_abandoned", false)
+    .select("id");
 
   if (error) return { error: "Impossible de valider ce reste. Réessaie." };
+  // Issue #114 : la tâche (et sa cascade) validées n'ont plus besoin de leur
+  // rappel de deadline.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   return { error: null };
 }
@@ -601,6 +617,9 @@ export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
     .select();
 
   if (error) return { error: "Impossible de reporter ce reste. Réessaie." };
+  // Issue #114 : la deadline vient d'être effacée (deadline_at: null
+  // ci-dessus) — le rappel programmé n'a plus de raison d'exister.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   // Bug #70 : les lignes mises à jour sont renvoyées explicitement — le
   // Le Réveil est un overlay client qui ne re-fetch jamais l'Arène en
@@ -622,13 +641,16 @@ export async function annihilateOverdueTask(id: string): Promise<TaskActionResul
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("tasks")
     .update({ is_abandoned: true, abandon_reason: "annihilated" })
     .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id");
 
   if (error) return { error: "Impossible d'annihiler ce reste. Réessaie." };
+  // Issue #114 : reste annihilé (et sa cascade) — plus de rappel à envoyer.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   return { error: null };
 }
@@ -659,6 +681,9 @@ export async function deferAllOverdue(): Promise<TaskActionResult> {
     .select();
 
   if (error) return { error: "Impossible de tout reporter. Réessaie." };
+  // Issue #114 : même raison que deferOverdueTask — deadline effacée, rappel
+  // programmé obsolète.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   // Bug #70 : voir deferOverdueTask ci-dessus — même besoin de renvoyer les
   // lignes reportées pour que le Réveil les remonte à l'Arène.
@@ -679,15 +704,18 @@ export async function annihilateOverdueOlderThan(days: number): Promise<TaskActi
     "UTC",
   );
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("tasks")
     .update({ is_abandoned: true, abandon_reason: "annihilated" })
     .eq("user_id", user.id)
     .lt("day_date", cutoff)
     .eq("is_completed", false)
-    .eq("is_abandoned", false);
+    .eq("is_abandoned", false)
+    .select("id");
 
   if (error) return { error: "Impossible d'annihiler les vieux restes. Réessaie." };
+  // Issue #114 : tous les vieux restes annihilés perdent leur rappel.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   return { error: null };
 }
@@ -695,12 +723,17 @@ export async function annihilateOverdueOlderThan(days: number): Promise<TaskActi
 // US-05 : fixe/modifie/efface l'heure limite d'une tâche (popover ⏰ sur
 // TaskRow, ou le bouton "Repousser +1h" de l'Attaque Surprise). `deadlineAt` =
 // ISO complet (UTC) ou null pour effacer.
+// Fix #95 : id `optimistic-*` envoyable si l'utilisateur pose une deadline
+// sur une tâche fraîchement créée avant la résolution de `addTask`.
+// Issue #114 : reminderOffsetMinutes/reminderEnabled optionnels — undefined =
+// ne touche pas la colonne correspondante (ex. "Repousser +1h" ne change que
+// l'heure, les réglages de rappel existants sont conservés).
 export async function setTaskDeadline(
   id: string,
   deadlineAt: string | null,
+  reminderOffsetMinutes?: number | null,
+  reminderEnabled?: boolean,
 ): Promise<TaskActionResult> {
-  // Fix #95 : id `optimistic-*` envoyable si l'utilisateur pose une deadline
-  // sur une tâche fraîchement créée avant la résolution de `addTask`.
   if (!UUID_RE.test(id)) {
     return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
   }
@@ -714,14 +747,37 @@ export async function setTaskDeadline(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { error } = await supabase
-    .from("tasks")
-    .update({ deadline_at: deadlineAt })
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const updates: Record<string, unknown> = { deadline_at: deadlineAt };
+  if (reminderOffsetMinutes !== undefined) updates.reminder_offset_minutes = reminderOffsetMinutes;
+  if (reminderEnabled !== undefined) updates.reminder_enabled = reminderEnabled;
+
+  const { error } = await supabase.from("tasks").update(updates).eq("id", id).eq("user_id", user.id);
 
   if (error) {
     return { error: "Impossible de fixer cette deadline. Réessaie." };
+  }
+
+  if (deadlineAt === null) {
+    await cancelDeadlineReminder(id);
+  } else {
+    const { data: resolved } = await supabase
+      .from("tasks")
+      .select("reminder_enabled, reminder_offset_minutes")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (resolved?.reminder_enabled) {
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("reminder_offset_minutes")
+        .eq("id", user.id)
+        .maybeSingle();
+      const offset = resolved.reminder_offset_minutes ?? profileRow?.reminder_offset_minutes ?? 30;
+      await cancelDeadlineReminder(id);
+      await scheduleDeadlineReminder({ taskId: id, userId: user.id, deadlineAt, offsetMinutes: offset });
+    } else {
+      await cancelDeadlineReminder(id);
+    }
   }
 
   revalidatePath("/");
@@ -818,6 +874,8 @@ export async function reportToTomorrow(id: string): Promise<TaskActionResult> {
     .select();
 
   if (error) return { error: "Impossible de reporter cette tâche à demain. Réessaie." };
+  // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   return { error: null, reportedTasks: (updated ?? []) as Task[] };
 }
@@ -861,6 +919,8 @@ export async function bringToToday(id: string): Promise<TaskActionResult> {
     .select();
 
   if (error) return { error: "Impossible de ramener cette tâche à aujourd'hui. Réessaie." };
+  // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   return { error: null, broughtBackTasks: (updated ?? []) as Task[] };
 }

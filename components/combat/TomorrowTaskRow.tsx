@@ -9,7 +9,15 @@ interface TomorrowTaskRowProps {
   task: Task;
   timezone: string;
   onAddSubtask: (parentId: string, title: string) => void;
-  onSetDeadline: (id: string, deadlineAt: string | null) => void;
+  onSetDeadline: (
+    id: string,
+    deadlineAt: string | null,
+    reminderOffsetMinutes: number | null,
+    reminderEnabled: boolean,
+  ) => void;
+  // Issue #114 : défaut de rappel du profil, affiché dans le select "Me
+  // notifier" du popover deadline (option "Par défaut (X min)").
+  profileDefaultOffsetMinutes: number;
   onAnnihilate: (id: string) => void;
   onBringToToday: (id: string) => void;
   isAddingSubtask: boolean;
@@ -26,6 +34,7 @@ export default function TomorrowTaskRow({
   timezone,
   onAddSubtask,
   onSetDeadline,
+  profileDefaultOffsetMinutes,
   onAnnihilate,
   onBringToToday,
   isAddingSubtask,
@@ -66,7 +75,12 @@ export default function TomorrowTaskRow({
         dayDate={task.day_date}
         timezone={timezone}
         disabled={isLocked}
-        onSave={(deadlineAt) => onSetDeadline(task.id, deadlineAt)}
+        reminderOffsetMinutes={task.reminder_offset_minutes}
+        reminderEnabled={task.reminder_enabled}
+        profileDefaultOffsetMinutes={profileDefaultOffsetMinutes}
+        onSave={(deadlineAt, reminderOffsetMinutes, reminderEnabled) =>
+          onSetDeadline(task.id, deadlineAt, reminderOffsetMinutes, reminderEnabled)
+        }
       />
       <button
         type="button"

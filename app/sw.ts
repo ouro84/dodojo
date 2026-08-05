@@ -77,15 +77,24 @@ interface NotificationOptionsWithActions extends NotificationOptions {
 // US-11 : notification de rappel (payload JSON envoyé par
 // lib/inngest/functions/send-reminder.ts via web-push). "Plus tard" (action)
 // referme sans ouvrir l'app — évite de forcer l'ouverture juste pour dismiss.
+// Issue #114 (amélioration C) : payload.taskId présent uniquement pour un
+// rappel de deadline (jamais le rappel quotidien générique) — ajoute alors
+// l'action "snooze15".
 self.addEventListener("push", (event: PushEvent) => {
   if (!event.data) return;
   const payload = event.data.json() as PushReminderPayload;
+  const actions: Array<{ action: string; title: string }> = payload.taskId
+    ? [
+        { action: "snooze15", title: "+15 min" },
+        { action: "later", title: "Plus tard" },
+      ]
+    : [{ action: "later", title: "Plus tard" }];
   const options: NotificationOptionsWithActions = {
     body: payload.body,
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
-    data: { url: payload.url },
-    actions: [{ action: "later", title: "Plus tard" }],
+    data: { url: payload.url, taskId: payload.taskId, userId: payload.userId },
+    actions,
   };
   event.waitUntil(self.registration.showNotification(payload.title, options));
 });
@@ -93,11 +102,29 @@ self.addEventListener("push", (event: PushEvent) => {
 // Clic sur la notification : focus un onglet existant sinon ouvre l'Arène
 // (data.url). L'action "Plus tard" ferme déjà la notification (ligne
 // suivante, commune à toutes les actions) sans rien ouvrir de plus.
+// Issue #114 (amélioration C) : "snooze15" repousse le RAPPEL (pas la
+// deadline elle-même) via la route dédiée, sans ouvrir de fenêtre — garde-fou
+// volontaire contre un contournement silencieux de la pénalité HP.
 self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
   if (event.action === "later") return;
 
-  const url = (event.notification.data as { url?: string } | undefined)?.url ?? "/";
+  const data = event.notification.data as
+    | { url?: string; taskId?: string; userId?: string }
+    | undefined;
+
+  if (event.action === "snooze15" && data?.taskId && data?.userId) {
+    event.waitUntil(
+      fetch("/api/push/snooze-deadline-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: data.taskId, userId: data.userId }),
+      }),
+    );
+    return;
+  }
+
+  const url = data?.url ?? "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsList) => {
       const existing = clientsList[0];

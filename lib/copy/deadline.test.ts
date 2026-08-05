@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { deadlineAlertLine } from "./deadline";
+import { buildDeadlineReminderPayload, deadlineAlertLine } from "./deadline";
 
 const FORBIDDEN_DOUX = /putain|bordel|merde|\bcon\b|connard|foutre/;
 
@@ -21,5 +21,36 @@ describe("Attaque Surprise (deadline ratée)", () => {
       /merde|bordel|putain/i.test(line),
     );
     expect(jurons).toBe(true);
+  });
+});
+
+describe("buildDeadlineReminderPayload", () => {
+  const levels = ["doux", "direct", "brut"] as const;
+
+  test("chaque niveau produit un body non vide pour un offset > 0", () => {
+    for (const level of levels) {
+      const payload = buildDeadlineReminderPayload("Ranger la chambre", 15, level, 0);
+      expect(payload.body.length).toBeGreaterThan(0);
+      expect(payload.title).toBe("Dodojo — Deadline qui approche");
+      expect(payload.url).toBe("/");
+    }
+  });
+
+  test("gère offsetMinutes === 0 sans jamais écrire 'dans 0 min'", () => {
+    for (const level of levels) {
+      const payload = buildDeadlineReminderPayload("Ranger la chambre", 0, level, 0);
+      expect(payload.body).not.toMatch(/dans 0 min/);
+    }
+  });
+
+  test("le titre de la tâche apparaît dans le corps du message", () => {
+    const payload = buildDeadlineReminderPayload("Appeler le dentiste", 10, "direct", 0);
+    expect(payload.body).toContain("Appeler le dentiste");
+  });
+
+  test("le seed est déterministe (même seed → même variante)", () => {
+    const a = buildDeadlineReminderPayload("Tâche", 10, "direct", 2);
+    const b = buildDeadlineReminderPayload("Tâche", 10, "direct", 2);
+    expect(a.body).toBe(b.body);
   });
 });

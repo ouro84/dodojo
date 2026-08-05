@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   closestCenter,
   DndContext,
@@ -31,6 +32,7 @@ import {
   deadlineHpPenalties,
   missedDeadlineTasks,
   upcomingDeadlineCount,
+  upcomingReminderTasks,
   HERO_DAMAGE_PER_MISSED_DEADLINE,
   HERO_DAMAGE_PER_OVERDUE_TASK,
   collectAbandonCascade,
@@ -74,7 +76,7 @@ import {
 import { buildShareCardParams } from "@/lib/share-card";
 import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
 import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
-import { deadlineAlertLine } from "@/lib/copy/deadline";
+import { deadlineAlertLine, buildDeadlineReminderPayload } from "@/lib/copy/deadline";
 import { planningUnlockedLine } from "@/lib/copy/planning";
 import { randomSeed } from "@/lib/copy/variant";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
@@ -325,6 +327,20 @@ export default function Arena({
   const knownMissedDeadlineIdsRef = useRef<Set<string>>(
     new Set(missedDeadlineTasks(initialTasks, new Date()).map((t) => t.id)),
   );
+  // Issue #114 (amélioration A) : même patron que knownMissedDeadlineIdsRef —
+  // initialisé aux tâches déjà dans leur fenêtre de rappel au montage, pour
+  // ne pas re-toaster ce qui était déjà vrai avant l'ouverture (pas de replay).
+  const knownUpcomingReminderIdsRef = useRef<Set<string>>(
+    new Set(
+      upcomingReminderTasks(
+        initialTasks.filter((task) => !task.is_abandoned),
+        new Date(),
+        profile.reminder_offset_minutes,
+      ).map((task) => task.id),
+    ),
+  );
+  const reminderToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [reminderToast, setReminderToast] = useState<{ taskId: string; message: string } | null>(null);
   const [heroPulse, setHeroPulse] = useState<{ key: number } | null>(null);
   // A3 (issue #101) : pulse "heal" gold côté Héros à chaque remontée de
   // heroHp (coche d'une pénalité, rage quit d'une deadline ratée). Pas
@@ -491,6 +507,20 @@ export default function Arena({
     triggerBossAttack("recap");
   }, [missedDeadlines.length, overdueTasks.length, reducedMotion, showWakeUp]);
 
+  // Issue #114 (amélioration B) : deep-link depuis une notif de rappel
+  // (?highlightTask=<id>) — scroll jusqu'à la tâche puis nettoie l'URL pour
+  // ne pas re-déclencher au prochain refresh.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const highlightId = searchParams.get("highlightTask");
+    if (!highlightId) return;
+    const el = document.getElementById(`task-${highlightId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    router.replace("/", { scroll: false });
+  }, [searchParams, router]);
+
   // Renaissance : une tâche ajoutée après le K.O. re-soigne le Boss (cf.
   // koOutcome, garde prevBossHp===0). La séquence de mort en cours est
   // annulée — pas de slam, pas d'overlay. Ajustement pendant le rendu (même
@@ -538,6 +568,27 @@ export default function Arena({
         heroPulseTimeoutRef.current = setTimeout(() => {
           setHeroPulse((current) => (current?.key === key ? null : current));
         }, 1400);
+      }
+
+      // Issue #114 (amélioration A) : filet in-app — toast local pour les
+      // tâches entrant dans leur fenêtre de rappel, indépendant de push.
+      const upcomingNow = upcomingReminderTasks(
+        tasksRef.current.filter((task) => !task.is_abandoned),
+        tick,
+        profile.reminder_offset_minutes,
+      );
+      const knownReminders = knownUpcomingReminderIdsRef.current;
+      const freshlyUpcoming = upcomingNow.filter((task) => !knownReminders.has(task.id));
+      if (freshlyUpcoming.length > 0) {
+        for (const task of freshlyUpcoming) knownReminders.add(task.id);
+        const target = freshlyUpcoming[0];
+        const offsetMinutes = target.reminder_offset_minutes ?? profile.reminder_offset_minutes;
+        setReminderToast({
+          taskId: target.id,
+          message: buildDeadlineReminderPayload(target.title, offsetMinutes, level).body,
+        });
+        if (reminderToastTimeoutRef.current) clearTimeout(reminderToastTimeoutRef.current);
+        reminderToastTimeoutRef.current = setTimeout(() => setReminderToast(null), 6000);
       }
 
       setNow(tick);
@@ -810,6 +861,7 @@ export default function Arena({
       deferred_at: null,
       xp_awarded: null,
       reminder_offset_minutes: null,
+      reminder_enabled: true,
       day_date: today,
       position: nextSiblingPosition(roots),
       created_at: new Date().toISOString(),
@@ -899,6 +951,7 @@ export default function Arena({
       deferred_at: null,
       xp_awarded: null,
       reminder_offset_minutes: null,
+      reminder_enabled: true,
       day_date: today,
       position: nextSiblingPosition(siblings),
       created_at: new Date().toISOString(),
@@ -980,6 +1033,7 @@ export default function Arena({
       deferred_at: null,
       xp_awarded: null,
       reminder_offset_minutes: null,
+      reminder_enabled: true,
       day_date: tomorrowDayDate,
       position: nextSiblingPosition(roots),
       created_at: new Date().toISOString(),
@@ -1025,6 +1079,7 @@ export default function Arena({
       deferred_at: null,
       xp_awarded: null,
       reminder_offset_minutes: null,
+      reminder_enabled: true,
       day_date: tomorrowDayDate,
       position: nextSiblingPosition(siblings),
       created_at: new Date().toISOString(),
@@ -1051,14 +1106,29 @@ export default function Arena({
 
   // Issue #116 : deadline sur une tâche de la section "Demain" (même action
   // serveur setTaskDeadline, générique sur id+deadlineAt).
-  function handleSetTomorrowDeadline(id: string, deadlineAt: string | null) {
+  // Issue #114 : étendu au réglage de rappel, même patron que handleSetDeadline.
+  function handleSetTomorrowDeadline(
+    id: string,
+    deadlineAt: string | null,
+    reminderOffsetMinutes: number | null,
+    reminderEnabled: boolean,
+  ) {
     if (isOptimisticId(id)) return;
     const previousSnapshot = tomorrowTasks;
     setTomorrowTasks((prev) =>
-      prev.map((task) => (task.id === id ? { ...task, deadline_at: deadlineAt } : task)),
+      prev.map((task) =>
+        task.id === id
+          ? {
+              ...task,
+              deadline_at: deadlineAt,
+              reminder_offset_minutes: reminderOffsetMinutes,
+              reminder_enabled: reminderEnabled,
+            }
+          : task,
+      ),
     );
     markPending(id);
-    void setTaskDeadlineAction(id, deadlineAt).then((result) => {
+    void setTaskDeadlineAction(id, deadlineAt, reminderOffsetMinutes, reminderEnabled).then((result) => {
       unmarkPending(id);
       if (result.error) {
         setTomorrowTasks(previousSnapshot);
@@ -1518,7 +1588,14 @@ export default function Arena({
 
   // US-05 : sauvegarde optimiste d'une deadline (popover ⏰ ou "Repousser +1h").
   // `deadlineAt` = null pour effacer.
-  function handleSetDeadline(id: string, deadlineAt: string | null) {
+  // Issue #114 : reminderOffsetMinutes/reminderEnabled résolus par
+  // DeadlineControl (ou conservés tels quels par handlePushDeadlineOneHour).
+  function handleSetDeadline(
+    id: string,
+    deadlineAt: string | null,
+    reminderOffsetMinutes: number | null,
+    reminderEnabled: boolean,
+  ) {
     // Fix #95 : pas de deadline sur une tâche optimistic (la mutation serveur
     // ne matche aucune ligne). On n'affiche pas de toast d'erreur — l'état
     // optimistic est suffisamment bref, et la deadline sera de toute façon
@@ -1530,12 +1607,21 @@ export default function Arena({
     knownMissedDeadlineIdsRef.current.delete(id);
     const previousSnapshot = tasks;
     setTasks((prev) =>
-      prev.map((task) => (task.id === id ? { ...task, deadline_at: deadlineAt } : task)),
+      prev.map((task) =>
+        task.id === id
+          ? {
+              ...task,
+              deadline_at: deadlineAt,
+              reminder_offset_minutes: reminderOffsetMinutes,
+              reminder_enabled: reminderEnabled,
+            }
+          : task,
+      ),
     );
     // Fix #4 : verrou le temps de la mutation (le popover DeadlineControl se
     // désactive sur cette ligne tant qu'on n'a pas la confirmation serveur).
     markPending(id);
-    void setTaskDeadlineAction(id, deadlineAt).then((result) => {
+    void setTaskDeadlineAction(id, deadlineAt, reminderOffsetMinutes, reminderEnabled).then((result) => {
       unmarkPending(id);
       if (result.error) {
         setTasks(previousSnapshot);
@@ -1546,9 +1632,17 @@ export default function Arena({
 
   // US-05 : action rapide du toast "Attaque Surprise" — repousse la deadline
   // d'1h à partir de MAINTENANT (pas de l'ancienne deadline ratée).
+  // Issue #114 : conserve le réglage de rappel existant de la tâche (résolu
+  // depuis le state local, pas de nouveau choix utilisateur ici).
   function handlePushDeadlineOneHour(id: string) {
     const nextDeadline = new Date(Date.now() + 3_600_000).toISOString();
-    handleSetDeadline(id, nextDeadline);
+    const task = tasks.find((t) => t.id === id);
+    handleSetDeadline(
+      id,
+      nextDeadline,
+      task?.reminder_offset_minutes ?? null,
+      task?.reminder_enabled ?? true,
+    );
     setDeadlineAlert(null);
   }
 
@@ -1873,6 +1967,18 @@ export default function Arena({
         </div>
       )}
 
+      {reminderToast && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted"
+        >
+          <span>{reminderToast.message}</span>
+          <button type="button" onClick={() => setReminderToast(null)} className="shrink-0 underline">
+            Fermer
+          </button>
+        </div>
+      )}
+
       {reportUndo && (
         <div
           role="status"
@@ -1920,6 +2026,7 @@ export default function Arena({
             missedDeadlineIds={missedDeadlineIds}
             overdueRestIds={overdueRestIds}
             dragOverInfo={dragOverInfo}
+            profileDefaultOffsetMinutes={profile.reminder_offset_minutes}
           />
           <DragOverlay>
             {activeDragTaskId && (
@@ -1957,6 +2064,7 @@ export default function Arena({
           onAdd={handleAddTomorrow}
           onAddSubtask={handleAddTomorrowSubtask}
           onSetDeadline={handleSetTomorrowDeadline}
+          profileDefaultOffsetMinutes={profile.reminder_offset_minutes}
           onAnnihilate={handleAnnihilateTomorrow}
           onBringToToday={handleBringToToday}
           addingSubtaskParentId={addingTomorrowSubtaskParentId}

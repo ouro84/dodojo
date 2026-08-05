@@ -14,7 +14,15 @@ export interface TomorrowSectionProps {
   voiceSeed: number;
   onAdd: (title: string) => void;
   onAddSubtask: (parentId: string, title: string) => void;
-  onSetDeadline: (id: string, deadlineAt: string | null) => void;
+  onSetDeadline: (
+    id: string,
+    deadlineAt: string | null,
+    reminderOffsetMinutes: number | null,
+    reminderEnabled: boolean,
+  ) => void;
+  // Issue #114 : défaut de rappel du profil, propagé jusqu'au select "Me
+  // notifier" de chaque DeadlineControl.
+  profileDefaultOffsetMinutes: number;
   onAnnihilate: (id: string) => void;
   onBringToToday: (id: string) => void;
   addingSubtaskParentId: string | null;
@@ -34,6 +42,7 @@ export default function TomorrowSection({
   onAdd,
   onAddSubtask,
   onSetDeadline,
+  profileDefaultOffsetMinutes,
   onAnnihilate,
   onBringToToday,
   addingSubtaskParentId,
@@ -65,6 +74,7 @@ export default function TomorrowSection({
                 onBringToToday={onBringToToday}
                 isAddingSubtask={addingSubtaskParentId === task.id}
                 isMutating={pendingMutationIds.has(task.id)}
+                profileDefaultOffsetMinutes={profileDefaultOffsetMinutes}
               />
             </li>
           ))}

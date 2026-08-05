@@ -49,6 +49,7 @@ import {
   XP_PER_TASK,
   XP_THRESHOLD_PER_LEVEL,
   isBossInDanger,
+  upcomingReminderTasks,
 } from "./game-engine";
 import type { ReorderableCompletionTask } from "./game-engine";
 import type { Task } from "../types";
@@ -68,6 +69,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     deferred_at: null,
     xp_awarded: null,
     reminder_offset_minutes: null,
+    reminder_enabled: true,
     day_date: "2026-07-16",
     position: 0,
     created_at: "2026-07-16T00:00:00.000Z",
@@ -1302,5 +1304,59 @@ describe("isBossInDanger", () => {
 
   it("gère un Boss sans HP maximum", () => {
     expect(isBossInDanger(0, 0)).toBe(false);
+  });
+});
+
+describe("upcomingReminderTasks", () => {
+  const base = {
+    id: "t1",
+    title: "Tâche",
+    is_completed: false,
+    is_abandoned: false,
+    reminder_enabled: true,
+    reminder_offset_minutes: null as number | null,
+  };
+
+  test("inclut une tâche dans sa fenêtre de rappel (offset profil)", () => {
+    const now = new Date("2026-08-01T15:45:00.000Z");
+    const tasks = [{ ...base, deadline_at: "2026-08-01T16:00:00.000Z" }];
+    expect(upcomingReminderTasks(tasks, now, 30)).toHaveLength(1);
+  });
+
+  test("exclut une tâche hors fenêtre (trop tôt)", () => {
+    const now = new Date("2026-08-01T15:00:00.000Z");
+    const tasks = [{ ...base, deadline_at: "2026-08-01T16:00:00.000Z" }];
+    expect(upcomingReminderTasks(tasks, now, 30)).toHaveLength(0);
+  });
+
+  test("exclut une tâche dont la deadline est déjà passée", () => {
+    const now = new Date("2026-08-01T16:30:00.000Z");
+    const tasks = [{ ...base, deadline_at: "2026-08-01T16:00:00.000Z" }];
+    expect(upcomingReminderTasks(tasks, now, 30)).toHaveLength(0);
+  });
+
+  test("utilise l'override par tâche plutôt que le défaut du profil", () => {
+    const now = new Date("2026-08-01T15:57:00.000Z");
+    const tasks = [{ ...base, deadline_at: "2026-08-01T16:00:00.000Z", reminder_offset_minutes: 5 }];
+    expect(upcomingReminderTasks(tasks, now, 30)).toHaveLength(1);
+  });
+
+  test("exclut une tâche avec reminder_enabled=false", () => {
+    const now = new Date("2026-08-01T15:45:00.000Z");
+    const tasks = [{ ...base, deadline_at: "2026-08-01T16:00:00.000Z", reminder_enabled: false }];
+    expect(upcomingReminderTasks(tasks, now, 30)).toHaveLength(0);
+  });
+
+  test("exclut une tâche complétée ou abandonnée", () => {
+    const now = new Date("2026-08-01T15:45:00.000Z");
+    const completed = { ...base, deadline_at: "2026-08-01T16:00:00.000Z", is_completed: true };
+    const abandoned = { ...base, deadline_at: "2026-08-01T16:00:00.000Z", is_abandoned: true };
+    expect(upcomingReminderTasks([completed, abandoned], now, 30)).toHaveLength(0);
+  });
+
+  test("exclut une tâche sans deadline", () => {
+    const now = new Date("2026-08-01T15:45:00.000Z");
+    const tasks = [{ ...base, deadline_at: null }];
+    expect(upcomingReminderTasks(tasks, now, 30)).toHaveLength(0);
   });
 });

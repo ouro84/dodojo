@@ -37,3 +37,70 @@ export function deadlineAlertLine(
   };
   return pickVariant(pools[level], seed)(taskTitle, damage);
 }
+
+export interface DeadlineReminderPayload {
+  title: string;
+  body: string;
+  url: string;
+}
+
+// Issue #114 : notif envoyée par lib/inngest/functions/schedule-deadline-reminder.ts
+// avant l'échéance d'une deadline (≠ deadlineAlertLine, envoyée APRÈS coup).
+export function buildDeadlineReminderPayload(
+  taskTitle: string,
+  offsetMinutes: number,
+  level: AggressivityLevel,
+  seed: number = randomSeed(),
+): DeadlineReminderPayload {
+  if (offsetMinutes === 0) {
+    const atTimePools: Record<AggressivityLevel, Array<(t: string) => string>> = {
+      doux: [
+        (t) => `⏰ « ${t} » arrive à son heure, doucement.`,
+        (t) => `⏰ C'est le moment pour « ${t} ».`,
+      ],
+      direct: [
+        (t) => `⏰ « ${t} » : c'est l'heure.`,
+        (t) => `⏰ Deadline atteinte pour « ${t} ».`,
+      ],
+      brut: [
+        (t) => `⏰ « ${t} », c'est maintenant, bouge.`,
+        (t) => `⏰ L'heure de « ${t} » est là, merde.`,
+      ],
+    };
+    return {
+      title: "Dodojo — Deadline qui approche",
+      body: pickVariant(atTimePools[level], seed)(taskTitle),
+      url: "/",
+    };
+  }
+
+  const pools: Record<AggressivityLevel, Array<(t: string, n: number) => string>> = {
+    doux: [
+      (t, n) => `⏰ « ${t} » approche, encore ${n} min.`,
+      (t, n) => `⏰ Dans ${n} min, « ${t} » arrive à son heure.`,
+      (t, n) => `⏰ « ${t} » : ${n} min avant l'échéance, à ton rythme.`,
+      (t, n) => `⏰ Un petit rappel pour « ${t} », ${n} min encore.`,
+      (t, n) => `⏰ « ${t} » se rapproche, ${n} min restantes.`,
+    ],
+    direct: [
+      (t, n) => `⏰ « ${t} » arrive dans ${n} min.`,
+      (t, n) => `⏰ Rappel : ${n} min avant « ${t} ».`,
+      (t, n) => `⏰ « ${t} » : deadline dans ${n} min.`,
+      (t, n) => `⏰ Plus que ${n} min pour « ${t} ».`,
+      (t, n) => `⏰ « ${t} » approche à grands pas (${n} min).`,
+    ],
+    brut: [
+      (t, n) => `⏰ « ${t} », ${n} min et c'est fini, bouge.`,
+      (t, n) => `⏰ ${n} min avant « ${t} », grouille.`,
+      (t, n) => `⏰ « ${t} » te tombe dessus dans ${n} min.`,
+      (t, n) => `⏰ Yo, ${n} min avant « ${t} », merde.`,
+      (t, n) => `⏰ « ${t} » : ${n} min, magne-toi.`,
+    ],
+  };
+
+  return {
+    title: "Dodojo — Deadline qui approche",
+    body: pickVariant(pools[level], seed)(taskTitle, offsetMinutes),
+    url: "/",
+  };
+}

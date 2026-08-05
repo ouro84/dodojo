@@ -4,6 +4,12 @@ export interface PushReminderPayload {
   title: string;
   body: string;
   url: string;
+  // Issue #114 (amélioration C) : présents uniquement pour un rappel de
+  // deadline (jamais pour le rappel quotidien générique) — permet au service
+  // worker d'ajouter l'action "snooze15" et de savoir quoi envoyer à la route
+  // de snooze.
+  taskId?: string;
+  userId?: string;
 }
 
 function pluralize(n: number, singular: string, plural: string): string {

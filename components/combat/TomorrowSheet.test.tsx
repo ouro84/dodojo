@@ -14,6 +14,7 @@ const baseProps = {
   onAdd: vi.fn(),
   onAddSubtask: vi.fn(),
   onSetDeadline: vi.fn(),
+  profileDefaultOffsetMinutes: 30,
   onAnnihilate: vi.fn(),
   onBringToToday: vi.fn(),
   addingSubtaskParentId: null,
