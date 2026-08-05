@@ -75,6 +75,17 @@
     "majLe": "2026-07-29T14:48:00.000Z"
   },
   {
+    "titre": "L'entrée en combat",
+    "slug": "intro-combat",
+    "section": "Combat",
+    "ordre": 60,
+    "resume": "La présentation VS/FIGHT! au premier chargement de l'Arène du jour.",
+    "motsCles": [
+      "combat"
+    ],
+    "majLe": "2026-08-05T22:29:00.000Z"
+  },
+  {
     "titre": "Le Réveil",
     "slug": "reveil",
     "section": "Journée",
