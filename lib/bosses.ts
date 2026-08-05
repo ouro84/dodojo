@@ -164,3 +164,10 @@ export function pickBackgroundId(
   const list = candidates.length > 0 ? candidates : pool;
   return list[Math.floor(rng() * list.length)].id;
 }
+
+// Issue #135 : détecte une première rencontre pour le badge du VS card.
+// `pastBossIds` = historique fourni par l'appelant (mêmes conventions que
+// `recentBossIds` dans resolveDailyBoss), jamais une requête ici.
+export function hasFacedBossBefore(pastBossIds: string[], bossId: string): boolean {
+  return pastBossIds.includes(bossId);
+}

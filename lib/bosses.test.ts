@@ -4,6 +4,7 @@ import {
   BOSSES,
   DEFAULT_BOSS_ID,
   getBoss,
+  hasFacedBossBefore,
   pickBackgroundId,
   pickDailyBoss,
 } from "./bosses";
@@ -87,5 +88,19 @@ describe("pickBackgroundId", () => {
     }
     expect(reachable.has("ancient-temple")).toBe(true);
     expect(reachable.has("ancient-temple-2")).toBe(true);
+  });
+});
+
+describe("hasFacedBossBefore (issue #135)", () => {
+  test("faux si l'historique est vide", () => {
+    expect(hasFacedBossBefore([], BOSSES[0].id)).toBe(false);
+  });
+
+  test("vrai si le boss est présent dans l'historique", () => {
+    expect(hasFacedBossBefore([BOSSES[1].id, BOSSES[0].id], BOSSES[0].id)).toBe(true);
+  });
+
+  test("faux si le boss n'est pas dans l'historique fourni", () => {
+    expect(hasFacedBossBefore([BOSSES[1].id, BOSSES[2].id], BOSSES[0].id)).toBe(false);
   });
 });
