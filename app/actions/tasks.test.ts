@@ -88,6 +88,8 @@ class FakeSupabaseClient {
 
 let fakeClient: FakeSupabaseClient;
 let revalidateCalls = 0;
+let cancelCalls: string[] = [];
+let scheduleCalls: Array<{ taskId: string; userId: string; deadlineAt: string; offsetMinutes: number }> = [];
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fakeClient,
@@ -99,12 +101,28 @@ vi.mock("next/cache", () => ({
   },
 }));
 
+vi.mock("@/lib/inngest/deadline-reminder", () => ({
+  cancelDeadlineReminder: async (taskId: string) => {
+    cancelCalls.push(taskId);
+  },
+  scheduleDeadlineReminder: async (params: {
+    taskId: string;
+    userId: string;
+    deadlineAt: string;
+    offsetMinutes: number;
+  }) => {
+    scheduleCalls.push(params);
+  },
+}));
+
 beforeEach(() => {
   fakeClient = new FakeSupabaseClient({
     profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
     tasks: [],
   });
   revalidateCalls = 0;
+  cancelCalls = [];
+  scheduleCalls = [];
 });
 
 afterEach(() => {
@@ -199,5 +217,89 @@ describe("Server actions — guards UUID (issues #95/#96)", () => {
     expect(result.error).toMatch(/pas encore prête/);
     expect(fakeClient.calls).toBe(0);
     expect(revalidateCalls).toBe(0);
+  });
+});
+
+describe("setTaskDeadline — moteur de rappel (#114)", () => {
+  test("émet un cancel puis un schedule quand une deadline non nulle est posée", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC", reminder_offset_minutes: 30 }],
+      tasks: [
+        {
+          id: "11111111-1111-1111-1111-111111111111",
+          user_id: "u1",
+          reminder_enabled: true,
+          reminder_offset_minutes: null,
+        },
+      ],
+    });
+    const { setTaskDeadline } = await import("./tasks");
+    const result = await setTaskDeadline(
+      "11111111-1111-1111-1111-111111111111",
+      "2026-08-01T16:00:00.000Z",
+    );
+    expect(result.error).toBeNull();
+    expect(cancelCalls).toEqual(["11111111-1111-1111-1111-111111111111"]);
+    expect(scheduleCalls).toEqual([
+      {
+        taskId: "11111111-1111-1111-1111-111111111111",
+        userId: "u1",
+        deadlineAt: "2026-08-01T16:00:00.000Z",
+        offsetMinutes: 30,
+      },
+    ]);
+  });
+
+  test("utilise l'override par tâche plutôt que le défaut du profil", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC", reminder_offset_minutes: 30 }],
+      tasks: [
+        {
+          id: "22222222-2222-2222-2222-222222222222",
+          user_id: "u1",
+          reminder_enabled: true,
+          reminder_offset_minutes: 5,
+        },
+      ],
+    });
+    const { setTaskDeadline } = await import("./tasks");
+    await setTaskDeadline("22222222-2222-2222-2222-222222222222", "2026-08-01T16:00:00.000Z");
+    expect(scheduleCalls[0].offsetMinutes).toBe(5);
+  });
+
+  test("n'émet qu'un cancel quand reminder_enabled est false", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC", reminder_offset_minutes: 30 }],
+      tasks: [
+        {
+          id: "33333333-3333-3333-3333-333333333333",
+          user_id: "u1",
+          reminder_enabled: false,
+          reminder_offset_minutes: null,
+        },
+      ],
+    });
+    const { setTaskDeadline } = await import("./tasks");
+    await setTaskDeadline("33333333-3333-3333-3333-333333333333", "2026-08-01T16:00:00.000Z");
+    expect(cancelCalls).toEqual(["33333333-3333-3333-3333-333333333333"]);
+    expect(scheduleCalls).toEqual([]);
+  });
+
+  test("n'émet qu'un cancel quand deadlineAt est null (effacement)", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC", reminder_offset_minutes: 30 }],
+      tasks: [
+        {
+          id: "44444444-4444-4444-4444-444444444444",
+          user_id: "u1",
+          reminder_enabled: true,
+          reminder_offset_minutes: null,
+        },
+      ],
+    });
+    const { setTaskDeadline } = await import("./tasks");
+    await setTaskDeadline("44444444-4444-4444-4444-444444444444", null);
+    expect(cancelCalls).toEqual(["44444444-4444-4444-4444-444444444444"]);
+    expect(scheduleCalls).toEqual([]);
   });
 });
