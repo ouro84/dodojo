@@ -5,6 +5,7 @@ import { dayKey } from "@/lib/game-engine";
 import {
   DEFAULT_BOSS_ID,
   getBoss,
+  hasFacedBossBefore,
   pickBackgroundId,
   pickDailyBoss,
 } from "@/lib/bosses";
@@ -15,6 +16,7 @@ export interface DailyBossSelection {
   bossId: string;
   backgroundId: string;
   newAchievements: string[];
+  isFirstEncounter: boolean;
 }
 
 // Résout (et fige) le boss + décor du jour local courant. Lazy & idempotent :
@@ -28,6 +30,7 @@ export async function resolveDailyBoss(): Promise<DailyBossSelection> {
     bossId: DEFAULT_BOSS_ID,
     backgroundId: DEFAULT_BACKGROUND_ID,
     newAchievements: [],
+    isFirstEncounter: false,
   };
 
   const supabase = await createClient();
@@ -94,8 +97,22 @@ export async function resolveDailyBoss(): Promise<DailyBossSelection> {
     }
   }
 
+  // Issue #135 : historique complet (pas seulement les 2 derniers jours comme
+  // `recentBossIds` plus haut) pour détecter une vraie première rencontre.
+  // Requête stable indépendamment de l'ordre d'appel : `day_date < today`
+  // exclut la ligne d'aujourd'hui, qu'elle existe déjà ou vienne d'être créée.
+  const { data: pastBossRows } = await supabase
+    .from("daily_boss")
+    .select("boss_id")
+    .eq("user_id", user.id)
+    .lt("day_date", today);
+  const isFirstEncounter = !hasFacedBossBefore(
+    (pastBossRows ?? []).map((r) => r.boss_id),
+    selection.bossId,
+  );
+
   const ctx = await assembleAchievementContext(supabase, user.id);
   const newAchievements = await applyNewAchievements(supabase, user.id, ctx);
 
-  return { ...selection, newAchievements };
+  return { ...selection, newAchievements, isFirstEncounter };
 }
