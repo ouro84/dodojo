@@ -33,6 +33,10 @@ test.describe("A2 — Popover breakdown pénalités HeroBar", () => {
     // "100" seul matcherait 3 éléments (100/100 ×2 et +100 de Base) → on
     // cible précisément la ligne "Base" qui affiche "+100".
     await expect(popover.getByText("+100", { exact: true })).toBeVisible();
+    // Issue #159 : XP jusqu'au niveau suivant toujours affiché (valeur non
+    // prévisible sur le compte e2e partagé qui accumule de l'XP au fil des
+    // runs — on vérifie juste la présence du libellé).
+    await expect(popover.getByText(/XP jusqu'au niveau suivant/)).toBeVisible();
 
     // Re-tap → ferme.
     await heroButton.click();
