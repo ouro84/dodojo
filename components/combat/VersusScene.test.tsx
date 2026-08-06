@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import VersusScene from "./VersusScene";
 import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
@@ -71,5 +71,23 @@ describe("VersusScene — ancrage horizontal (issue #156)", () => {
       (1 - meta.idleAnchorX) * 100,
       3,
     );
+  });
+});
+
+describe("VersusScene — plomberie dialog HP (issue #159)", () => {
+  it("passe completedCount/xpEarned à BossBar avec des défauts à 0", () => {
+    render(<VersusScene {...base} />);
+    fireEvent.click(screen.getByRole("button", { name: /Baron/ }));
+    const dialog = screen.getByRole("dialog", { name: /Détail du Boss/ });
+    expect(dialog).toHaveTextContent("0");
+    expect(dialog).toHaveTextContent("+0");
+  });
+
+  it("propage bossCompletedCount/bossXpEarned jusqu'au dialog du Boss", () => {
+    render(<VersusScene {...base} bossCompletedCount={3} bossXpEarned={90} />);
+    fireEvent.click(screen.getByRole("button", { name: /Baron/ }));
+    const dialog = screen.getByRole("dialog", { name: /Détail du Boss/ });
+    expect(dialog).toHaveTextContent("3");
+    expect(dialog).toHaveTextContent("+90");
   });
 });

@@ -33,6 +33,11 @@ interface VersusSceneProps {
   bossSpriteBase: string;
   bossSlug: string;
   bossFlip: boolean;
+  /** Issue #159 : contenu du dialog de détail HP du Boss. */
+  bossCompletedCount?: number;
+  bossXpEarned?: number;
+  /** Issue #159 : XP restant avant le niveau suivant, dialog HP du Héros. */
+  heroXpToNextLevel?: number;
   backgroundPath: string;
   currentHp: number;
   maxHp: number;
@@ -74,6 +79,9 @@ export default function VersusScene({
   bossSpriteBase,
   bossSlug,
   bossFlip,
+  bossCompletedCount = 0,
+  bossXpEarned = 0,
+  heroXpToNextLevel,
   backgroundPath,
   currentHp,
   maxHp,
@@ -132,13 +140,21 @@ export default function VersusScene({
             penaltiesBreakdown={
               heroPenaltiesBreakdown === null ? undefined : heroPenaltiesBreakdown
             }
+            xpToNextLevel={heroXpToNextLevel}
           />
         </div>
         <div className="flex flex-col items-center pt-1">
           <MidnightTimer />
         </div>
         <div className="min-w-0">
-          <BossBar bossName={bossName} currentHp={currentHp} maxHp={maxHp} danger={bossDanger} />
+          <BossBar
+            bossName={bossName}
+            currentHp={currentHp}
+            maxHp={maxHp}
+            danger={bossDanger}
+            completedCount={bossCompletedCount}
+            xpEarned={bossXpEarned}
+          />
           {upcomingDeadlineCount > 0 && (
             <p
               className="mt-0.5 text-right text-[0.65rem] uppercase tracking-wide text-alert drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
