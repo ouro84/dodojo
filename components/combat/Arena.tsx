@@ -1835,6 +1835,7 @@ export default function Arena({
               heroBustSrc={heroBustSrc}
               bossBustSrc={bossBustSrc}
               bossName={bossName}
+              bossFlip={boss.flip}
               isFirstEncounter={isFirstEncounter}
               stakesLine={vsStakesLine}
               onDone={() => setShowVsIntro(false)}

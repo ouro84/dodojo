@@ -8,6 +8,7 @@ interface VsIntroOverlayProps {
   heroBustSrc: string;
   bossBustSrc: string;
   bossName: string;
+  bossFlip: boolean;
   isFirstEncounter: boolean;
   stakesLine: string | null;
   onDone: () => void;
@@ -20,6 +21,7 @@ export default function VsIntroOverlay({
   heroBustSrc,
   bossBustSrc,
   bossName,
+  bossFlip,
   isFirstEncounter,
   stakesLine,
   onDone,
@@ -89,12 +91,22 @@ export default function VsIntroOverlay({
             alt=""
             className="vs-slide-in-left absolute left-4 w-[38vw] max-w-[220px] [image-rendering:pixelated]"
           />
-          {/* eslint-disable-next-line @next/next/no-img-element -- sprite pixel-art fixe, next/image inutile */}
-          <img
-            src={bossBustSrc}
-            alt=""
-            className="vs-slide-in-right absolute right-4 w-[38vw] max-w-[220px] [image-rendering:pixelated]"
-          />
+          {/* Piège transform : `.vs-slide-in-right` porte déjà une animation
+              CSS qui anime `transform` (translateX, fill-mode forwards) —
+              poser un `scaleX(-1)` inline sur ce MÊME élément serait
+              silencieusement écrasé pour toute la durée de vie du nœud.
+              Le miroir doit vivre sur un wrapper distinct de celui qui
+              porte l'animation de slide (même règle que l'ancrage des
+              sprites de combat, cf. CLAUDE.md § Sprites de combat). */}
+          <div className="vs-slide-in-right absolute right-4 w-[38vw] max-w-[220px]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- sprite pixel-art fixe, next/image inutile */}
+            <img
+              src={bossBustSrc}
+              alt=""
+              className="w-full [image-rendering:pixelated]"
+              style={{ transform: bossFlip ? "scaleX(-1)" : undefined }}
+            />
+          </div>
         </>
       )}
       {phase === "vs" && (

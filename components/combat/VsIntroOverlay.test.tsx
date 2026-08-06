@@ -13,6 +13,7 @@ const base = {
   heroBustSrc: "/sprites/mc/fire-knight/bust.png",
   bossBustSrc: "/sprites/bosses/minotaur/bust.png",
   bossName: "Minotaure",
+  bossFlip: false,
   isFirstEncounter: false,
   stakesLine: null as string | null,
 };
@@ -82,5 +83,21 @@ describe("VsIntroOverlay", () => {
       vi.advanceTimersByTime(450);
     });
     expect(screen.getByText("Ta série est en jeu")).toBeInTheDocument();
+  });
+
+  it("miroite le bust du boss quand bossFlip est vrai, jamais le bust du héros", () => {
+    vi.useFakeTimers();
+    render(<VsIntroOverlay {...base} bossFlip onDone={() => {}} />);
+    const heroImg = document.querySelector<HTMLImageElement>(`img[src="${base.heroBustSrc}"]`)!;
+    const bossImg = document.querySelector<HTMLImageElement>(`img[src="${base.bossBustSrc}"]`)!;
+    expect(heroImg).not.toHaveStyle({ transform: "scaleX(-1)" });
+    expect(bossImg).toHaveStyle({ transform: "scaleX(-1)" });
+  });
+
+  it("n'applique aucun transform au bust du boss quand bossFlip est faux", () => {
+    vi.useFakeTimers();
+    render(<VsIntroOverlay {...base} bossFlip={false} onDone={() => {}} />);
+    const bossImg = document.querySelector<HTMLImageElement>(`img[src="${base.bossBustSrc}"]`)!;
+    expect(bossImg.style.transform).toBe("");
   });
 });

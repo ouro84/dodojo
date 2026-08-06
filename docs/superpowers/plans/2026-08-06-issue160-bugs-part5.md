@@ -559,7 +559,10 @@ Dans `e2e/vs-intro.spec.ts`, ajouter (le compte e2e affronte un boss `idler` (Pa
     const introTransform = await introBoss.evaluate((el) => getComputedStyle(el).transform);
 
     await page.reload(); // fait disparaître l'intro (déjà jouée aujourd'hui), révèle la scène de combat
-    const combatBoss = page.locator('[data-testid="character-sprite"]').last();
+    // Le flip vit sur le nœud `role="img"` interne au SpriteAnimator
+    // (`transform: scaleX(±1)`), pas sur le wrapper `character-sprite`
+    // (celui-ci ne porte que `translateY`, cf. CharacterSprite.tsx).
+    const combatBoss = page.locator('[data-testid="character-sprite"] [role="img"]').last();
     const combatTransform = await combatBoss.evaluate((el) => getComputedStyle(el).transform);
 
     // matrix(-1,0,0,1,0,0) si flip, matrix(1,0,0,1,0,0)/"none" sinon — on ne
