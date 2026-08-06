@@ -51,6 +51,8 @@ import {
   summarizeDay,
   XP_PER_TASK,
   deferredRestHpPenalties,
+  todayCombatStats,
+  xpToNextLevel,
   type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
@@ -1713,6 +1715,9 @@ export default function Arena({
     atRisk: currentStreak(dayResults, today).atRisk,
   });
 
+  // Issue #159 : contenu des dialogs de détail HP (Boss + Héros).
+  const bossStats = todayCombatStats(tasks);
+
   return (
     <main className="screen-main relative h-dvh gap-3 overflow-hidden px-4 py-4">
       {/* Audit UX 2026-07-24 (P1) : seul écran de l'app sans heading de page -
@@ -1863,6 +1868,7 @@ export default function Arena({
               missedCount: missedDeadlines.length,
               missedHpPerItem: HERO_DAMAGE_PER_MISSED_DEADLINE,
             }}
+            heroXpToNextLevel={xpToNextLevel(profile.level, profile.xp)}
             bossName={bossName}
             bossSpriteBase={boss.spriteBase}
             bossSlug={boss.slug}
@@ -1872,6 +1878,8 @@ export default function Arena({
             maxHp={maxHp}
             upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
             comboCount={comboCount}
+            bossCompletedCount={bossStats.completedCount}
+            bossXpEarned={bossStats.xpEarned}
             dimmed={isEmpty}
             reducedMotion={reducedMotion}
             heroState={heroAnim?.state ?? "idle"}
