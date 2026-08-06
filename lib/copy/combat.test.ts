@@ -7,6 +7,7 @@ import {
   koHeader,
   koLine,
   milestoneLine,
+  vsCardStakesLine,
 } from "./combat";
 
 const FORBIDDEN_DOUX = /putain|bordel|merde|\bcon\b|connard|foutre/;
@@ -81,5 +82,43 @@ describe("Perfect / K.O.", () => {
     for (let seed = 0; seed < 5; seed++) seen.add(milestoneLine("direct", 7, seed));
     expect(seen.size).toBeGreaterThanOrEqual(5);
     expect(milestoneLine("direct", 7, 2)).toBe(milestoneLine("direct", 7, 2));
+  });
+});
+
+describe("vsCardStakesLine (issue #135)", () => {
+  test("renvoie null si ni milestone ni atRisk", () => {
+    expect(vsCardStakesLine("direct", { milestone: null, atRisk: false })).toBeNull();
+  });
+
+  test("priorise le milestone si les deux sont vrais", () => {
+    const line = vsCardStakesLine("direct", { milestone: 7, atRisk: true }, 0);
+    expect(line).toMatch(/7/);
+  });
+
+  test("ligne atRisk quand seul atRisk est vrai", () => {
+    const line = vsCardStakesLine("direct", { milestone: null, atRisk: true }, 0);
+    expect(line).not.toBeNull();
+  });
+
+  test("pool d'au moins 5 variantes par cas, seed stable", () => {
+    const seen = new Set<string | null>();
+    for (let seed = 0; seed < 5; seed++) {
+      seen.add(vsCardStakesLine("direct", { milestone: 7, atRisk: false }, seed));
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(5);
+    expect(vsCardStakesLine("direct", { milestone: 7, atRisk: false }, 2)).toBe(
+      vsCardStakesLine("direct", { milestone: 7, atRisk: false }, 2),
+    );
+  });
+
+  test("pool doux propre (pas de juron)", () => {
+    for (let seed = 0; seed < 5; seed++) {
+      expect(vsCardStakesLine("doux", { milestone: 7, atRisk: false }, seed)).not.toMatch(
+        FORBIDDEN_DOUX,
+      );
+      expect(vsCardStakesLine("doux", { milestone: null, atRisk: true }, seed)).not.toMatch(
+        FORBIDDEN_DOUX,
+      );
+    }
   });
 });

@@ -619,6 +619,24 @@ export function applyXpDelta(state: XpState, delta: number): XpState {
   return { level, xp };
 }
 
+// Issue #159 : stats du jour affichées dans le dialog HP du Boss.
+export type CombatStatsTask = Pick<Task, "is_completed" | "is_abandoned" | "xp_awarded">;
+
+export function todayCombatStats(
+  tasks: CombatStatsTask[],
+): { completedCount: number; xpEarned: number } {
+  const completed = tasks.filter((t) => t.is_completed && !t.is_abandoned);
+  return {
+    completedCount: completed.length,
+    xpEarned: completed.reduce((sum, t) => sum + (t.xp_awarded ?? XP_PER_TASK), 0),
+  };
+}
+
+// Issue #159 : XP restant avant le niveau suivant, affiché dans le dialog HP du Héros.
+export function xpToNextLevel(level: number, xp: number): number {
+  return xpThresholdForLevel(level) - xp;
+}
+
 export const COMBO_WINDOW_MS = 15 * 60 * 1000;
 export const COMBO_XP_BONUS_PER_TIER = 5;
 

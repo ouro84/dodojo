@@ -10,6 +10,8 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #159 : la jauge HP du Boss est désormais tappable (symétrique du popover HP du Héros, issue #101) — ouvre un dialog détaillant son nom, ses HP, les tâches validées et l'XP gagnée aujourd'hui. Le dialog HP du Héros affiche en plus le titre équipé et l'XP restante avant le niveau suivant.
+- Issue #135 : intro VS/FIGHT! au premier chargement de l'Arène du jour — portraits du héros et du boss qui glissent des bords, « VS » (avec badge « Première rencontre » et enjeu de série si pertinent), puis « FIGHT! ». Purement décoratif : l'Arène reste utilisable dès la première frame, toute interaction interrompt la séquence, une fois par jour local.
 - Issue #114 : notifications avant deadline de tâche — délai réglable par tâche et par défaut, filet in-app si push désactivé, deep-link vers la tâche, snooze +15 min depuis la notification.
 - Issue #69 : page Profil (`/vestiaire/profil`) — pseudo, titre équipé, fuseau horaire, mot de passe, email, déconnexion, en plus des réglages déjà existants déplacés depuis Le Vestiaire (Volume Intérieur, Planifier Demain, Intégrations). Le Vestiaire redevient un pur hub de navigation.
 - Issue #147 : la section "Demain" de l'Arène devient un bandeau compact + une sheet plein écran ouverte à la demande (au lieu d'un bloc toujours affiché sous le combat) — corrige un bug de layout où la liste de tâches du jour se retrouvait compressée à quelques lignes dès que "Demain" prenait de la place, l'Arène étant en hauteur figée (`h-dvh overflow-hidden`) sans scroll de page.

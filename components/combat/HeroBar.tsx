@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { usePopoverDismiss } from "@/hooks/usePopoverDismiss";
 
 interface PenaltiesBreakdown {
   overdueCount: number;
@@ -22,6 +22,8 @@ interface HeroBarProps {
   // Si fourni (cas Arena), la jauge devient tappable et ouvre un popover
   // de transparence du calcul (issue #101, Axe A).
   penaltiesBreakdown?: PenaltiesBreakdown | null;
+  /** Issue #159 : XP restant avant le niveau suivant, affiché dans le dialog. */
+  xpToNextLevel?: number;
 }
 
 export default function HeroBar({
@@ -31,36 +33,11 @@ export default function HeroBar({
   maxHp,
   alarm = false,
   penaltiesBreakdown,
+  xpToNextLevel,
 }: HeroBarProps) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
   const hasPopover = penaltiesBreakdown !== undefined && penaltiesBreakdown !== null;
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Fermeture au clic extérieur et au clavier Echap. Pas modal : l'Arène
-  // reste interactive (on détaille juste le calcul, on ne bloque pas).
-  useEffect(() => {
-    if (!isOpen) return;
-
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen]);
+  const { isOpen, setIsOpen, containerRef } = usePopoverDismiss();
 
   const bar = (
     <div
@@ -135,6 +112,18 @@ export default function HeroBar({
               {currentHp}/{maxHp}
             </span>
           </div>
+
+          {title && (
+            <p className="pt-1 text-muted">
+              Titre équipé : <span className="text-ink">{title}</span>
+            </p>
+          )}
+          {xpToNextLevel !== undefined && (
+            <p className="py-0.5 text-muted">
+              XP jusqu&apos;au niveau suivant :{" "}
+              <span className="font-hud tabular-nums text-ink">{xpToNextLevel}</span>
+            </p>
+          )}
 
           {noPenalty ? (
             <p className="py-2 text-center text-muted">

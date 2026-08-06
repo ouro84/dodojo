@@ -94,6 +94,7 @@ export default async function ArenePage() {
       today={today}
       bossId={daily.bossId}
       backgroundId={daily.backgroundId}
+      isFirstEncounter={daily.isFirstEncounter}
       hasSeenTutorial={profile.has_seen_tutorial}
       initialNewAchievements={daily.newAchievements}
     />

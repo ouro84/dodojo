@@ -33,7 +33,7 @@ test.describe("Parcours : équiper un héros depuis Le Marché Noir se reflète 
     await page.getByRole("button", { name: "Équiper" }).click();
     await expect(page.getByRole("button", { name: /Équipé/ })).toBeVisible();
 
-    await page.getByRole("link", { name: "Arène" }).click();
+    await page.getByRole("link", { name: "Arène", exact: true }).click();
     await page.waitForURL("/");
     await expect(page.getByRole("img", { name: "Ton héros : Prêtresse de l'Eau" })).toBeVisible();
   });

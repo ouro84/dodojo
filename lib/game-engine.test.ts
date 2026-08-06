@@ -50,6 +50,8 @@ import {
   XP_THRESHOLD_PER_LEVEL,
   isBossInDanger,
   upcomingReminderTasks,
+  todayCombatStats,
+  xpToNextLevel,
 } from "./game-engine";
 import type { ReorderableCompletionTask } from "./game-engine";
 import type { Task } from "../types";
@@ -1358,5 +1360,42 @@ describe("upcomingReminderTasks", () => {
     const now = new Date("2026-08-01T15:45:00.000Z");
     const tasks = [{ ...base, deadline_at: null }];
     expect(upcomingReminderTasks(tasks, now, 30)).toHaveLength(0);
+  });
+});
+
+describe("todayCombatStats (issue #159)", () => {
+  it("0 tâche → 0 partout", () => {
+    expect(todayCombatStats([])).toEqual({ completedCount: 0, xpEarned: 0 });
+  });
+
+  it("compte les tâches complétées et somme leur xp_awarded", () => {
+    const tasks = [
+      makeTask({ id: "a", is_completed: true, xp_awarded: 30 }),
+      makeTask({ id: "b", is_completed: true, xp_awarded: 45 }),
+      makeTask({ id: "c", is_completed: false }),
+    ];
+    expect(todayCombatStats(tasks)).toEqual({ completedCount: 2, xpEarned: 75 });
+  });
+
+  it("xp_awarded null → fallback XP_PER_TASK", () => {
+    const tasks = [makeTask({ id: "a", is_completed: true, xp_awarded: null })];
+    expect(todayCombatStats(tasks)).toEqual({ completedCount: 1, xpEarned: XP_PER_TASK });
+  });
+
+  it("exclut les tâches abandonnées même si marquées complétées", () => {
+    const tasks = [
+      makeTask({ id: "a", is_completed: true, is_abandoned: true, xp_awarded: 30 }),
+    ];
+    expect(todayCombatStats(tasks)).toEqual({ completedCount: 0, xpEarned: 0 });
+  });
+});
+
+describe("xpToNextLevel (issue #159)", () => {
+  it("renvoie le seuil du niveau moins l'xp courant", () => {
+    expect(xpToNextLevel(3, 40)).toBe(xpThresholdForLevel(3) - 40);
+  });
+
+  it("proche du seuil → petit reste", () => {
+    expect(xpToNextLevel(1, XP_THRESHOLD_PER_LEVEL - 5)).toBe(5);
   });
 });

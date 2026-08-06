@@ -51,6 +51,8 @@ import {
   summarizeDay,
   XP_PER_TASK,
   deferredRestHpPenalties,
+  todayCombatStats,
+  xpToNextLevel,
   type KoTier,
 } from "@/lib/game-engine";
 import { DEFAULT_HERO_ID, getHero } from "@/lib/heroes";
@@ -74,7 +76,7 @@ import {
   type PendingHits,
 } from "@/lib/combat-animation";
 import { buildShareCardParams } from "@/lib/share-card";
-import { emptyStateTitle, emptyStateBody } from "@/lib/copy/combat";
+import { emptyStateTitle, emptyStateBody, vsCardStakesLine } from "@/lib/copy/combat";
 import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
 import { deadlineAlertLine, buildDeadlineReminderPayload } from "@/lib/copy/deadline";
 import { planningUnlockedLine } from "@/lib/copy/planning";
@@ -113,6 +115,7 @@ import CrepusculeRecap from "./CrepusculeRecap";
 import TomorrowBanner from "./TomorrowBanner";
 import TomorrowSheet from "./TomorrowSheet";
 import KoSlam from "./KoSlam";
+import VsIntroOverlay from "./VsIntroOverlay";
 
 interface ArenaProps {
   initialProfile: Profile;
@@ -123,6 +126,7 @@ interface ArenaProps {
   today: string;
   bossId: string;
   backgroundId: string;
+  isFirstEncounter: boolean;
   hasSeenTutorial: boolean;
   initialNewAchievements: string[];
 }
@@ -162,6 +166,7 @@ export default function Arena({
   today,
   bossId,
   backgroundId,
+  isFirstEncounter,
   hasSeenTutorial,
   initialNewAchievements,
 }: ArenaProps) {
@@ -506,6 +511,31 @@ export default function Arena({
     recapPlayedRef.current = true;
     triggerBossAttack("recap");
   }, [missedDeadlines.length, overdueTasks.length, reducedMotion, showWakeUp]);
+
+  const vsIntroPlayedRef = useRef(false);
+  const [showVsIntro, setShowVsIntro] = useState(false);
+
+  function armVsIntro() {
+    vsIntroPlayedRef.current = true;
+    setShowVsIntro(true);
+  }
+
+  // Issue #135 : une fois par jour local, jamais silencieusement rejoué au
+  // remontage — flag posé AVANT l'affichage (pas à la fin de la séquence),
+  // pour qu'une navigation qui interrompt tôt ne la refasse pas rejouer.
+  useEffect(() => {
+    if (vsIntroPlayedRef.current || reducedMotion) return;
+    if (showWakeUp) return; // Le Réveil bloque : on attend sa fermeture.
+    if (typeof window === "undefined") return;
+    const key = `dodojo:vs-intro:${today}`;
+    if (window.localStorage.getItem(key)) return;
+    window.localStorage.setItem(key, "1");
+    // Synchronise avec un système externe (localStorage), gardé par
+    // vsIntroPlayedRef : exactement le cas d'usage légitime documenté par la
+    // règle elle-même.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    armVsIntro();
+  }, [reducedMotion, showWakeUp, today]);
 
   // Issue #114 (amélioration B) : deep-link depuis une notif de rappel
   // (?highlightTask=<id>) — scroll jusqu'à la tâche puis nettoie l'URL pour
@@ -1663,6 +1693,31 @@ export default function Arena({
     setRecap(summarizeDay(tasks, "manual"));
   }
 
+  // Issue #135 : contenu du VS card. streakIfVictoryToday force l'issue du
+  // jour à victory (même patron que le déclenchement de la super-variante
+  // flammes du Perfect/KO, cf. koOutcome plus haut) pour savoir si CE combat
+  // franchirait un palier — dayResults/today sont déjà des props de ce
+  // composant, aucun nouveau fetch nécessaire.
+  const heroBustSrc = `/sprites/mc/${equippedHero.slug}/bust.png`;
+  const bossBustSrc = `/sprites/bosses/${boss.slug}/bust.png`;
+  const streakIfVictoryToday = currentStreak(
+    [
+      ...dayResults.filter((r) => r.day_date !== today),
+      { day_date: today, outcome: "victory" as const },
+    ],
+    today,
+  );
+  const vsMilestone = [7, 30, 100].includes(streakIfVictoryToday.length)
+    ? streakIfVictoryToday.length
+    : null;
+  const vsStakesLine = vsCardStakesLine(level, {
+    milestone: vsMilestone,
+    atRisk: currentStreak(dayResults, today).atRisk,
+  });
+
+  // Issue #159 : contenu des dialogs de détail HP (Boss + Héros).
+  const bossStats = todayCombatStats(tasks);
+
   return (
     <main className="screen-main relative h-dvh gap-3 overflow-hidden px-4 py-4">
       {/* Audit UX 2026-07-24 (P1) : seul écran de l'app sans heading de page -
@@ -1775,6 +1830,16 @@ export default function Arena({
           <div className="hit-flash-overlay pointer-events-none absolute inset-0 z-30 rounded-lg" />
         )}
         <div className="relative">
+          {showVsIntro && (
+            <VsIntroOverlay
+              heroBustSrc={heroBustSrc}
+              bossBustSrc={bossBustSrc}
+              bossName={bossName}
+              isFirstEncounter={isFirstEncounter}
+              stakesLine={vsStakesLine}
+              onDone={() => setShowVsIntro(false)}
+            />
+          )}
           <VersusScene
             heroName={equippedHero.name}
             heroLabel={profile.username}
@@ -1803,6 +1868,7 @@ export default function Arena({
               missedCount: missedDeadlines.length,
               missedHpPerItem: HERO_DAMAGE_PER_MISSED_DEADLINE,
             }}
+            heroXpToNextLevel={xpToNextLevel(profile.level, profile.xp)}
             bossName={bossName}
             bossSpriteBase={boss.spriteBase}
             bossSlug={boss.slug}
@@ -1812,6 +1878,8 @@ export default function Arena({
             maxHp={maxHp}
             upcomingDeadlineCount={upcomingDeadlineCount(activeTasks, now)}
             comboCount={comboCount}
+            bossCompletedCount={bossStats.completedCount}
+            bossXpEarned={bossStats.xpEarned}
             dimmed={isEmpty}
             reducedMotion={reducedMotion}
             heroState={heroAnim?.state ?? "idle"}
