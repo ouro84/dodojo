@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dayKey, nextDayKey } from "@/lib/game-engine";
 import { generateRecurringInstances } from "@/app/actions/recurring";
 import { resolveDailyBoss } from "@/app/actions/boss";
+import { backfillMissedDaysDuringRender } from "@/app/actions/day";
 import Arena from "@/components/combat/Arena";
 import ArenaError from "@/components/combat/ArenaError";
 
@@ -40,6 +41,21 @@ export default async function ArenePage() {
 
   // Roster : boss + décor du jour (tiré une fois puis figé, exclut les 2 derniers jours).
   const daily = await resolveDailyBoss();
+
+  // Issue #160 (bug #2) : filet supplémentaire au chargement — backfille tout
+  // jour passé ayant des tâches mais aucune ligne day_results. Sans cet appel
+  // eager, un compte qui n'a jamais de tâche en retard ne monte jamais Le
+  // Réveil, seul déclencheur historique de ce backfill — un jour gagné mais
+  // jamais clôturé manuellement restait alors un trou permanent, invisible du
+  // Tableau de Chasse (winRate ne compte que les lignes existantes) mais
+  // compté comme joker consommé par currentStreak. Appel lazy et idempotent
+  // (no-op si aucun jour passé sans ligne), même patron que
+  // resolveDailyBoss()/generateRecurringInstances() ci-dessus. Variante
+  // "DuringRender" (pas revalidatePath, interdit pendant le render en Next 16)
+  // — WakeUpRitual continue d'appeler backfillMissedDays() (avec revalidate)
+  // après coup, nécessaire pour qu'un "Terminé" ait pu transformer un jour en
+  // victory avant son backfill.
+  await backfillMissedDaysDuringRender();
 
   // Indépendantes entre elles une fois generateRecurringInstances() terminé
   // (audit #67, PR4) — paralléliser avant casserait l'anti-doublon de routine.
