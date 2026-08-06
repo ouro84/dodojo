@@ -430,6 +430,23 @@ body {
   animation: vs-slide-in-right 450ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* Issue #159 : pulse bref sur le chiffre HP à l'ouverture du dialog boss —
+   lecture "scan" plutôt qu'un tooltip de stats plat. */
+@keyframes hp-scan-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.hp-scan-pulse {
+  animation: hp-scan-pulse 300ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .achievement-toast {
     animation: none;
@@ -488,5 +505,8 @@ body {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+  .hp-scan-pulse {
+    animation: none;
   }
 }
