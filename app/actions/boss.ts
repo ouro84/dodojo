@@ -72,29 +72,30 @@ export async function resolveDailyBoss(): Promise<DailyBossSelection> {
     const boss = pickDailyBoss(recentBossIds);
     const backgroundId = pickBackgroundId(boss);
 
-    const { error } = await supabase.from("daily_boss").insert({
-      user_id: user.id,
-      day_date: today,
-      boss_id: boss.id,
-      background_id: backgroundId,
-    });
+    // Upsert idempotent (conflit = no-op silencieux, jamais d'erreur 23505 à
+    // intercepter) suivi d'une relecture SYSTÉMATIQUE : que cet appel ait
+    // gagné ou perdu une course contre un autre chargement concurrent (ex.
+    // le revalidatePath("/") d'addTask), la relecture renvoie toujours la
+    // ligne réellement persistée — les deux appels convergent nécessairement
+    // vers la même valeur. Jamais de pick local en fallback tant que la
+    // relecture réussit (issue #160 bug #1).
+    await supabase.from("daily_boss").upsert(
+      { user_id: user.id, day_date: today, boss_id: boss.id, background_id: backgroundId },
+      { onConflict: "user_id,day_date", ignoreDuplicates: true },
+    );
 
-    if (error) {
-      // Course possible (double chargement) : si insert échoue, relire la ligne.
-      const { data: raced } = await supabase
-        .from("daily_boss")
-        .select("boss_id, background_id")
-        .eq("user_id", user.id)
-        .eq("day_date", today)
-        .maybeSingle();
-      selection = raced
-        ? { bossId: raced.boss_id, backgroundId: raced.background_id }
-        : getBoss(boss.id)
-          ? { bossId: boss.id, backgroundId }
-          : { bossId: fallback.bossId, backgroundId: fallback.backgroundId };
-    } else {
-      selection = { bossId: boss.id, backgroundId };
-    }
+    const { data: persisted } = await supabase
+      .from("daily_boss")
+      .select("boss_id, background_id")
+      .eq("user_id", user.id)
+      .eq("day_date", today)
+      .maybeSingle();
+
+    selection = persisted
+      ? { bossId: persisted.boss_id, backgroundId: persisted.background_id }
+      : getBoss(boss.id)
+        ? { bossId: boss.id, backgroundId }
+        : { bossId: fallback.bossId, backgroundId: fallback.backgroundId };
   }
 
   // Issue #135 : historique complet (pas seulement les 2 derniers jours comme

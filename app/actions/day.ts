@@ -109,11 +109,15 @@ export async function closeDay(): Promise<CloseDayResult> {
   return { error: null, outcome: summary.outcome, newAchievements };
 }
 
-// US-08 (D8) : à la fin du traitement du Réveil, enregistre rétroactivement un
-// day_result pour chaque jour passé sans résultat (issue calculée après que
-// "Terminé" a pu transformer un jour en victoire tardive). Historique sans
-// trous pour le Tableau de Chasse / streak.
-export async function backfillMissedDays(): Promise<{ error: string | null }> {
+// Issue #160 (bug #2) : logique pure de mutation, SANS revalidatePath — cette
+// variante est appelée directement depuis le render du Server Component
+// `app/page.tsx` (chargement eager, avant Le Réveil), et Next.js 16 interdit
+// `revalidatePath` "during render" ("Route / used revalidatePath / during
+// render which is unsupported", erreur reproduite en implémentant ce bug).
+// `backfillMissedDays` (ci-dessous) reste l'API publique inchangée pour
+// WakeUpRitual, qui l'appelle comme une vraie Server Action après le render
+// (donc non concernée par cette contrainte) et veut la revalidation.
+export async function backfillMissedDaysDuringRender(): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -208,6 +212,17 @@ export async function backfillMissedDays(): Promise<{ error: string | null }> {
   const ctx = await assembleAchievementContext(supabase, user.id);
   await applyNewAchievements(supabase, user.id, ctx);
 
-  revalidatePath("/");
   return { error: null };
+}
+
+// US-08 (D8) : API publique inchangée, appelée par WakeUpRitual à la fin du
+// traitement du Réveil (issue calculée après que "Terminé" a pu transformer
+// un jour en victoire tardive). Historique sans trous pour le Tableau de
+// Chasse / streak. Contrairement à la variante ci-dessus, cet appel a lieu
+// après le render (Server Action déclenchée par un clic client), donc
+// revalidatePath y est sans risque.
+export async function backfillMissedDays(): Promise<{ error: string | null }> {
+  const result = await backfillMissedDaysDuringRender();
+  if (!result.error) revalidatePath("/");
+  return result;
 }

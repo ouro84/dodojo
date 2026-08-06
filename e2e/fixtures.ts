@@ -484,6 +484,62 @@ export async function deleteTaskById(id: string): Promise<void> {
 }
 
 // US-12 : purge les day_results du compte de test et sème une série contrôlée.
+// Issue #160 (bug #2) : simule un jour gagné (tâche complétée) mais jamais
+// clôturé manuellement — pour reproduire le trou permanent qui consommait un
+// joker à tort sur un compte sans aucun retard (Le Réveil, seul déclencheur
+// historique de backfillMissedDays, ne se monte jamais dans ce cas).
+export async function seedWonPastDayWithoutResult(daysAgo: number): Promise<string> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "Seed won past day : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
+    );
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("Seed won past day : utilisateur test introuvable.");
+
+  const dayDate = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+  await admin.from("day_results").delete().eq("user_id", uid).eq("day_date", dayDate);
+  const { data, error } = await admin
+    .from("tasks")
+    .insert({ user_id: uid, title: `E2E won day ${dayDate}`, day_date: dayDate, is_completed: true })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(`Seed won past day : insert échoué (${error?.message ?? "inconnu"}).`);
+  }
+  return dayDate;
+}
+
+// Issue #160 (bug #2) : lit l'outcome day_results pour une date donnée (ou
+// null si la ligne n'existe pas encore — le "trou" que ce bug produisait).
+export async function getDayResultOutcome(dayDate: string): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "Get day result : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
+    );
+  }
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error("Get day result : utilisateur test introuvable.");
+
+  const { data } = await admin
+    .from("day_results")
+    .select("outcome")
+    .eq("user_id", uid)
+    .eq("day_date", dayDate)
+    .maybeSingle();
+  return (data?.outcome as string | undefined) ?? null;
+}
+
 export async function seedStreak(
   rows: Array<{ day_date: string; outcome: "victory" | "retreat" | "defeat" }>,
 ): Promise<void> {

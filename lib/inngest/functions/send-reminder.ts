@@ -120,9 +120,16 @@ export const sendReminder = inngest.createFunction(
     const [candidate] = buildCandidatesFromDb(subs, [profile], tasks, dayResults, now);
     if (!isReminderEligible(candidate, now)) return;
 
-    const remaining = calculateBossCurrentHp(candidate.todayTasks);
+    const remainingTaskCount = candidate.todayTasks.filter(
+      (t) => !t.is_completed && !t.is_abandoned,
+    ).length;
+    const remainingHp = calculateBossCurrentHp(candidate.todayTasks);
     const payload = JSON.stringify(
-      buildReminderPayload(remaining, profile.aggressivity_level, () => event.data.variantIndex),
+      buildReminderPayload(
+        { remainingTaskCount, remainingHp },
+        profile.aggressivity_level,
+        () => event.data.variantIndex,
+      ),
     );
 
     const pushResult = await step.run("send-push", async () => {
