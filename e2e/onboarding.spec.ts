@@ -73,7 +73,7 @@ test("Onboarding complet (US-29)", async ({ page }) => {
   await page.waitForURL("/guide");
   await expect(page.getByRole("heading", { name: "Le Guide" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Arène" }).click();
+  await page.getByRole("link", { name: "Arène", exact: true }).click();
   await page.waitForURL("/");
   await expect(page.getByText(/Prendre en main Dodojo/)).toBeHidden();
 });
