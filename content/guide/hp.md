@@ -33,3 +33,11 @@ Pas de régénération active (pas de potion, pas de bonus streak) — la jauge 
 - Boss terrassé avec HP Héros à 100 → **PERFECT** (super célébration).
 
 - Boss terrassé avec HP Héros < 100 → simple **K.O.** (victoire amère).
+
+### Voir le détail
+
+Tappe la jauge HP du Héros ou celle du Boss pour ouvrir le détail du calcul en cours :
+
+- **Héros** : le détail des pénalités actives, ton titre équipé, et l'XP qui te reste avant le niveau suivant.
+
+- **Boss** : ses HP, le nombre de tâches déjà validées aujourd'hui et l'XP gagnée aujourd'hui.
