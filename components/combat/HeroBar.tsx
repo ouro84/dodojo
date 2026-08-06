@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { usePopoverDismiss } from "@/hooks/usePopoverDismiss";
 
 interface PenaltiesBreakdown {
   overdueCount: number;
@@ -34,33 +34,7 @@ export default function HeroBar({
 }: HeroBarProps) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
   const hasPopover = penaltiesBreakdown !== undefined && penaltiesBreakdown !== null;
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Fermeture au clic extérieur et au clavier Echap. Pas modal : l'Arène
-  // reste interactive (on détaille juste le calcul, on ne bloque pas).
-  useEffect(() => {
-    if (!isOpen) return;
-
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen]);
+  const { isOpen, setIsOpen, containerRef } = usePopoverDismiss();
 
   const bar = (
     <div
