@@ -46,4 +46,32 @@ describe("HeroBar", () => {
     fireEvent.mouseDown(screen.getByText("Hors"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("affiche le titre équipé dans le dialog quand fourni", () => {
+    render(
+      <HeroBar
+        heroName="Ari"
+        title="Calme"
+        currentHp={80}
+        maxHp={100}
+        penaltiesBreakdown={{ overdueCount: 0, overdueHpPerItem: 20, missedCount: 0, missedHpPerItem: 10 }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Ari/ }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Calme");
+  });
+
+  it("affiche l'XP jusqu'au niveau suivant dans le dialog quand fourni", () => {
+    render(
+      <HeroBar
+        heroName="Ari"
+        currentHp={80}
+        maxHp={100}
+        xpToNextLevel={45}
+        penaltiesBreakdown={{ overdueCount: 0, overdueHpPerItem: 20, missedCount: 0, missedHpPerItem: 10 }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Ari/ }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("45");
+  });
 });

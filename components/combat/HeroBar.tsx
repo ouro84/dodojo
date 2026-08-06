@@ -22,6 +22,8 @@ interface HeroBarProps {
   // Si fourni (cas Arena), la jauge devient tappable et ouvre un popover
   // de transparence du calcul (issue #101, Axe A).
   penaltiesBreakdown?: PenaltiesBreakdown | null;
+  /** Issue #159 : XP restant avant le niveau suivant, affiché dans le dialog. */
+  xpToNextLevel?: number;
 }
 
 export default function HeroBar({
@@ -31,6 +33,7 @@ export default function HeroBar({
   maxHp,
   alarm = false,
   penaltiesBreakdown,
+  xpToNextLevel,
 }: HeroBarProps) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
   const hasPopover = penaltiesBreakdown !== undefined && penaltiesBreakdown !== null;
@@ -109,6 +112,18 @@ export default function HeroBar({
               {currentHp}/{maxHp}
             </span>
           </div>
+
+          {title && (
+            <p className="pt-1 text-muted">
+              Titre équipé : <span className="text-ink">{title}</span>
+            </p>
+          )}
+          {xpToNextLevel !== undefined && (
+            <p className="py-0.5 text-muted">
+              XP jusqu&apos;au niveau suivant :{" "}
+              <span className="font-hud tabular-nums text-ink">{xpToNextLevel}</span>
+            </p>
+          )}
 
           {noPenalty ? (
             <p className="py-2 text-center text-muted">
