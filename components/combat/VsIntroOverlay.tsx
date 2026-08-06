@@ -46,12 +46,12 @@ export default function VsIntroOverlay({
   useEffect(() => {
     const timers = [
       setTimeout(() => setPhase("vs"), 450),
-      setTimeout(() => setPhase("fight"), 1600),
-      setTimeout(() => setFading(true), 2500),
-      setTimeout(finish, 3000),
-      // Garde-fou : démontage forcé à 5s même si le déroulé scripté a été
-      // perturbé (`firedRef` empêche un double appel si les deux tirent).
+      setTimeout(() => setPhase("fight"), 2600),
+      setTimeout(() => setFading(true), 4500),
       setTimeout(finish, 5000),
+      // Garde-fou : démontage forcé à 7s même si le déroulé scripté a été
+      // perturbé (`firedRef` empêche un double appel si les deux tirent).
+      setTimeout(finish, 7000),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);

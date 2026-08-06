@@ -30,27 +30,27 @@ describe("VsIntroOverlay", () => {
     expect(screen.getByText("VS")).toBeInTheDocument();
 
     act(() => {
-      vi.advanceTimersByTime(1150); // cumulé 1600ms
+      vi.advanceTimersByTime(2150); // cumulé 2600ms
     });
     expect(screen.getByText("FIGHT!")).toBeInTheDocument();
     expect(screen.queryByText("VS")).not.toBeInTheDocument();
   });
 
-  it("appelle onDone une fois après la séquence complète (~3s)", () => {
+  it("appelle onDone une fois après la séquence complète (~5s)", () => {
     vi.useFakeTimers();
     const onDone = vi.fn();
     render(<VsIntroOverlay {...base} onDone={onDone} />);
-    vi.advanceTimersByTime(2999);
+    vi.advanceTimersByTime(4999);
     expect(onDone).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
-  it("n'appelle onDone qu'une seule fois même après 5s pleins (garde-fou sans double appel)", () => {
+  it("n'appelle onDone qu'une seule fois même après 7s pleines (garde-fou sans double appel)", () => {
     vi.useFakeTimers();
     const onDone = vi.fn();
     render(<VsIntroOverlay {...base} onDone={onDone} />);
-    vi.advanceTimersByTime(5000);
+    vi.advanceTimersByTime(7000);
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
