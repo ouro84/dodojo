@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dodojo
 
-## Getting Started
+Une application de productivité mobile-first de style RPG/Arcade 16-bits où chaque tâche créée soigne le Boss de la journée (+20 HP) et chaque tâche complétée lui inflige des dégâts — une gratification immédiate pour vaincre la procrastination.
 
-First, run the development server:
+**Production : [dodojo.vercel.app](https://dodojo.vercel.app)**
+
+## Stack
+
+Next.js 16 (App Router) · Supabase (PostgreSQL/Auth) · Tailwind CSS v4 · Vercel · Vitest · Playwright
+
+## Fonctionnalités
+
+- **L'Arène** — boucle de combat quotidienne : tâches/sous-tâches, dictée vocale, drag & drop, deadlines horaires, combo, animations façon versus (héros vs boss)
+- **Progression** — XP & niveaux, streaks, succès, roster de 27 boss, tenues de héros
+- **Le Marché Noir** — héros déblocables à l'or gagné en combat
+- **Le Vestiaire** — profil, réglage du ton (Volume Intérieur), Mode Entraînement (tâches récurrentes), Le Guide
+- **Intégrations** — PWA installable, notifications push, Siri (iOS Shortcuts), Gemini (serveur MCP)
+
+Voir le [CHANGELOG](CHANGELOG.md) pour le détail complet.
+
+## Développement
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run test   # Vitest
+npm run e2e    # Playwright (build + serveur de prod requis)
+npm run lint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Variables d'environnement : voir `.env.example`.
 
-## Learn More
+## Documentation
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Fichier | Rôle |
+|---------|------|
+| `CLAUDE.md` | Contexte projet, conventions, pièges connus |
+| `SPECS_FONCTIONNELLES.md` | User Stories et règles métier |
+| `ADR.md` | Choix technologiques |
+| `PRODUCT.md` | Contexte produit (users, ton, principes de design) |
+| `DESIGN.md` | Système de design |
+| `PARCOURS_UTILISATEURS.md` | Cartographie des écrans et parcours e2e |
+| `CONTRIBUTING.md` | Procédure de contribution |
