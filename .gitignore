@@ -47,6 +47,9 @@ next-env.d.ts
 .claude/
 .superpowers/
 
+# graphify — graphe régénérable via `graphify update .`, pas une source de vérité
+/graphify-out/
+
 # assets bruts (packs tiers, licences mixtes, non versionnés — voir ASSETS.md)
 /assets/
 
