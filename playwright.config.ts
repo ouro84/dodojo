@@ -18,12 +18,17 @@ export default defineConfig({
   testDir: "./e2e",
   // Reset de l'état de combat du compte fixe avant la suite (cf. e2e/global-setup.ts).
   globalSetup: "./e2e/global-setup.ts",
-  // Exécution SÉRIE volontaire. Tous les tests partagent l'unique compte e2e
-  // fixe (ADR-04) : en parallèle ils muteraient le même état (tâches, boss du
-  // jour) et interféreraient (nav qui traîne sous charge, contrôles restés
-  // disabled). Bug reproduit : 9/9 vert en série, ~6-8/9 KO dès 4 workers.
-  fullyParallel: false,
-  workers: 1,
+  // Exécution SÉRIE en local (1 seul compte e2e configuré, ADR-04) ; 4 workers
+  // en CI, un compte Supabase dédié par worker (`E2E_TEST_EMAIL`/`_2`/`_3`/`_4`,
+  // secrets CI, cf. e2e/fixtures.ts) — chaque fichier de spec tourne dans un
+  // seul worker donc dans un seul compte, plus d'interférence inter-worker.
+  // Avant cette isolation, tous les tests partageaient l'unique compte e2e fixe
+  // et se marchaient dessus en parallèle (tâches, boss du jour mutés par
+  // plusieurs workers à la fois) — bug reproduit : 9/9 vert en série, ~6-8/9 KO
+  // dès 4 workers sur un compte unique. `workers:4` est calé sur les 4 vCPU du
+  // runner `ubuntu-latest` (pas de sur-souscription).
+  fullyParallel: !!process.env.CI,
+  workers: process.env.CI ? 4 : 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   // Runner GitHub Actions ~1.5-2x plus lent que le poste local (constaté sur
