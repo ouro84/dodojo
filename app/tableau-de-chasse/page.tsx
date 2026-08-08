@@ -126,7 +126,7 @@ export default async function PantheonPage() {
             style={{ width: `${xpPct}%` }}
           />
         </div>
-        <p className="text-right text-[10px] text-faint">
+        <p className="text-right text-micro text-faint">
           {profile.xp} / {xpThreshold} XP
         </p>
       </section>
@@ -144,7 +144,7 @@ export default async function PantheonPage() {
         </div>
         <DamageSparkline values={stats.damageSeries} />
         {stats.bestDay && (
-          <p className="text-[11px] text-muted">
+          <p className="text-micro text-muted">
             Record :{" "}
             <span className="text-hp-text">{stats.bestDay.damage} dégâts</span> le{" "}
             {stats.bestDay.day_date.slice(8, 10)}/{stats.bestDay.day_date.slice(5, 7)}
@@ -197,7 +197,7 @@ function Stat({
 }) {
   return (
     <div className={`flex flex-col ${align === "right" ? "items-end" : "items-start"}`}>
-      <span className="text-[10px] uppercase tracking-wide text-faint">{label}</span>
+      <span className="text-micro uppercase tracking-wide text-faint">{label}</span>
       <span className="font-display text-sm text-ink">{value}</span>
     </div>
   );

@@ -53,6 +53,11 @@
   --font-display: "BoldPixels", "Courier New", monospace;
   --font-hud: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
     monospace;
+
+  /* Issue #171 : palier "plus petit que text-xs" écrit 9 fois en valeur
+     arbitraire avant ce fix — 0.65rem est la valeur qui a gagné dans les
+     faits (4 usages exacts sur 9, cf. DESIGN.md). */
+  --text-micro: 0.65rem;
 }
 
 @layer components {
