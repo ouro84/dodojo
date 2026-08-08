@@ -16,6 +16,7 @@ const SECTIONS: Array<{ href: string; icon: string; label: string }> = [
   { href: "/vestiaire/profil", icon: "👤", label: "Profil" },
   { href: "/tableau-de-chasse", icon: "🏆", label: "Tableau de Chasse" },
   { href: "/vestiaire/entrainement", icon: "🔁", label: "Mes Routines" },
+  { href: "/vestiaire/artisans", icon: "🎨", label: "Les Artisans" },
   { href: "/marche-noir", icon: "🛒", label: "Le Marché Noir" },
   { href: "/guide", icon: "📖", label: "Le Guide" },
 ];
