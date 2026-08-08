@@ -39,13 +39,128 @@ async function deleteUserRetrying(admin: SupabaseClient, uid: string, attempts =
   );
 }
 
+// Isolation multi-comptes (PR2) : `fullyParallel`/`workers:4` en CI (ADR-04
+// complété) exigent un compte Supabase par worker, sinon les workers se
+// marchent dessus sur le même état (exactement le bug qui avait fait
+// abandonner `fullyParallel` la première fois — cf. CLAUDE.md § playwright.config).
+// Playwright expose `TEST_PARALLEL_INDEX` (0-based, stable par slot de worker
+// concurrent) dans chaque process worker — absent seulement dans le process
+// `globalSetup` (qui tourne une fois, avant que les workers n'existent).
+// Convention de nommage : worker 0 → `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD`
+// (compte historique, inchangé pour la compat locale à 1 worker) ; workers
+// 1/2/3 → `E2E_TEST_EMAIL_2/3/4` (suffixe humain, pas l'index brut).
+function currentWorkerSuffix(): string {
+  const idx = Number(process.env.TEST_PARALLEL_INDEX ?? "0");
+  return idx > 0 ? `_${idx + 1}` : "";
+}
+
+export function e2eEnvNamesForSuffix(suffix: string): { emailVar: string; passwordVar: string } {
+  return { emailVar: `E2E_TEST_EMAIL${suffix}`, passwordVar: `E2E_TEST_PASSWORD${suffix}` };
+}
+
+// Liste les comptes e2e réellement configurés dans l'environnement courant :
+// toujours le compte 0 (obligatoire), plus tout compte 2/3/4 dont l'email est
+// présent. Permet à `global-setup.ts`/`e2e:reset` de purger les 4 comptes en
+// CI mais un seul en local (dev sans les 3 comptes worker supplémentaires).
+export function configuredE2eWorkerSuffixes(): string[] {
+  const suffixes = [""];
+  for (let i = 2; i <= 4; i++) {
+    if (process.env[`E2E_TEST_EMAIL_${i}`]) suffixes.push(`_${i}`);
+  }
+  return suffixes;
+}
+
+// Env admin requis par tout appel service-role (global-setup, reset manuel,
+// tous les helpers de fixture ci-dessous). Échoue bruyamment plutôt que de
+// laisser un appelant retomber silencieusement sur un compte non purgé —
+// symétrique à la logique de `login()` juste en dessous. `suffix` par défaut
+// résout le compte du worker COURANT (usage normal, appelé depuis un test) ;
+// `global-setup.ts`/`e2e:reset` passent un suffixe explicite pour boucler sur
+// tous les comptes configurés depuis le process principal (pas de worker actif).
+export function requireE2eAdminEnv(
+  suffix: string = currentWorkerSuffix(),
+): { url: string; key: string; email: string } {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const { emailVar } = e2eEnvNamesForSuffix(suffix);
+  const email = process.env[emailVar];
+  if (!url || !key || !email) {
+    throw new Error(
+      `Reset e2e : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / ${emailVar} manquants (ADR-04, .env.local).`,
+    );
+  }
+  return { url, key, email };
+}
+
+export async function resolveE2eUserId(admin: SupabaseClient, email: string): Promise<string> {
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error(`Reset e2e : utilisateur de test introuvable pour ${email}.`);
+  return uid;
+}
+
+// Résout admin+uid pour le compte du worker COURANT — factorise le
+// boilerplate (url/key/email → client → uid) répété par tous les helpers de
+// fixture ci-dessous. Chacun résolvait sa propre variante avant cette
+// factorisation ; en plus de la duplication, ça aurait multiplié par 12 les
+// endroits à mettre à jour pour l'isolation multi-comptes (PR2).
+async function getE2eAdmin(): Promise<{ admin: SupabaseClient; uid: string }> {
+  const { url, key, email } = requireE2eAdminEnv();
+  const admin = createClient(url, key, { auth: { persistSession: false } });
+  const uid = await resolveE2eUserId(admin, email);
+  return { admin, uid };
+}
+
+// Purge complète de l'état de combat + boutique + succès d'UN compte e2e
+// (identifié par `uid`). Partagée entre `global-setup.ts` (avant toute la
+// suite, boucle sur tous les comptes configurés) et `npm run e2e:reset`
+// (reset manuel hors suite, même boucle) — avant cette factorisation, seul
+// `tasks` + `recurring_templates` + `daily_boss` étaient purgés
+// automatiquement ; `day_results`/`unlocked_achievements`/`unlocked_skins`/
+// `unlocked_heroes` n'étaient nettoyés que par les resets ciblés de tests
+// spécifiques (`resetShopState`, `resetAchievementsState`), donc jamais si le
+// run précédent s'est arrêté avant d'atteindre ces tests — source résiduelle
+// d'accumulation sur le(s) compte(s) partagé(s) (ADR-04).
+//
+// `unlocked_heroes` ne peut PAS être vidé sans reseed : la quasi-totalité des
+// specs de combat ne passent jamais par `resetShopState` et supposent
+// `fire_knight` déjà possédé + équipé (offert à l'onboarding, US-29) — un
+// DELETE nu y laisserait `profiles.equipped_hero_id` pointer vers un héros non
+// possédé. `unlocked_skins`/`unlocked_achievements`/`day_results` n'ont pas
+// cette contrainte (skin par défaut implicite dès le héros possédé, succès et
+// titre purement additifs).
+export async function purgeE2eAccountState(admin: SupabaseClient, uid: string): Promise<void> {
+  await admin.from("tasks").delete().eq("user_id", uid);
+  await admin.from("recurring_templates").delete().eq("user_id", uid);
+  await admin.from("profiles").update({ last_recurring_gen_day: null }).eq("id", uid);
+  await admin.from("daily_boss").delete().eq("user_id", uid);
+  await admin.from("day_results").delete().eq("user_id", uid);
+  await admin.from("unlocked_achievements").delete().eq("user_id", uid);
+  await admin.from("unlocked_skins").delete().eq("user_id", uid);
+  await admin.from("unlocked_heroes").delete().eq("user_id", uid);
+  await admin.from("unlocked_heroes").upsert(
+    { user_id: uid, hero_id: "fire_knight", price_paid: 0 },
+    { onConflict: "user_id,hero_id" },
+  );
+  await admin
+    .from("profiles")
+    .update({
+      equipped_hero_id: "fire_knight",
+      equipped_skin_id: null,
+      equipped_title_code: null,
+      title_manually_set: false,
+    })
+    .eq("id", uid);
+}
+
 export async function login(page: Page): Promise<void> {
-  const email = process.env.E2E_TEST_EMAIL;
-  const password = process.env.E2E_TEST_PASSWORD;
+  const { emailVar, passwordVar } = e2eEnvNamesForSuffix(currentWorkerSuffix());
+  const email = process.env[emailVar];
+  const password = process.env[passwordVar];
 
   if (!email || !password) {
     throw new Error(
-      "E2E_TEST_EMAIL / E2E_TEST_PASSWORD manquants — compte e2e fixe non configuré (ADR-04, .env.local).",
+      `${emailVar} / ${passwordVar} manquants — compte e2e worker non configuré (ADR-04, .env.local).`,
     );
   }
 
@@ -122,24 +237,11 @@ export async function abandonViaUi(page: Page, title: string): Promise<void> {
   ]);
 }
 
-// US-18 : remet l'état Marché Noir du compte e2e fixe à zéro (compte unique partagé,
-// tests en série). Utilise la clé secrète Supabase (hors RLS) — utilitaire de
-// test uniquement, pas le flux applicatif (l'app ne DELETE jamais, RG-04).
+// US-18 : remet l'état Marché Noir du compte e2e du worker courant à zéro.
+// Utilise la clé secrète Supabase (hors RLS) — utilitaire de test uniquement,
+// pas le flux applicatif (l'app ne DELETE jamais, RG-04).
 export async function resetShopState(): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "Reset e2e : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-
-  const users = await listUsersRetrying(admin);
-  const testUser = users.find((u) => u.email === email);
-  if (!testUser) throw new Error("Reset e2e : utilisateur de test introuvable.");
-  const uid = testUser.id;
+  const { admin, uid } = await getE2eAdmin();
 
   await admin.from("unlocked_heroes").delete().eq("user_id", uid);
   // US-29 : plus de possession implicite du défaut → le compte e2e possède
@@ -148,7 +250,7 @@ export async function resetShopState(): Promise<void> {
     { user_id: uid, hero_id: "fire_knight", price_paid: 0 },
     { onConflict: "user_id,hero_id" },
   );
-  // US-53 : reset des tenues (compte e2e unique partagé).
+  // US-53 : reset des tenues.
   await admin.from("unlocked_skins").delete().eq("user_id", uid);
   await admin
     .from("profiles")
@@ -178,21 +280,10 @@ export async function resetShopState(): Promise<void> {
 }
 
 // Issue #72 : vide le journal de succès + réinitialise le titre équipé pour
-// le compte e2e fixe. Sans ça, les succès s'accumulent sur le compte
-// partagé (ADR-04) et polluent les assertions des runs suivants.
+// le compte e2e du worker courant. Sans ça, les succès s'accumulent sur le
+// compte partagé (ADR-04) et polluent les assertions des runs suivants.
 export async function resetAchievementsState(): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error("Reset achievements e2e : env manquant.");
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const testUser = users.find((u) => u.email === email);
-  if (!testUser) throw new Error("Reset achievements e2e : utilisateur de test introuvable.");
-  const uid = testUser.id;
-
+  const { admin, uid } = await getE2eAdmin();
   await admin.from("unlocked_achievements").delete().eq("user_id", uid);
   await admin
     .from("profiles")
@@ -206,18 +297,7 @@ export async function resetAchievementsState(): Promise<void> {
 // compteurs attendus. Complémentaire à resetAchievementsState (qui ne touche
 // qu'unlocked_achievements + equipped_title_code).
 export async function resetProfileForKpi(): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error("Reset profile KPI e2e : env manquant.");
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const testUser = users.find((u) => u.email === email);
-  if (!testUser) throw new Error("Reset profile KPI e2e : utilisateur de test introuvable.");
-  const uid = testUser.id;
-
+  const { admin, uid } = await getE2eAdmin();
   const { error } = await admin
     .from("profiles")
     .update({ level: 1, best_streak: 0, streak_days: 0 })
@@ -227,6 +307,8 @@ export async function resetProfileForKpi(): Promise<void> {
 
 // US-29 : supprime le user auth de test onboarding (cascade profiles /
 // unlocked_heroes / daily_boss) pour repartir d'un signup vierge à chaque run.
+// Compte dédié unique (pas de variante par worker : un seul fichier de spec
+// l'utilise, `onboarding.spec.ts`, donc jamais de contention inter-worker).
 export async function resetOnboardingUser(): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
@@ -241,22 +323,11 @@ export async function resetOnboardingUser(): Promise<void> {
 }
 
 // US-08 (bug #70) : sème une tâche "reste" (day_date dans le passé) sur le
-// compte e2e fixe, pour pouvoir tester réellement le Réveil
+// compte e2e du worker courant, pour pouvoir tester réellement le Réveil
 // bloquant (jusqu'ici couvert par un test.fixme faute de route de seed —
 // cf. e2e/wake-up-ritual.spec.ts). Retourne l'id créé pour le nettoyage.
 export async function seedOverdueTask(title: string, daysAgo = 1): Promise<string> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "Seed overdue task : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("Seed overdue task : utilisateur test introuvable.");
+  const { admin, uid } = await getE2eAdmin();
 
   const dayDate = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
   const { data, error } = await admin
@@ -273,18 +344,7 @@ export async function seedOverdueTask(title: string, daysAgo = 1): Promise<strin
 // Issue #156 : transforme l'instance du jour d'une routine en reste de la
 // veille, pour reproduire le chemin de duplication P2 (Réveil + Reporter).
 export async function seedOverdueRecurringInstance(title: string): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "Seed overdue recurring : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("Seed overdue recurring : utilisateur test introuvable.");
+  const { admin, uid } = await getE2eAdmin();
 
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const { error } = await admin
@@ -313,18 +373,7 @@ export async function seedOverdueRecurringInstance(title: string): Promise<void>
 // regarde que `today`, `overdueTemplateIds` que `< today`) sans dépendre de
 // ce détail — et sans réintroduire le chemin P2 (demain n'est pas un reste).
 export async function reopenRecurringGenerationWindow(title: string): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "Reopen recurring window : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("Reopen recurring window : utilisateur test introuvable.");
+  const { admin, uid } = await getE2eAdmin();
 
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const { error: taskError } = await admin
@@ -348,21 +397,10 @@ export async function reopenRecurringGenerationWindow(title: string): Promise<vo
 }
 
 // Issue #156 (P1) : compte les instances ACTIVES (non abandonnées) d'une
-// routine sur le jour local courant du compte e2e fixe — invariant direct du
-// test de concurrence (doit toujours valoir 1, jamais 2).
+// routine sur le jour local courant du compte e2e du worker courant —
+// invariant direct du test de concurrence (doit toujours valoir 1, jamais 2).
 export async function countActiveRecurringToday(title: string): Promise<number> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "Count active recurring : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("Count active recurring : utilisateur test introuvable.");
+  const { admin, uid } = await getE2eAdmin();
 
   // Compte du jour de l'app : dayKey résout au calendrier local du profil, ici
   // "UTC" pour le compte e2e fixe (vérifié) — le découpage UTC naïf de
@@ -391,18 +429,7 @@ export async function seedMissedDeadlineTask(
   title: string,
   options: { minutesAgo?: number } = {},
 ): Promise<string> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "Seed missed deadline : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("Seed missed deadline : utilisateur test introuvable.");
+  const { admin, uid } = await getE2eAdmin();
 
   const minutesAgo = options.minutesAgo ?? 5;
   const deadlineAt = new Date(Date.now() - minutesAgo * 60_000).toISOString();
@@ -425,6 +452,8 @@ export async function seedMissedDeadlineTask(
 
 // Vérifie l'état réel en base d'une tâche (RG-04 : jamais de DELETE côté
 // app, seulement is_abandoned/is_completed - cf. e2e/wake-up-ritual.spec.ts).
+// Opère sur un id de tâche déjà résolu par l'appelant : pas de notion de
+// compte/worker ici.
 export async function getTaskById(
   id: string,
 ): Promise<{ is_abandoned: boolean; abandon_reason: string | null; day_date: string } | null> {
@@ -442,23 +471,11 @@ export async function getTaskById(
   return data ?? null;
 }
 
-// Issue #116 : règle profiles.plan_tomorrow_after_hour pour le compte e2e fixe
-// (ADR-04). Combiné à page.clock côté test pour un gate déterministe, quelle
-// que soit l'heure réelle d'exécution de la CI.
+// Issue #116 : règle profiles.plan_tomorrow_after_hour pour le compte e2e du
+// worker courant (ADR-04). Combiné à page.clock côté test pour un gate
+// déterministe, quelle que soit l'heure réelle d'exécution de la CI.
 export async function setPlanTomorrowAfterHour(hour: number): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "setPlanTomorrowAfterHour : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("setPlanTomorrowAfterHour : utilisateur test introuvable.");
-
+  const { admin, uid } = await getE2eAdmin();
   const { error } = await admin
     .from("profiles")
     .update({ plan_tomorrow_after_hour: hour })
@@ -466,13 +483,15 @@ export async function setPlanTomorrowAfterHour(hour: number): Promise<void> {
   if (error) throw new Error(`setPlanTomorrowAfterHour a échoué : ${error.message}`);
 }
 
-// Remet le défaut (18) pour ne pas polluer les autres tests du compte partagé.
+// Remet le défaut (18) pour ne pas polluer les autres tests du compte.
 export async function resetPlanTomorrowAfterHour(): Promise<void> {
   await setPlanTomorrowAfterHour(18);
 }
 
 // Nettoyage du reste semé ci-dessus (service_role bypass RLS - pas
 // l'exception applicative RG-04, ceci est un utilitaire de test uniquement).
+// Opère sur un id de tâche déjà résolu par l'appelant : pas de notion de
+// compte/worker ici.
 export async function deleteTaskById(id: string): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
@@ -483,24 +502,14 @@ export async function deleteTaskById(id: string): Promise<void> {
   await admin.from("tasks").delete().eq("id", id);
 }
 
-// US-12 : purge les day_results du compte de test et sème une série contrôlée.
-// Issue #160 (bug #2) : simule un jour gagné (tâche complétée) mais jamais
-// clôturé manuellement — pour reproduire le trou permanent qui consommait un
-// joker à tort sur un compte sans aucun retard (Le Réveil, seul déclencheur
-// historique de backfillMissedDays, ne se monte jamais dans ce cas).
+// US-12 : purge les day_results du compte e2e du worker courant et sème une
+// série contrôlée. Issue #160 (bug #2) : simule un jour gagné (tâche
+// complétée) mais jamais clôturé manuellement — pour reproduire le trou
+// permanent qui consommait un joker à tort sur un compte sans aucun retard
+// (Le Réveil, seul déclencheur historique de backfillMissedDays, ne se monte
+// jamais dans ce cas).
 export async function seedWonPastDayWithoutResult(daysAgo: number): Promise<string> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "Seed won past day : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("Seed won past day : utilisateur test introuvable.");
+  const { admin, uid } = await getE2eAdmin();
 
   const dayDate = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
   await admin.from("day_results").delete().eq("user_id", uid).eq("day_date", dayDate);
@@ -518,19 +527,7 @@ export async function seedWonPastDayWithoutResult(daysAgo: number): Promise<stri
 // Issue #160 (bug #2) : lit l'outcome day_results pour une date donnée (ou
 // null si la ligne n'existe pas encore — le "trou" que ce bug produisait).
 export async function getDayResultOutcome(dayDate: string): Promise<string | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error(
-      "Get day result : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.",
-    );
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("Get day result : utilisateur test introuvable.");
-
+  const { admin, uid } = await getE2eAdmin();
   const { data } = await admin
     .from("day_results")
     .select("outcome")
@@ -543,16 +540,7 @@ export async function getDayResultOutcome(dayDate: string): Promise<string | nul
 export async function seedStreak(
   rows: Array<{ day_date: string; outcome: "victory" | "retreat" | "defeat" }>,
 ): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
-  const email = process.env.E2E_TEST_EMAIL;
-  if (!url || !key || !email) {
-    throw new Error("Seed streak : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants.");
-  }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  const users = await listUsersRetrying(admin);
-  const uid = users.find((u) => u.email === email)?.id;
-  if (!uid) throw new Error("Seed streak : utilisateur test introuvable.");
+  const { admin, uid } = await getE2eAdmin();
 
   await admin.from("day_results").delete().eq("user_id", uid);
   await admin.from("profiles").update({ best_streak: 0, streak_days: 0 }).eq("id", uid);
