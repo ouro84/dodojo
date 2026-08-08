@@ -105,15 +105,18 @@ export default function VersusScene({
 
   return (
     <div
-      className="relative h-48 w-full overflow-hidden rounded-lg border border-border"
+      className="relative h-48 w-full overflow-hidden rounded-lg border border-border lg:h-64"
       style={dimmed ? { filter: "saturate(0.5) brightness(0.7)" } : undefined}
     >
       <Image
         src={backgroundPath}
         alt=""
         fill
-        sizes="336px"
+        // Issue #167 : cabinet élargi à partir de lg (.arena-shell, 64rem max)
+        // — 336px datait de l'ancienne colonne mobile-only.
+        sizes="(min-width: 1024px) 992px, 336px"
         priority
+        data-testid="versus-scene-backdrop"
         className="object-cover [image-rendering:pixelated]"
       />
       <div className="absolute inset-x-0 top-0 z-[5] h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />

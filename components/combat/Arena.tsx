@@ -100,6 +100,7 @@ import {
 import { closeDay as closeDayAction } from "@/app/actions/day";
 import { markTutorialSeen } from "@/app/actions/profile";
 import BottomNav from "@/components/ui/BottomNav";
+import ArenaBackdrop from "./ArenaBackdrop";
 import VersusScene from "./VersusScene";
 import ComboBanner from "./ComboBanner";
 import ArenaCoach from "./ArenaCoach";
@@ -1719,7 +1720,9 @@ export default function Arena({
   const bossStats = todayCombatStats(tasks);
 
   return (
-    <main className="screen-main relative h-dvh gap-3 overflow-hidden px-4 py-4">
+    <div className="relative h-dvh w-full overflow-hidden bg-bg">
+      <ArenaBackdrop backgroundPath={background.publicPath} />
+      <main className="arena-shell relative z-10 h-dvh gap-3 overflow-hidden px-4 py-4">
       {/* Audit UX 2026-07-24 (P1) : seul écran de l'app sans heading de page -
           sr-only pour ne pas perturber le HUD, juste un point d'entrée pour
           lecteur d'écran (WCAG 2.4.6 / 1.3.1). */}
@@ -2152,6 +2155,7 @@ export default function Arena({
       )}
 
       <BottomNav active="arene" />
-    </main>
+      </main>
+    </div>
   );
 }

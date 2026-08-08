@@ -9,6 +9,9 @@ nouvelle section versionnée et datée.
 
 ## [Unreleased]
 
+### Produit
+- Issue #167 : l'Arène en desktop (≥1024px) n'est plus une page cassée avec un vide noir de chaque côté — cabinet de combat élargi (jusqu'à ~992px) et fond décoratif étendu à tout le viewport, qui reprend le vrai décor du jour (jamais un asset figé). Mobile/tablette inchangés.
+
 ## [0.1.0] - 2026-08-07
 
 Première release publique de Dodojo — le socle complet du MVP (Arène, HP/XP, Le Vestiaire, Le Marché Noir, Tableau de Chasse, Le Guide, PWA installable, intégrations Siri/Gemini) ainsi que les corrections et le travail d'infrastructure accumulés depuis le début du projet.
