@@ -39,6 +39,70 @@ async function deleteUserRetrying(admin: SupabaseClient, uid: string, attempts =
   );
 }
 
+// Env admin requis par tout appel service-role (global-setup, reset manuel,
+// tous les helpers de fixture ci-dessous). Échoue bruyamment plutôt que de
+// laisser un appelant retomber silencieusement sur un compte non purgé —
+// symétrique à la logique de `login()` juste en dessous.
+export function requireE2eAdminEnv(): { url: string; key: string; email: string } {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PRIVATE_KEY_SUPABASE;
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!url || !key || !email) {
+    throw new Error(
+      "Reset e2e : NEXT_PUBLIC_SUPABASE_URL / NEXT_PRIVATE_KEY_SUPABASE / E2E_TEST_EMAIL manquants (ADR-04, .env.local).",
+    );
+  }
+  return { url, key, email };
+}
+
+export async function resolveE2eUserId(admin: SupabaseClient, email: string): Promise<string> {
+  const users = await listUsersRetrying(admin);
+  const uid = users.find((u) => u.email === email)?.id;
+  if (!uid) throw new Error(`Reset e2e : utilisateur de test introuvable pour ${email}.`);
+  return uid;
+}
+
+// Purge complète de l'état de combat + boutique + succès du compte e2e fixe.
+// Partagée entre `global-setup.ts` (avant toute la suite) et `npm run e2e:reset`
+// (reset manuel hors suite) — avant cette factorisation, seul `tasks` +
+// `recurring_templates` + `daily_boss` étaient purgés automatiquement ;
+// `day_results`/`unlocked_achievements`/`unlocked_skins`/`unlocked_heroes`
+// n'étaient nettoyés que par les resets ciblés de tests spécifiques
+// (`resetShopState`, `resetAchievementsState`), donc jamais si le run
+// précédent s'est arrêté avant d'atteindre ces tests — source résiduelle
+// d'accumulation sur le compte partagé (ADR-04).
+//
+// `unlocked_heroes` ne peut PAS être vidé sans reseed : la quasi-totalité des
+// specs de combat ne passent jamais par `resetShopState` et supposent
+// `fire_knight` déjà possédé + équipé (offert à l'onboarding, US-29) — un
+// DELETE nu y laisserait `profiles.equipped_hero_id` pointer vers un héros non
+// possédé. `unlocked_skins`/`unlocked_achievements`/`day_results` n'ont pas
+// cette contrainte (skin par défaut implicite dès le héros possédé, succès et
+// titre purement additifs).
+export async function purgeE2eAccountState(admin: SupabaseClient, uid: string): Promise<void> {
+  await admin.from("tasks").delete().eq("user_id", uid);
+  await admin.from("recurring_templates").delete().eq("user_id", uid);
+  await admin.from("profiles").update({ last_recurring_gen_day: null }).eq("id", uid);
+  await admin.from("daily_boss").delete().eq("user_id", uid);
+  await admin.from("day_results").delete().eq("user_id", uid);
+  await admin.from("unlocked_achievements").delete().eq("user_id", uid);
+  await admin.from("unlocked_skins").delete().eq("user_id", uid);
+  await admin.from("unlocked_heroes").delete().eq("user_id", uid);
+  await admin.from("unlocked_heroes").upsert(
+    { user_id: uid, hero_id: "fire_knight", price_paid: 0 },
+    { onConflict: "user_id,hero_id" },
+  );
+  await admin
+    .from("profiles")
+    .update({
+      equipped_hero_id: "fire_knight",
+      equipped_skin_id: null,
+      equipped_title_code: null,
+      title_manually_set: false,
+    })
+    .eq("id", uid);
+}
+
 export async function login(page: Page): Promise<void> {
   const email = process.env.E2E_TEST_EMAIL;
   const password = process.env.E2E_TEST_PASSWORD;
