@@ -12,6 +12,9 @@ nouvelle section versionnée et datée.
 ### Produit
 - Issue #167 : l'Arène en desktop (≥1024px) n'est plus une page cassée avec un vide noir de chaque côté — cabinet de combat élargi (jusqu'à ~992px) et fond décoratif étendu à tout le viewport, qui reprend le vrai décor du jour (jamais un asset figé). Mobile/tablette inchangés.
 
+### Corrections
+- Issues #168-172 : Le Marché Noir n'affiche plus de lien "Retour au Vestiaire" redondant avec son propre onglet `BottomNav` ; les swatches de tenues sont désormais à la taille tactile minimale (44px), alignées sur la grille de héros ; les héros et tenues verrouillés restent identifiables entre eux sur le fond sombre de l'app (au lieu de se fondre en un bloc quasi noir uniforme) ; le vocabulaire interne de la navigation (`qg`/`echoppe`) est aligné sur le lexique actuel (`vestiaire`/`marche-noir`, issue #51) — comportement utilisateur inchangé ; un palier typographique `micro` (0.65rem) rejoint le ramp de `DESIGN.md`, remplaçant 9 tailles de police jusque-là écrites en littéral.
+
 ## [0.1.0] - 2026-08-07
 
 Première release publique de Dodojo — le socle complet du MVP (Arène, HP/XP, Le Vestiaire, Le Marché Noir, Tableau de Chasse, Le Guide, PWA installable, intégrations Siri/Gemini) ainsi que les corrections et le travail d'infrastructure accumulés depuis le début du projet.
