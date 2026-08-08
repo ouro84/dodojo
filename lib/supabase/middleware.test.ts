@@ -28,4 +28,11 @@ describe("isPublicRoute (garde de session proxy.ts)", () => {
     expect(isPublicRoute("/api/mcp")).toBe(true);
     expect(isPublicRoute("/.well-known/oauth-authorization-server")).toBe(true);
   });
+
+  test("les pages légales sont publiques (issue #134 : lisibles avant inscription)", () => {
+    expect(isPublicRoute("/mentions-legales")).toBe(true);
+    expect(isPublicRoute("/confidentialite")).toBe(true);
+    expect(isPublicRoute("/cgu")).toBe(true);
+    expect(isPublicRoute("/informations-legales")).toBe(true);
+  });
 });
