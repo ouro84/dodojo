@@ -19,6 +19,7 @@ const SECTIONS: Array<{ href: string; icon: string; label: string }> = [
   { href: "/vestiaire/artisans", icon: "🎨", label: "Les Artisans" },
   { href: "/marche-noir", icon: "🛒", label: "Le Marché Noir" },
   { href: "/guide", icon: "📖", label: "Le Guide" },
+  { href: "/informations-legales", icon: "⚖️", label: "Informations légales" },
 ];
 
 export default async function QgPage() {

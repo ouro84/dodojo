@@ -85,6 +85,17 @@ export default function WelcomeSignup() {
       >
         {pending ? "…" : "Entrer dans l'Arène"}
       </button>
+      <p className="text-center text-[10px] text-faint">
+        En créant ton compte, tu acceptes les{" "}
+        <Link href="/cgu" className="underline underline-offset-4">
+          CGU
+        </Link>{" "}
+        et la{" "}
+        <Link href="/confidentialite" className="underline underline-offset-4">
+          politique de confidentialité
+        </Link>
+        .
+      </p>
       <Link href="/login" className="text-center text-xs text-faint underline underline-offset-4">
         Déjà un compte ? Se connecter
       </Link>
