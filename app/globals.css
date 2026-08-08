@@ -71,6 +71,25 @@
       padding-left: 6rem; /* réserve la place du rail nav fixe (w-20 = 5rem + 1rem de marge) */
     }
   }
+
+  /* Issue #167 : cabinet desktop de l'Arène — dédié, distinct de .screen-main
+     (les écrans HUD plats gardent 42rem inchangé). Base mobile identique à
+     .screen-main (aucune régression <1024px), ne diverge qu'au breakpoint lg. */
+  .arena-shell {
+    margin-inline: auto;
+    display: flex;
+    width: 100%;
+    max-width: 28rem;
+    flex: 1 1 0%;
+    flex-direction: column;
+  }
+
+  @media (min-width: 1024px) {
+    .arena-shell {
+      max-width: 64rem; /* cabinet élargi, remplace le 42rem partagé pour l'Arène */
+      padding-left: 6rem;
+    }
+  }
 }
 
 html,
