@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:reset": "node --experimental-strip-types scripts/e2e-reset.mts",
     "prebuild": "node scripts/pull-guide.mjs --prebuild",
     "pull:guide": "node scripts/pull-guide.mjs",
     "generate:icons": "node scripts/generate-pwa-icons.mjs",
