@@ -45,7 +45,7 @@ const HERO_TITLES: Record<string, { title: string; feminine?: boolean }> = {
   wind_hashashin: { title: "Souffle" },
   leaf_ranger: { title: "Mue" },
   crystal_mauler: { title: "Facette" },
-  metal_bladekeeper: { title: "Lame Froide" },
+  metal_bladekeeper: { title: "Lame Froide", feminine: true },
 };
 
 const HERO_ACHIEVEMENTS: AchievementDef[] = HEROES.map((hero) => {

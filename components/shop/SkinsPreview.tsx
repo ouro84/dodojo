@@ -1,13 +1,14 @@
 "use client";
 
 import type { Hero } from "@/types";
-import { getSkinsForHero, getHeroSpriteBase } from "@/lib/hero-skins";
-import CharacterSprite from "@/components/combat/CharacterSprite";
-import { heroSpriteMeta } from "@/lib/sprite-metadata";
+import { getSkinsForHero } from "@/lib/hero-skins";
+import SkinCarousel from "@/components/shop/SkinCarousel";
 
-// Écran de test interne (chemin obscur, login requis, non listé). Affiche
-// toutes les tenues de tous les héros côte à côte pour valider (ou recalibrer)
-// scripts/generate-hero-skins.mjs avant de merger. Même patron que RosterPreview.
+// Écran de test interne (chemin obscur, login requis, non listé). Affiche le
+// carrousel réel (issue #75) pour chaque héros, toutes tenues possédées
+// (validation visuelle pure, jamais de logique d'achat sur cet écran) — pour
+// valider/recalibrer scripts/generate-hero-skins.mjs avant de merger, et
+// rester un vrai miroir du rendu prod. Même patron que RosterPreview.
 export default function SkinsPreview({ heroes }: { heroes: Hero[] }) {
   return (
     <div className="flex flex-col gap-8">
@@ -21,27 +22,17 @@ export default function SkinsPreview({ heroes }: { heroes: Hero[] }) {
                 {hero.id} · {skins.length} tenues
               </span>
             </div>
-            <div className="flex flex-wrap gap-3">
-              {skins.map((skin) => (
-                <div
-                  key={skin.id}
-                  className="flex flex-col items-center gap-1 rounded border border-border bg-black/40 p-2"
-                >
-                  <CharacterSprite
-                    spriteBase={getHeroSpriteBase(hero.id, skin.id)}
-                    meta={heroSpriteMeta(hero.slug)}
-                    baseHeight={96}
-                    state="idle"
-                    alt={`${hero.name} — ${skin.name}`}
-                    className="[image-rendering:pixelated]"
-                  />
-                  <span className="text-[10px] text-muted">{skin.name}</span>
-                  <span className="text-[9px] text-faint">
-                    {skin.id} · 🪙 {skin.price}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <SkinCarousel
+              hero={hero}
+              heroOwned
+              isHeroEquipped={false}
+              equippedSkinId={null}
+              ownedSkinIds={skins.map((s) => s.id)}
+              balance={0}
+              pending={false}
+              onEquip={() => {}}
+              onRequestPurchase={() => {}}
+            />
           </section>
         );
       })}
