@@ -25,7 +25,7 @@ export default function EntrainementError({
       >
         Réessayer
       </button>
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

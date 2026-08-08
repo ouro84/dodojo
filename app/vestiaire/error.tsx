@@ -23,7 +23,7 @@ export default function QgError({ reset }: { error: Error & { digest?: string };
       >
         Réessayer
       </button>
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

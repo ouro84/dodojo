@@ -42,7 +42,7 @@ export default async function EchoppePage() {
         <Link href="/marche-noir" className="text-sm text-xp-text underline underline-offset-4">
           Réessayer
         </Link>
-        <BottomNav active="echoppe" />
+        <BottomNav active="marche-noir" />
       </main>
     );
   }
@@ -60,7 +60,7 @@ export default async function EchoppePage() {
         equippedSkinId={profile.equipped_skin_id}
         balance={balance}
       />
-      <BottomNav active="echoppe" />
+      <BottomNav active="marche-noir" />
     </main>
   );
 }

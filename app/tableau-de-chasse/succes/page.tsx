@@ -76,7 +76,7 @@ export default async function AchievementsPage() {
         <p className="max-w-[28ch] text-xs text-muted">
           Impossible de charger tes succès. Réessaie dans un instant.
         </p>
-        <BottomNav active="qg" />
+        <BottomNav active="vestiaire" />
       </main>
     );
   }
@@ -195,7 +195,7 @@ export default async function AchievementsPage() {
         );
       })}
 
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

@@ -63,7 +63,7 @@ export default async function PantheonPage() {
         <Link href="/tableau-de-chasse" className="text-xs text-xp-text underline underline-offset-4">
           Réessayer
         </Link>
-        <BottomNav active="qg" />
+        <BottomNav active="vestiaire" />
       </main>
     );
   }
@@ -93,7 +93,7 @@ export default async function PantheonPage() {
         <Link href="/" className="text-sm text-hp-text underline underline-offset-4">
           Rejoindre l&apos;Arène
         </Link>
-        <BottomNav active="qg" />
+        <BottomNav active="vestiaire" />
       </main>
     );
   }
@@ -181,7 +181,7 @@ export default async function PantheonPage() {
         <CombatJournal entries={results} />
       </section>
 
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

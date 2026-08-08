@@ -87,7 +87,7 @@ export default async function ProfilPage() {
 
       <LogoutSection />
 
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

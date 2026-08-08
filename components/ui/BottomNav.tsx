@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type NavKey = "arene" | "qg" | "echoppe";
+type NavKey = "arene" | "vestiaire" | "marche-noir";
 
 interface BottomNavProps {
   active: NavKey;
@@ -8,8 +8,8 @@ interface BottomNavProps {
 
 const ITEMS: Array<{ key: NavKey; label: string; href: string }> = [
   { key: "arene", label: "Arène", href: "/" },
-  { key: "qg", label: "Vestiaire", href: "/vestiaire" },
-  { key: "echoppe", label: "Marché Noir", href: "/marche-noir" },
+  { key: "vestiaire", label: "Vestiaire", href: "/vestiaire" },
+  { key: "marche-noir", label: "Marché Noir", href: "/marche-noir" },
 ];
 
 export default function BottomNav({ active }: BottomNavProps) {

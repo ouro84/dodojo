@@ -68,7 +68,7 @@ export default async function EntrainementPage() {
         jours choisis.
       </p>
       <RecurringManager templates={managed} />
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }
