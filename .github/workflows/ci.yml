@@ -61,6 +61,15 @@ jobs:
     env:
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
       E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      # Isolation multi-comptes (4 workers en CI, cf. playwright.config.ts) :
+      # un compte Supabase dédié par worker, sinon ils se marchent dessus sur
+      # le même état en parallèle (cf. e2e/fixtures.ts).
+      E2E_TEST_EMAIL_2: ${{ secrets.E2E_TEST_EMAIL_2 }}
+      E2E_TEST_PASSWORD_2: ${{ secrets.E2E_TEST_PASSWORD_2 }}
+      E2E_TEST_EMAIL_3: ${{ secrets.E2E_TEST_EMAIL_3 }}
+      E2E_TEST_PASSWORD_3: ${{ secrets.E2E_TEST_PASSWORD_3 }}
+      E2E_TEST_EMAIL_4: ${{ secrets.E2E_TEST_EMAIL_4 }}
+      E2E_TEST_PASSWORD_4: ${{ secrets.E2E_TEST_PASSWORD_4 }}
       E2E_ONBOARDING_EMAIL: ${{ secrets.E2E_ONBOARDING_EMAIL }}
       E2E_ONBOARDING_PASSWORD: ${{ secrets.E2E_ONBOARDING_PASSWORD }}
       NEXT_PRIVATE_KEY_SUPABASE: ${{ secrets.NEXT_PRIVATE_KEY_SUPABASE }}

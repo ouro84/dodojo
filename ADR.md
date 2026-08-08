@@ -68,6 +68,14 @@ Mise en place de **Vitest** (Tests unitaires) et **Playwright** (Tests E2E) int�
 *   **Vitest :** Permet de tester la logique métier pure (le moteur de calcul des HP du Boss selon les règles métier RG-01 et RG-02) dans le dossier `lib/` de manière ultra-rapide et isolée du navigateur[cite: 1, 2].
 *   **Playwright + Compte Fixe :** Jouera le scénario complet du combat quotidien (Connexion via le compte e2e fixe -> Ajout tâche -> Coche tâche -> Vérification de la baisse des HP) sur de vrais navigateurs à chaque Pull Request[cite: 2].
 
+### Évolution — d'un compte fixe unique à un compte fixe par worker (2026-08-08)
+
+Le choix initial d'un **compte fixe unique** partagé par toute la suite n'avait jamais été justifié explicitement ici (seule la conséquence — `workers:1`/`fullyParallel:false` dans `playwright.config.ts` — était documentée). Un compte unique force l'exécution en série : tous les tests mutent le même état (tâches, boss du jour), donc les paralléliser les fait se marcher dessus (bug reproduit à l'époque : 9/9 vert en série, ~6-8/9 KO dès 4 workers).
+
+Ce compromis avait un coût direct sur le forfait GitHub Actions (2000 min/mois, palier Hobby) : la facturation Actions dépend de la durée du job, pas du nombre de workers Playwright à l'intérieur d'un même job/runner — l'exécution série (16-19 min/run mesurés) coûtait donc plus cher que nécessaire, pas moins.
+
+**Décision révisée** : un compte Supabase fixe **par worker** (`E2E_TEST_EMAIL`/`_2`/`_3`/`_4`, secrets CI, `e2e/fixtures.ts`), routé via `TEST_PARALLEL_INDEX` (exposé par Playwright dans chaque process worker). `workers:4`/`fullyParallel:true` uniquement en CI (runner `ubuntu-latest`, 4 vCPU) ; `workers:1` inchangé en local (un seul compte configuré, pas d'obligation d'en provisionner 4 sur chaque poste dev). Provisionnement via `scripts/e2e-provision-worker-account.mts` (idempotent, reproduit le flow d'onboarding applicatif via service-role). Chaque fichier de spec s'exécute entièrement dans un seul worker (donc un seul compte) — aucune contention inter-fichier à gérer.
+
 ---
 
 ## Conventions d'Équipe & Workflow Git
