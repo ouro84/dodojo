@@ -182,12 +182,17 @@ export function CharacterSelect({
                 setSelectedSkinId(skin.id);
                 onSkinAction(skin.id);
               }}
-              className={`h-9 w-9 rounded-full border-2 disabled:opacity-40 ${
+              className={`h-11 w-11 rounded-full border-2 disabled:opacity-40 ${
                 isEquippedSkin ? "border-xp" : isSelectedSkin ? "border-gold" : "border-border"
               }`}
               style={{
                 backgroundColor: skin.swatchColor,
-                filter: owned && !skinOwned ? "grayscale(1) brightness(0.5)" : undefined,
+                // Issue #169 : un grayscale complet effaçait la teinte (seule
+                // information qui distingue une tenue verrouillée d'une
+                // autre) — on désature partiellement au lieu de l'effacer,
+                // pour rester dans la palette DESIGN.md sans sacrifier la
+                // lisibilité entre swatches voisines.
+                filter: owned && !skinOwned ? "saturate(0.4) brightness(0.6)" : undefined,
               }}
             />
           );
@@ -219,7 +224,11 @@ export function CharacterSelect({
                     ? "border-gold"
                     : "border-border"
               }`}
-              style={hOwned ? undefined : { filter: "grayscale(1) brightness(0.4)" }}
+              // Issue #169 : brightness(0.4) sur bg-black/40 rendait le
+              // portrait quasi noir uniforme — remonté pour garder la
+              // silhouette lisible, le grayscale reste (convention roster
+              // verrouillé, la forme prime sur la couleur pour un portrait).
+              style={hOwned ? undefined : { filter: "grayscale(1) brightness(0.85)" }}
             >
               {/* Portrait : sprite rogné (vide transparent retiré), perso entier. */}
               {/* eslint-disable-next-line @next/next/no-img-element -- mini-portrait pixel, next/image inutile */}

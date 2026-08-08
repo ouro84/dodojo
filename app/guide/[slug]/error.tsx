@@ -25,7 +25,7 @@ export default function GuideArticleError({
       >
         Réessayer
       </button>
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

@@ -160,7 +160,7 @@ export default function VersusScene({
           />
           {upcomingDeadlineCount > 0 && (
             <p
-              className="mt-0.5 text-right text-[0.65rem] uppercase tracking-wide text-alert drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+              className="mt-0.5 text-right text-micro uppercase tracking-wide text-alert drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
               aria-label={`${upcomingDeadlineCount} deadline${upcomingDeadlineCount > 1 ? "s" : ""} à venir aujourd'hui`}
             >
               ⏰ {upcomingDeadlineCount} à venir

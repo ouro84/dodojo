@@ -161,7 +161,7 @@ export default function TaskRow({
       {isMissedDeadline && (
         <span
           aria-label="Pénalité -10 HP : deadline ratée"
-          className="shrink-0 rounded bg-alert/10 px-1.5 py-0.5 text-[0.65rem] font-display uppercase tracking-wide text-alert"
+          className="shrink-0 rounded bg-alert/10 px-1.5 py-0.5 text-micro font-display uppercase tracking-wide text-alert"
         >
           -10 HP
         </span>
@@ -169,7 +169,7 @@ export default function TaskRow({
       {isOverdueRest && (
         <span
           aria-label="Pénalité -20 HP : reste reporté"
-          className="shrink-0 rounded bg-alert/5 px-1.5 py-0.5 text-[0.65rem] font-display uppercase tracking-wide text-alert"
+          className="shrink-0 rounded bg-alert/5 px-1.5 py-0.5 text-micro font-display uppercase tracking-wide text-alert"
         >
           -20 HP
         </span>

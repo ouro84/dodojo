@@ -76,7 +76,7 @@ export default async function AchievementsPage() {
         <p className="max-w-[28ch] text-xs text-muted">
           Impossible de charger tes succès. Réessaie dans un instant.
         </p>
-        <BottomNav active="qg" />
+        <BottomNav active="vestiaire" />
       </main>
     );
   }
@@ -163,7 +163,7 @@ export default async function AchievementsPage() {
                       )}
                     </div>
                     {(def.displayMode === "progress" || unlocked) && (
-                      <p className="mt-1 text-[11px] text-muted">{def.description}</p>
+                      <p className="mt-1 text-micro text-muted">{def.description}</p>
                     )}
                     {progress && (
                       <>
@@ -182,7 +182,7 @@ export default async function AchievementsPage() {
                             }}
                           />
                         </div>
-                        <p className="mt-0.5 text-right text-[10px] text-faint">
+                        <p className="mt-0.5 text-right text-micro text-faint">
                           {progress.current} / {progress.total}
                         </p>
                       </>
@@ -195,7 +195,7 @@ export default async function AchievementsPage() {
         );
       })}
 
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

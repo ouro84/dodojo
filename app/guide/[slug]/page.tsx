@@ -52,7 +52,7 @@ export default async function GuideArticlePage({
       <article>
         <ArticleMarkdown contenu={contenu} />
       </article>
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

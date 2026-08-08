@@ -39,7 +39,7 @@ export default async function GuidePage() {
           </section>
         ))
       )}
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

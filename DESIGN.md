@@ -46,6 +46,12 @@ typography:
     fontWeight: 400
     lineHeight: 1.2
     letterSpacing: "normal"
+  micro:
+    fontFamily: "BoldPixels, Courier New, monospace"
+    fontSize: "0.65rem"
+    fontWeight: 400
+    lineHeight: 1.2
+    letterSpacing: "0.05em"
 rounded:
   sm: "4px"
   md: "6px"
@@ -203,7 +209,7 @@ Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative
 
 ### Navigation
 - **Style:** barre basse (`BottomNav`), 3 items égaux (`justify-around`), séparée par une bordure haute `border-border`. À partir de 1024px (desktop, issue #112), devient un rail fixe à gauche (`position: fixed`, `w-20`, items empilés verticalement, bordure droite au lieu de bordure haute).
-- **Typography:** BoldPixels `text-[0.65rem]` uppercase tracking-wide.
+- **Typography:** BoldPixels `text-micro` (0.65rem, token dédié — issue #171) uppercase tracking-wide.
 - **États:** actif = texte `ink` + poids semi-gras + point plein `bg-hp` ; inactif = texte `faint` + point `bg-faint`, `hover`/`focus-visible` passent à `text-ink` (même convention que les boutons icône, cf. `TaskRow`) — pertinent à partir du rail desktop, piloté à la souris/clavier.
 
 ## 6. Do's and Don'ts

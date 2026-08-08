@@ -69,7 +69,7 @@ export default async function QgPage() {
         ))}
       </nav>
 
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }

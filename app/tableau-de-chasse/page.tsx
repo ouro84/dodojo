@@ -63,7 +63,7 @@ export default async function PantheonPage() {
         <Link href="/tableau-de-chasse" className="text-xs text-xp-text underline underline-offset-4">
           Réessayer
         </Link>
-        <BottomNav active="qg" />
+        <BottomNav active="vestiaire" />
       </main>
     );
   }
@@ -93,7 +93,7 @@ export default async function PantheonPage() {
         <Link href="/" className="text-sm text-hp-text underline underline-offset-4">
           Rejoindre l&apos;Arène
         </Link>
-        <BottomNav active="qg" />
+        <BottomNav active="vestiaire" />
       </main>
     );
   }
@@ -126,7 +126,7 @@ export default async function PantheonPage() {
             style={{ width: `${xpPct}%` }}
           />
         </div>
-        <p className="text-right text-[10px] text-faint">
+        <p className="text-right text-micro text-faint">
           {profile.xp} / {xpThreshold} XP
         </p>
       </section>
@@ -144,7 +144,7 @@ export default async function PantheonPage() {
         </div>
         <DamageSparkline values={stats.damageSeries} />
         {stats.bestDay && (
-          <p className="text-[11px] text-muted">
+          <p className="text-micro text-muted">
             Record :{" "}
             <span className="text-hp-text">{stats.bestDay.damage} dégâts</span> le{" "}
             {stats.bestDay.day_date.slice(8, 10)}/{stats.bestDay.day_date.slice(5, 7)}
@@ -181,7 +181,7 @@ export default async function PantheonPage() {
         <CombatJournal entries={results} />
       </section>
 
-      <BottomNav active="qg" />
+      <BottomNav active="vestiaire" />
     </main>
   );
 }
@@ -197,7 +197,7 @@ function Stat({
 }) {
   return (
     <div className={`flex flex-col ${align === "right" ? "items-end" : "items-start"}`}>
-      <span className="text-[10px] uppercase tracking-wide text-faint">{label}</span>
+      <span className="text-micro uppercase tracking-wide text-faint">{label}</span>
       <span className="font-display text-sm text-ink">{value}</span>
     </div>
   );

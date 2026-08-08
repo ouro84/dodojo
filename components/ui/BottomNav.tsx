@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type NavKey = "arene" | "qg" | "echoppe";
+type NavKey = "arene" | "vestiaire" | "marche-noir";
 
 interface BottomNavProps {
   active: NavKey;
@@ -8,8 +8,8 @@ interface BottomNavProps {
 
 const ITEMS: Array<{ key: NavKey; label: string; href: string }> = [
   { key: "arene", label: "Arène", href: "/" },
-  { key: "qg", label: "Vestiaire", href: "/vestiaire" },
-  { key: "echoppe", label: "Marché Noir", href: "/marche-noir" },
+  { key: "vestiaire", label: "Vestiaire", href: "/vestiaire" },
+  { key: "marche-noir", label: "Marché Noir", href: "/marche-noir" },
 ];
 
 export default function BottomNav({ active }: BottomNavProps) {
@@ -25,7 +25,7 @@ export default function BottomNav({ active }: BottomNavProps) {
             key={item.key}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={`flex min-h-11 flex-col items-center justify-center gap-1 px-4 py-2.5 text-[0.65rem] uppercase tracking-wide transition-colors lg:w-full lg:px-1 lg:py-3 lg:text-center lg:leading-snug ${
+            className={`flex min-h-11 flex-col items-center justify-center gap-1 px-4 py-2.5 text-micro uppercase tracking-wide transition-colors lg:w-full lg:px-1 lg:py-3 lg:text-center lg:leading-snug ${
               isActive ? "font-semibold text-ink" : "text-faint hover:text-ink focus-visible:text-ink"
             }`}
           >
