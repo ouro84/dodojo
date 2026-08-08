@@ -27,11 +27,12 @@ test.describe("Parcours : équiper un héros depuis Le Marché Noir se reflète 
     await page.waitForURL("/marche-noir");
 
     await page.locator('[data-hero-cell="water_priestess"]').click();
-    await page.getByRole("button", { name: /Débloquer/ }).click();
+    const heroCta = page.getByTestId("hero-cta");
+    await heroCta.click();
     await page.getByRole("button", { name: "Confirmer" }).click();
-    await expect(page.getByRole("button", { name: "Équiper" })).toBeVisible();
-    await page.getByRole("button", { name: "Équiper" }).click();
-    await expect(page.getByRole("button", { name: /Équipé/ })).toBeVisible();
+    await expect(heroCta).toHaveText("Équiper");
+    await heroCta.click();
+    await expect(heroCta).toHaveText("✓ Équipé");
 
     await page.getByRole("link", { name: "Arène", exact: true }).click();
     await page.waitForURL("/");

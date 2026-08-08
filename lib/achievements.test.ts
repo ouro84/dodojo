@@ -258,4 +258,9 @@ describe("noms de héros dans les succès (issue #156)", () => {
       ).toContain(hero.name);
     }
   });
+
+  it("Gardienne des Lames (issue #75, héroïne) accorde 'débloquée' au féminin", () => {
+    const def = ALL_ACHIEVEMENT_DEFS.find((d) => d.code === "HERO_METAL_BLADEKEEPER");
+    expect(def?.description).toBe("Gardienne des Lames débloquée.");
+  });
 });

@@ -64,7 +64,7 @@ export const HEROES: Hero[] = [
   },
   {
     id: "metal_bladekeeper",
-    name: "Gardien des Lames",
+    name: "Gardienne des Lames",
     element: "Métal",
     slug: "metal-bladekeeper",
     spriteBase: spriteBase("metal-bladekeeper"),

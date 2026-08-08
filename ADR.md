@@ -78,6 +78,25 @@ Ce compromis avait un coût direct sur le forfait GitHub Actions (2000 min/mois,
 
 ---
 
+## ADR-05 — Carrousel de tenues (Le Marché Noir, issue #75)
+
+### Contexte
+La refonte de la sélection de tenue de héros (US-53) remplace la bande de pastilles de couleur par un carrousel 3D façon coverflow (swipe/flèches/clavier, tenues adjacentes visibles en profondeur). Aucun patron de carrousel/swipe n'existait dans le repo, et toute l'animation de l'app était jusqu'ici en CSS pur/Tailwind — aucune lib de motion JS installée.
+
+### Décision
+Ajout de **`embla-carousel`** (+ `embla-carousel-react`) comme dépendance dédiée à cette interaction, plutôt qu'un swipe fait main (pointer events + transforms CSS).
+
+### Justification
+*   **Interaction non triviale :** snap, vélocité, drag tactile et accessibilité clavier sont des détails difficiles à bien faire à la main — le précédent `dnd-kit` (déjà dans le projet pour le drag & drop des tâches) montre que le projet accepte une lib headless dédiée quand l'interaction le justifie, plutôt que de tout réinventer en CSS.
+*   **Léger et headless :** Embla ne dicte aucun style — la couche 3D (perspective/rotateY/translateZ) reste un calcul custom appliqué par-dessus sa progression de scroll (`scrollProgress()`), cohérent avec l'esthétique 100% Tailwind du reste de l'app.
+*   Aucun preset "coverflow 3D" natif dans Embla — le pattern (transform calculé depuis la progression de scroll) est un usage documenté par la communauté, pas une fonctionnalité prête à l'emploi.
+
+### Alternatives écartées
+*   **Swipe fait main (pointer events + CSS)** : écarté, le coût de réimplémenter proprement snap/vélocité/clavier dépasserait celui d'une dépendance de 6 Ko.
+*   **Swiper.js / react-slick** : écartées, plus lourdes et moins headless qu'Embla pour un besoin de transform 3D entièrement custom.
+
+---
+
 ## Conventions d'Équipe & Workflow Git
 
 ### Workflow Git (Strict)

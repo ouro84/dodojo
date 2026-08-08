@@ -83,4 +83,10 @@ describe("hero-skins catalogue", () => {
       "/sprites/mc/fire-knight/skins/fire_knight_shadow_purple",
     );
   });
+
+  it("chaque tenue a une lore non vide (issue #75, garde-fou anti-placeholder oublié)", () => {
+    for (const skin of SKINS) {
+      expect(skin.lore.trim().length).toBeGreaterThan(0);
+    }
+  });
 });

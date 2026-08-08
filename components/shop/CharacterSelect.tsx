@@ -3,18 +3,19 @@
 import { useRef, useState, useTransition } from "react";
 import { HEROES, getHero, isHeroOwned, DEFAULT_HERO_ID } from "@/lib/heroes";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import { getSkinsForHero, isSkinOwned, defaultSkinIdFor } from "@/lib/hero-skins";
+import { getSkinsForHero } from "@/lib/hero-skins";
 import {
   equipHero,
   purchaseHero,
   equipSkin,
   purchaseSkin,
 } from "@/app/actions/shop";
-import HeroIdle from "@/components/combat/HeroIdle";
+import SkinCarousel from "@/components/shop/SkinCarousel";
 import AchievementToast from "@/components/combat/AchievementToast";
 
-// US-18/US-53 : écran de sélection de combattant façon VS Fighting. Stage
-// (héros + idle + bande tenues) en haut, matrice compacte en bas.
+// US-18/US-53 : écran de sélection de combattant façon VS Fighting.
+// En-tête héros + carrousel 3D de tenues (issue #75) en haut, matrice
+// compacte de héros en bas.
 export function CharacterSelect({
   ownedIds,
   equippedId,
@@ -29,9 +30,6 @@ export function CharacterSelect({
   balance: number;
 }) {
   const [selectedId, setSelectedId] = useState(equippedId);
-  const [selectedSkinId, setSelectedSkinId] = useState(
-    () => equippedSkinId ?? defaultSkinIdFor(equippedId),
-  );
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [confirmSkin, setConfirmSkin] = useState<{ heroId: string; skinId: string } | null>(
     null,
@@ -48,20 +46,6 @@ export function CharacterSelect({
   const owned = isHeroOwned(selected.id, ownedIds);
   const equipped = selected.id === equippedId;
   const affordable = balance >= selected.price;
-
-  // Quand la sélection de héros change, réinitialise la tenue prévisualisée :
-  // l'équipée s'il s'agit du héros actif, sinon sa tenue par défaut. Ajustement
-  // pendant le rendu (pas d'effet) pour éviter un rendu en cascade —
-  // react-hooks/set-state-in-effect (cf. PushReminderToggle, US-11).
-  const [prevSelectedId, setPrevSelectedId] = useState(selectedId);
-  if (selectedId !== prevSelectedId) {
-    setPrevSelectedId(selectedId);
-    setSelectedSkinId(
-      selectedId === equippedId
-        ? (equippedSkinId ?? defaultSkinIdFor(selectedId))
-        : defaultSkinIdFor(selectedId),
-    );
-  }
 
   function onAction() {
     setError(null);
@@ -90,24 +74,17 @@ export function CharacterSelect({
     });
   }
 
-  function onSkinAction(skinId: string) {
+  function onEquipSkin(skinId: string) {
     setError(null);
-    if (!owned) return;
-    const skinOwned = isSkinOwned(skinId, selected.id, ownedSkinIds);
-    const isEquippedSkin =
-      selected.id === equippedId && (equippedSkinId ?? defaultSkinIdFor(selected.id)) === skinId;
-    if (isEquippedSkin) return;
-    if (skinOwned) {
-      startTransition(async () => {
-        const res = await equipSkin(selected.id, skinId);
-        if (res.error) setError(res.error);
-      });
-      return;
-    }
-    const skin = getSkinsForHero(selected.id).find((s) => s.id === skinId);
-    if (skin && balance >= skin.price) {
-      setConfirmSkin({ heroId: selected.id, skinId });
-    }
+    startTransition(async () => {
+      const res = await equipSkin(selected.id, skinId);
+      if (res.error) setError(res.error);
+    });
+  }
+
+  function onRequestSkinPurchase(skinId: string) {
+    setError(null);
+    setConfirmSkin({ heroId: selected.id, skinId });
   }
 
   function confirmSkinPurchase() {
@@ -129,9 +106,9 @@ export function CharacterSelect({
         </span>
       </div>
 
-      {/* Stage */}
-      <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-black/40 p-4">
-        <HeroIdle hero={selected} skinId={selectedSkinId} locked={!owned} />
+      {/* En-tête héros : nom, élément, achat/équipement du héros lui-même
+          (distinct du CTA de tenue, porté par SkinCarousel ci-dessous). */}
+      <div className="flex flex-col items-center gap-1">
         <div className="font-display text-sm uppercase tracking-wide text-ink">
           {selected.name}
         </div>
@@ -143,6 +120,7 @@ export function CharacterSelect({
         )}
         <button
           type="button"
+          data-testid="hero-cta"
           onClick={onAction}
           disabled={pending || equipped || (!owned && !affordable)}
           className="mt-1 rounded border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
@@ -157,47 +135,21 @@ export function CharacterSelect({
         </button>
       </div>
 
-      {/* Bande tenues (US-53) — active seulement si le héros est possédé */}
-      <div
-        className="flex flex-wrap justify-center gap-1.5"
-        aria-disabled={!owned}
-        title={owned ? undefined : "Débloque le héros d'abord"}
-      >
-        {getSkinsForHero(selected.id).map((skin) => {
-          const skinOwned = isSkinOwned(skin.id, selected.id, ownedSkinIds);
-          const isEquippedSkin =
-            selected.id === equippedId &&
-            (equippedSkinId ?? defaultSkinIdFor(selected.id)) === skin.id;
-          const isSelectedSkin = skin.id === selectedSkinId;
-          return (
-            <button
-              key={skin.id}
-              type="button"
-              data-skin-swatch={skin.id}
-              data-owned={skinOwned}
-              aria-pressed={isSelectedSkin}
-              aria-label={skin.name}
-              disabled={!owned}
-              onClick={() => {
-                setSelectedSkinId(skin.id);
-                onSkinAction(skin.id);
-              }}
-              className={`h-11 w-11 rounded-full border-2 disabled:opacity-40 ${
-                isEquippedSkin ? "border-xp" : isSelectedSkin ? "border-gold" : "border-border"
-              }`}
-              style={{
-                backgroundColor: skin.swatchColor,
-                // Issue #169 : un grayscale complet effaçait la teinte (seule
-                // information qui distingue une tenue verrouillée d'une
-                // autre) — on désature partiellement au lieu de l'effacer,
-                // pour rester dans la palette DESIGN.md sans sacrifier la
-                // lisibilité entre swatches voisines.
-                filter: owned && !skinOwned ? "saturate(0.4) brightness(0.6)" : undefined,
-              }}
-            />
-          );
-        })}
-      </div>
+      {/* Carrousel 3D de tenues (issue #75) — fusionne l'ancien Stage (gros
+          héros statique) et la bande de pastilles de couleur. Navigable en
+          lecture seule si le héros n'est pas possédé (Q19 du grilling). */}
+      <SkinCarousel
+        key={selected.id}
+        hero={selected}
+        heroOwned={owned}
+        isHeroEquipped={equipped}
+        equippedSkinId={equippedSkinId}
+        ownedSkinIds={ownedSkinIds}
+        balance={balance}
+        pending={pending}
+        onEquip={onEquipSkin}
+        onRequestPurchase={onRequestSkinPurchase}
+      />
 
       {/* Matrice */}
       <div className="mx-auto flex max-w-[240px] flex-wrap justify-center gap-1.5">

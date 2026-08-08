@@ -149,6 +149,7 @@ export interface Skin {
   price: number; // 0 pour la tenue "default"
   isDefault: boolean;
   swatchColor: string; // hex, puce dans Le Marché Noir
+  lore: string; // texte de catalogue statique, non-leveled (cf. Boss.lore)
 }
 
 export interface UnlockedSkin {

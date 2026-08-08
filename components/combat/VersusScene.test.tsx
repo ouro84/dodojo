@@ -8,7 +8,7 @@ import { heroSpriteMeta, bossSpriteMeta } from "@/lib/sprite-metadata";
 afterEach(cleanup);
 
 const base = {
-  heroName: "Gardien des Lames",
+  heroName: "Gardienne des Lames",
   heroSpriteBase: "/sprites/mc/metal-bladekeeper",
   heroSlug: "metal-bladekeeper",
   heroHp: 100,
