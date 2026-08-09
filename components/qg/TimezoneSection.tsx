@@ -46,7 +46,7 @@ export default function TimezoneSection({ initialTimezone }: TimezoneSectionProp
           value={timezone}
           disabled={isPending}
           onChange={(event) => save(event.target.value)}
-          className="flex-1 rounded border border-border bg-transparent px-2 py-1 text-sm text-ink disabled:opacity-50"
+          className="min-w-0 flex-1 rounded border border-border bg-transparent px-2 py-1 text-sm text-ink disabled:opacity-50"
         >
           {zones.map((zone) => (
             <option key={zone} value={zone}>
