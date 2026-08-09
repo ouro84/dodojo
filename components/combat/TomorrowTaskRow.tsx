@@ -4,6 +4,7 @@ import type { Task } from "@/types";
 import { isNestableParent, isOptimisticTask } from "@/lib/game-engine";
 import SubtaskForm from "./SubtaskForm";
 import DeadlineControl from "./DeadlineControl";
+import RecurringIcon from "@/components/ui/RecurringIcon";
 
 interface TomorrowTaskRowProps {
   task: Task;
@@ -55,8 +56,12 @@ export default function TomorrowTaskRow({
     >
       <span className="min-w-0 flex-1 break-words text-ink">
         {task.is_recurring && (
-          <span aria-label="Quête récurrente" title="Quête récurrente" className="mr-1">
-            🔁
+          <span
+            aria-label="Quête récurrente"
+            title="Quête récurrente"
+            className="mr-1 inline-flex items-center"
+          >
+            <RecurringIcon className="h-3.5 w-3.5" />
           </span>
         )}
         {task.title}

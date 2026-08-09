@@ -1,21 +1,27 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { currentStreak, dayKey } from "@/lib/game-engine";
 import StreakBadge from "@/components/combat/StreakBadge";
 import InstallCta from "@/components/pwa/InstallCta";
 import BottomNav from "@/components/ui/BottomNav";
+import RecurringIcon from "@/components/ui/RecurringIcon";
 
 export const metadata: Metadata = { title: "Le Vestiaire — Dodojo" };
 
 // Issue #69 : redevient un pur hub de navigation — les réglages de compte
 // (Volume Intérieur, Planifier Demain, Intégrations, pseudo, mdp, email...)
 // ont déménagé vers /vestiaire/profil.
-const SECTIONS: Array<{ href: string; icon: string; label: string }> = [
+const SECTIONS: Array<{ href: string; icon: ReactNode; label: string }> = [
   { href: "/vestiaire/profil", icon: "👤", label: "Profil" },
   { href: "/tableau-de-chasse", icon: "🏆", label: "Tableau de Chasse" },
-  { href: "/vestiaire/entrainement", icon: "🔁", label: "Mes Routines" },
+  {
+    href: "/vestiaire/entrainement",
+    icon: <RecurringIcon className="h-4 w-4" />,
+    label: "Mes Routines",
+  },
   { href: "/vestiaire/artisans", icon: "🎨", label: "Les Artisans" },
   { href: "/marche-noir", icon: "🛒", label: "Le Marché Noir" },
   { href: "/guide", icon: "📖", label: "Le Guide" },
