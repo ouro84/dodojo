@@ -153,6 +153,13 @@ export const sendReminder = inngest.createFunction(
           const statusCode = (err as { statusCode?: number }).statusCode;
           if (statusCode === 404 || statusCode === 410) {
             await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+          } else {
+            // Issue #183 (C2) : même trou d'observabilité que schedule-deadline-reminder.
+            console.error("[inngest:send-reminder] envoi push échoué", {
+              endpoint: sub.endpoint,
+              statusCode,
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         }
       }
