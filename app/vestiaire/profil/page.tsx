@@ -16,6 +16,8 @@ import PushReminderToggle from "@/components/qg/PushReminderToggle";
 import WebhookTokenSection from "@/components/qg/WebhookTokenSection";
 import GeminiConnectionSection from "@/components/qg/GeminiConnectionSection";
 import LogoutSection from "@/components/qg/LogoutSection";
+import ExportDataSection from "@/components/qg/ExportDataSection";
+import DeleteAccountSection from "@/components/qg/DeleteAccountSection";
 import { isGeminiConnected } from "@/lib/oauth-gemini";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
 
@@ -84,6 +86,9 @@ export default async function ProfilPage() {
         />
         <GeminiConnectionSection isConnected={geminiConnected} />
       </IntegrationsSection>
+
+      <ExportDataSection />
+      <DeleteAccountSection />
 
       <LogoutSection />
 

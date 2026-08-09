@@ -3,10 +3,10 @@ import BackLink from "@/components/ui/BackLink";
 
 export const metadata: Metadata = { title: "Politique de confidentialité — Dodojo" };
 
-// Issue #134. Tension documentée avec RG-04 (CLAUDE.md) : le droit à
+// Issue #134, complété par l'issue #154 (self-service de suppression/export
+// depuis Le Profil). Tension documentée avec RG-04 (CLAUDE.md) : le droit à
 // l'effacement RGPD est un droit sur les données PERSONNELLES, distinct de
-// l'historique de jeu que RG-04 protège — traité manuellement par email pour
-// l'instant (dette assumée MVP), jamais un flow en self-service.
+// l'historique de jeu que RG-04 protège.
 export default function ConfidentialitePage() {
   return (
     <main className="screen-main gap-4 px-4 py-8">
@@ -77,8 +77,13 @@ export default function ConfidentialitePage() {
       <section className="flex flex-col gap-2">
         <h2 className="font-display text-sm uppercase tracking-wide text-muted">Tes droits</h2>
         <p className="text-sm text-ink">
-          Tu peux demander l&apos;accès, la rectification ou la suppression de tes données
-          personnelles à tout moment. Écris à{" "}
+          Tu peux télécharger une copie de tes données ou supprimer définitivement ton compte à
+          tout moment, en self-service, depuis{" "}
+          <a href="/vestiaire/profil" className="underline underline-offset-4">
+            Le Profil
+          </a>{" "}
+          (section « Données & vie privée »). Pour toute autre demande (accès, rectification), ou
+          si ton compte t&apos;est devenu inaccessible, écris à{" "}
           <a
             href="mailto:arnaud.solente+dodojo@gmail.com"
             className="underline underline-offset-4"
