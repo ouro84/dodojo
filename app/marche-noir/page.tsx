@@ -52,14 +52,16 @@ export default async function EchoppePage() {
   const ownedSkinIds = (ownedSkins ?? []).map((r) => r.skin_id);
 
   return (
-    <main className="screen-main gap-4 px-4 py-8">
-      <CharacterSelect
-        ownedIds={ownedIds}
-        equippedId={profile.equipped_hero_id}
-        ownedSkinIds={ownedSkinIds}
-        equippedSkinId={profile.equipped_skin_id}
-        balance={balance}
-      />
+    <main className="screen-main h-dvh gap-3 overflow-hidden px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2">
+        <CharacterSelect
+          ownedIds={ownedIds}
+          equippedId={profile.equipped_hero_id}
+          ownedSkinIds={ownedSkinIds}
+          equippedSkinId={profile.equipped_skin_id}
+          balance={balance}
+        />
+      </div>
       <BottomNav active="marche-noir" />
     </main>
   );

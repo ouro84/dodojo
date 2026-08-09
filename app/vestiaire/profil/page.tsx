@@ -60,37 +60,43 @@ export default async function ProfilPage() {
   }
 
   return (
-    <main className="screen-main gap-4 px-4 py-8">
-      <BackLink href="/vestiaire" label="Retour au Vestiaire" />
-      <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">Profil</h1>
+    <main className="screen-main h-dvh gap-3 overflow-hidden px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2">
+        <BackLink href="/vestiaire" label="Retour au Vestiaire" />
+        <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
+          Profil
+        </h1>
 
-      <section className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-border bg-surface p-4">
-        <p className="font-display text-xs uppercase tracking-wide text-muted">Identité</p>
-        <UsernameSection initialUsername={profile.username} />
-        <EquippedTitlePreview titleCode={profile.equipped_title_code} />
-        <TimezoneSection initialTimezone={profile.timezone} />
-      </section>
+        <section className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+          <p className="font-display text-xs uppercase tracking-wide text-muted">Identité</p>
+          <UsernameSection initialUsername={profile.username} />
+          <EquippedTitlePreview titleCode={profile.equipped_title_code} />
+          <TimezoneSection initialTimezone={profile.timezone} />
+        </section>
 
-      <PasswordSection />
-      <EmailSection />
+        <PasswordSection />
+        <EmailSection />
 
-      <AggressivityLevelSection initialLevel={resolveAggressivityLevel(profile.aggressivity_level)} />
-      <PlanTomorrowSection initialHour={profile.plan_tomorrow_after_hour ?? 18} />
-      <ReminderOffsetDefaultSection initialMinutes={profile.reminder_offset_minutes} />
-
-      <IntegrationsSection>
-        <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
-        <WebhookTokenSection
-          hasToken={Boolean(profile.webhook_token_hash)}
-          lastUsedAt={profile.webhook_token_last_used_at ?? null}
+        <AggressivityLevelSection
+          initialLevel={resolveAggressivityLevel(profile.aggressivity_level)}
         />
-        <GeminiConnectionSection isConnected={geminiConnected} />
-      </IntegrationsSection>
+        <PlanTomorrowSection initialHour={profile.plan_tomorrow_after_hour ?? 18} />
+        <ReminderOffsetDefaultSection initialMinutes={profile.reminder_offset_minutes} />
 
-      <ExportDataSection />
-      <DeleteAccountSection />
+        <IntegrationsSection>
+          <PushReminderToggle hasSubscription={(subscriptionCount ?? 0) > 0} />
+          <WebhookTokenSection
+            hasToken={Boolean(profile.webhook_token_hash)}
+            lastUsedAt={profile.webhook_token_last_used_at ?? null}
+          />
+          <GeminiConnectionSection isConnected={geminiConnected} />
+        </IntegrationsSection>
 
-      <LogoutSection />
+        <ExportDataSection />
+        <DeleteAccountSection />
+
+        <LogoutSection />
+      </div>
 
       <BottomNav active="vestiaire" />
     </main>
