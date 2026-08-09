@@ -30,9 +30,13 @@ test.describe("Parcours : équiper un héros depuis Le Marché Noir se reflète 
     const heroCta = page.getByTestId("hero-cta");
     await heroCta.click();
     await page.getByRole("button", { name: "Confirmer" }).click();
-    await expect(heroCta).toHaveText("Équiper");
-    await heroCta.click();
-    await expect(heroCta).toHaveText("✓ Équipé");
+    // Issue #183 : possédé → le CTA héros disparaît, seul le CTA de tenue
+    // équipe désormais héros + tenue ensemble.
+    await expect(heroCta).toHaveCount(0);
+    const skinCta = page.getByTestId("skin-cta");
+    await expect(skinCta).toHaveText("Équiper");
+    await skinCta.click();
+    await expect(skinCta).toHaveText("✓ Équipé");
 
     await page.getByRole("link", { name: "Arène", exact: true }).click();
     await page.waitForURL("/");
