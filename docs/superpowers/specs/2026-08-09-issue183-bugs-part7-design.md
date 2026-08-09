@@ -87,6 +87,8 @@ Hypothèses à vérifier en priorité en session d'implémentation (navigateur r
 
 Debug requis : comparer l'horodatage réel d'exécution du run Inngest `reminder-fanout` (dashboard, historique des runs) avec l'heure de réception effective de la notif, et vérifier la valeur de `profiles.timezone` du compte concerné.
 
+**Mise à jour post-implémentation (C1 résolu)** : l'utilisateur a identifié la cause réelle en observant l'écran directement — **deux boutons "Équiper" distincts** coexistent sur `/marche-noir` : celui de `CharacterSelect.tsx` (`hero-cta`, équipe le héros) et celui de `SkinCarousel.tsx` (`skin-cta`, équipe la tenue). Le diagnostic scripté (3 scénarios Playwright, tous verts) ciblait le `hero-cta` par testid exact et ne pouvait donc jamais reproduire la confusion qu'un clic visuel sur le mauvais des deux boutons produit chez un utilisateur réel. Fix : les deux actions sont fusionnées dans une nouvelle server action `equipHeroAndSkin(heroId, skinId)` (`app/actions/shop.ts`, remplace `equipHero`+`equipSkin`) — le CTA du carrousel de tenues devient le **seul** point d'équipement (héros + tenue en un clic) ; le CTA héros (`hero-cta`) ne gère plus que l'achat et n'est rendu que si le héros n'est pas encore possédé.
+
 ## Hors scope
 
 - Aucune migration de données.
