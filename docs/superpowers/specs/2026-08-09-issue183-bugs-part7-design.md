@@ -64,6 +64,8 @@ Fix proposé : aligner les écrans `.screen-main` sur le même patron de hauteur
 
 **Vérification obligatoire avant merge** : capture d'écran mobile des deux écrans (Arène + Vestiaire, contenu court ET contenu long qui dépasse le viewport) — même méthode que les issues #145/#167 (bounding box réelle, pas seulement l'aperçu).
 
+**Mise à jour post-implémentation (même session)** : l'utilisateur a demandé si la vérification avait couvert tous les écrans — elle ne couvrait que l'Arène et le Vestiaire. Vérification étendue par capture d'écran à tous les écrans `.screen-main` qui montent réellement `<BottomNav>` : le même symptôme (nav flottant au-dessus du padding de fin plutôt que collé au bord réel) était reproductible sur **8 écrans supplémentaires** (Profil, Artisans, Mes Routines, Tableau de Chasse, Succès, Marché Noir, Le Guide index + article) — pas seulement Vestiaire. Fix étendu au même patron sur ces 8 fichiers. Les branches error/empty de `tableau-de-chasse/page.tsx`/`tableau-de-chasse/succes/page.tsx`/`marche-noir/page.tsx` utilisent un `className` distinct (`flex flex-1 items-center justify-center...`, pas `.screen-main`) et n'étaient **pas** affectées — laissées inchangées. Les pages légales (`confidentialite`/`mentions-legales`/`informations-legales`/`cgu`) et les écrans de test interne (`roster-preview-8f3a2c9d`/`skins-preview-4c7a1e9b`) n'ont pas de `<BottomNav>` — hors scope, non concernées.
+
 ## Groupe C — cause non confirmée, debug live requis
 
 ### C1. Bouton "équiper" un héros sans effet
