@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { getServiceWorkerRegistration } from "@/lib/pwa/update-prompt-client";
 import { urlBase64ToUint8Array } from "@/lib/pwa/push-subscribe";
 import { subscribeToPush, unsubscribeFromPush } from "@/app/actions/push";
+import GameIcon from "@/components/ui/GameIcon";
 
 interface PushReminderToggleProps {
   hasSubscription: boolean; // état initial connu côté serveur (au chargement du Vestiaire)
@@ -113,14 +114,19 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
 
   if (status === "unsupported") {
     return (
-      <p className="text-xs text-faint">🔔 Rappel du soir : indisponible sur ce navigateur/appareil.</p>
+      <p className="inline-flex items-center gap-1.5 text-xs text-faint">
+        <GameIcon name="bell" className="h-3.5 w-3.5" /> Rappel du soir : indisponible sur ce
+        navigateur/appareil.
+      </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-ink">🔔 Rappel du soir (17h30)</p>
+        <p className="inline-flex items-center gap-1.5 text-sm text-ink">
+          <GameIcon name="bell" className="h-4 w-4" /> Rappel du soir (17h30)
+        </p>
         <button
           type="button"
           disabled={pending || status === "denied"}

@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Produit
+- Issue #187 : Le Vestiaire passe d'une liste de 7 boutons identiques à une carte de nœuds décorative (ton héros équipé au centre, chemin en pointillés vers chaque section) — tous les nœuds restent cliquables directement, aucun déblocage. Les emojis utilisés comme icônes de navigation/statut (Vestiaire, Marché Noir, succès, série, notifications...) sont remplacés par des icônes 16-bit cohérentes avec l'univers arcade du jeu.
 - Issue #167 : l'Arène en desktop (≥1024px) n'est plus une page cassée avec un vide noir de chaque côté — cabinet de combat élargi (jusqu'à ~992px) et fond décoratif étendu à tout le viewport, qui reprend le vrai décor du jour (jamais un asset figé). Mobile/tablette inchangés.
 - Issue #75 : la sélection de tenue au Marché Noir passe d'une bande de pastilles de couleur à un carrousel 3D — chaque tenue défile en grand (glisse, flèches, ou clavier) avec son vrai sprite, son nom et une courte lore, plutôt qu'une simple couleur. Ajout d'un compteur de position, d'un badge "Équipée" et d'une annonce vocale du changement de tenue pour les lecteurs d'écran. Corrige au passage un héros mal genré : "Gardien des Lames" devient "Gardienne des Lames".
 - Issue #134 : nouvelle section "Les Artisans" (Le Vestiaire) — carrousel créditant les créateurs des sprites/décors/police utilisés dans le jeu.

@@ -4,13 +4,14 @@
 // (isArtisanSeen) est purement cosmétique : l'attribution elle-même
 // (creator/packName/license/lore) reste toujours affichée, jamais masquée
 // derrière une progression de jeu — contrainte légale posée en spec.
-export type ArtisanCategory = "heros" | "boss" | "decors" | "police";
+export type ArtisanCategory = "heros" | "boss" | "decors" | "police" | "icones";
 
 export type ArtisanSpriteRef =
   | { kind: "hero"; heroId: string }
   | { kind: "boss"; bossId: string }
   | { kind: "background"; backgroundId: string }
-  | { kind: "font" };
+  | { kind: "font" }
+  | { kind: "icon" };
 
 export interface ArtisanEntry {
   id: string;
@@ -64,6 +65,15 @@ export const ARTISANS: ArtisanEntry[] = [
     spriteRef: { kind: "background", backgroundId: "castle-interior" },
   },
   {
+    id: "icons-raven-fantasy",
+    creator: "Caio / Clockwork Raven Studios",
+    packName: "Raven Fantasy Icons",
+    category: "icones",
+    license: "Non explicite localement — à vérifier auprès de la page itch.io d'origine avant usage commercial",
+    lore: "2192 reliques de loot, dont quinze ont fini punaisées au mur du Vestiaire en guise de pictogrammes.",
+    spriteRef: { kind: "icon" },
+  },
+  {
     id: "font-boldpixels",
     creator: "Yūki (YukiPixels)",
     packName: "BoldPixels",
@@ -81,8 +91,8 @@ export interface ArtisanSeenContext {
   seenBackgroundIds: string[];
 }
 
-// "Rencontré" n'a pas de sens pour une police (pas de mécanique de
-// rencontre en jeu) — toujours vrai, jamais un verrou puisque cette valeur
+// "Rencontré" n'a pas de sens pour une police ni pour les icônes UI (pas de
+// mécanique de rencontre en jeu) — toujours vrai, jamais un verrou puisque cette valeur
 // ne conditionne l'affichage de rien d'obligatoire (le composant choisit de
 // ne pas afficher de badge du tout pour "font", cf. ArtisansCarousel).
 export function isArtisanSeen(entry: ArtisanEntry, ctx: ArtisanSeenContext): boolean {
@@ -94,6 +104,8 @@ export function isArtisanSeen(entry: ArtisanEntry, ctx: ArtisanSeenContext): boo
     case "background":
       return ctx.seenBackgroundIds.includes(entry.spriteRef.backgroundId);
     case "font":
+      return true;
+    case "icon":
       return true;
   }
 }

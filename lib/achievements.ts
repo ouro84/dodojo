@@ -302,6 +302,16 @@ const RARITY_RANK: Record<AchievementRarity, number> = {
   platine: 3,
 };
 
+// Issue #187 : source unique du nom d'icône par rareté (GameIconName) —
+// remplace les deux Record<AchievementRarity, string> d'emoji dupliqués en
+// dur dans succes/page.tsx et AchievementToast.tsx.
+export const RARITY_ICON_NAME: Record<AchievementRarity, "bronze" | "silver" | "gold" | "platinum"> = {
+  bronze: "bronze",
+  argent: "silver",
+  or: "gold",
+  platine: "platinum",
+};
+
 // « meilleur » titre débloqué : rareté la plus haute, égalité départagée par
 // la date de déblocage la plus récente.
 export function bestTitleCode(unlocked: { code: string; unlockedAt: string }[]): string | null {

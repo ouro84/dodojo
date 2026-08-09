@@ -43,10 +43,14 @@ export function carousel3DTransform(offset: number): Carousel3DTransform {
 
 export type SkinCtaVariant = "equipped" | "equip" | "unlock" | "insufficient";
 
+// Issue #187 (chasse aux emojis) : `label` ne porte plus l'emoji 🪙 en dur —
+// `icon` indique au composant d'appel (GameIcon côté UI, lib/ reste sans
+// dépendance React) l'icône à afficher devant le libellé, si besoin.
 export interface SkinCtaState {
   label: string;
   disabled: boolean;
   variant: SkinCtaVariant;
+  icon: "gold" | null;
 }
 
 export function skinCtaState({
@@ -60,12 +64,12 @@ export function skinCtaState({
   price: number;
   balance: number;
 }): SkinCtaState {
-  if (equipped) return { label: "✓ Équipé", disabled: true, variant: "equipped" };
-  if (owned) return { label: "Équiper", disabled: false, variant: "equip" };
+  if (equipped) return { label: "✓ Équipé", disabled: true, variant: "equipped", icon: null };
+  if (owned) return { label: "Équiper", disabled: false, variant: "equip", icon: null };
   if (balance >= price) {
-    return { label: `🪙 ${price} · Débloquer`, disabled: false, variant: "unlock" };
+    return { label: `${price} · Débloquer`, disabled: false, variant: "unlock", icon: "gold" };
   }
-  return { label: `🪙 ${price} · Or insuffisant`, disabled: true, variant: "insufficient" };
+  return { label: `${price} · Or insuffisant`, disabled: true, variant: "insufficient", icon: "gold" };
 }
 
 // Navigation d'index sans dépendre d'embla (testable en isolation). `loop`

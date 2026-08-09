@@ -42,11 +42,12 @@ const emptyContext = { unlockedHeroIds: [], seenBossIds: [], seenBackgroundIds: 
 describe("ArtisansCarousel", () => {
   it("affiche le premier artisan (Elementals) et ses tabs de catégorie", () => {
     render(<ArtisansCarousel seenContext={emptyContext} />);
-    expect(screen.getByTestId("artisan-position")).toHaveTextContent("1/5");
+    expect(screen.getByTestId("artisan-position")).toHaveTextContent("1/6");
     expect(screen.getByRole("tab", { name: "Héros" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Boss" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Décors" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Police" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Icônes" })).toBeInTheDocument();
   });
 
   it("aucun badge 'Rencontré en combat' quand le contexte est vide", () => {
@@ -67,7 +68,7 @@ describe("ArtisansCarousel", () => {
     render(<ArtisansCarousel seenContext={emptyContext} />);
     fireEvent.click(screen.getByLabelText("Artisan suivant"));
     await waitFor(() => {
-      expect(screen.getByTestId("artisan-position")).toHaveTextContent("2/5");
+      expect(screen.getByTestId("artisan-position")).toHaveTextContent("2/6");
     });
   });
 

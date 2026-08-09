@@ -1,6 +1,6 @@
 # Cartographie des Assets — `assets/`
 
-> Dernière mise à jour : 2026-07-24
+> Dernière mise à jour : 2026-08-10
 > Ce fichier documente le contenu du dossier `assets/` (non versionné dans `public/` pour l'instant — c'est la matière première brute, triée ici avant intégration).
 
 ---
@@ -138,6 +138,8 @@ Auteur Caio / Clockwork Raven Studios (licence non explicite localement — vér
 Contenu visuel (armes, armures, potions, monnaie, parchemins/clés/coffres, nourriture, matériaux, effets magiques, monstres) repéré par inspection visuelle de la spritesheet, pas de nommage par thème.
 
 **Usage** : icônes de tâches (associer une icône à une catégorie), items achetables de l'Échoppe, récompenses de loot. Préférer `Separated Files/32x32/` pour un import React à la demande.
+
+**Intégration UI (issue #187, chasse aux emojis)** — 14 icônes extraites de la `Full Spritesheet/64x64.png` (jamais des `Separated Files`, qui n'ont pas de nommage par thème) vers `public/icons/ui/<nom>.png` via `scripts/extract-ui-icons.mjs`, coordonnées row/col trouvées par inspection visuelle une à une (aucune métadonnée de catégorie dans le pack). Consommées par `components/ui/GameIcon.tsx`. Le pack est **100 % loot RPG** : aucun objet de communication/UI (pas de cloche, téléphone, enveloppe, lune) — les concepts sans équivalent (micro, cloche, éclair, partager) sont des **SVG dessinés à la main** dans `GameIcon.tsx` plutôt qu'un mauvais détournement d'objet de loot, même patron que `RecurringIcon.tsx`/`MicButton.tsx` déjà dans le codebase. Icônes retenues : `profil` (casque), `trophy` (coupe à deux anses — à ne pas confondre avec les nombreux gobelets/chalices du pack, visuellement proches), `artisans` (enclume), `marche` (coffre), `guide` (livre ouvert), `legal` (balance), `sword`, `gold`/`bronze`/`silver`/`platinum` (monnaie + paliers de succès), `streak` (flamme), `warning` (crâne et tibias), `sleep` ("Z Z"). Créditée sur Les Artisans (`lib/credits.ts`, catégorie `icones`).
 
 ---
 

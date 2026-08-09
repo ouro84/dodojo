@@ -31,7 +31,7 @@ test.describe("US-53 Tenues (carrousel)", () => {
 
     await page.getByLabel("Tenue suivante").click();
     await expect(page.getByTestId("skin-position")).toHaveText("2/2");
-    await expect(page.getByTestId("skin-cta")).toHaveText("🪙 300 · Débloquer");
+    await expect(page.getByTestId("skin-cta")).toHaveText("300 · Débloquer");
 
     await page.getByTestId("skin-cta").click();
     await page.getByRole("dialog", { name: "Confirmer l'achat de la tenue" }).waitFor();
@@ -75,7 +75,7 @@ test.describe("US-53 Tenues (carrousel)", () => {
     await group.focus();
     await group.press("ArrowRight");
     await expect(page.getByTestId("skin-position")).toHaveText("2/4");
-    await expect(page.getByTestId("skin-cta")).toHaveText("🪙 300 · Débloquer");
+    await expect(page.getByTestId("skin-cta")).toHaveText("300 · Débloquer");
 
     await page.getByTestId("skin-cta").click();
     await page.getByRole("dialog", { name: "Confirmer l'achat de la tenue" }).waitFor();

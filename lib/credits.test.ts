@@ -7,7 +7,7 @@ import { getBackground } from "./backgrounds";
 describe("ARTISANS (issue #134)", () => {
   test("catalogue non vide, catégories limitées à ce qui est réellement livré", () => {
     expect(ARTISANS.length).toBeGreaterThan(0);
-    const allowed = new Set(["heros", "boss", "decors", "police"]);
+    const allowed = new Set(["heros", "boss", "decors", "police", "icones"]);
     for (const entry of ARTISANS) {
       expect(allowed.has(entry.category)).toBe(true);
     }
