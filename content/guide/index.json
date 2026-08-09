@@ -197,6 +197,17 @@
     "majLe": "2026-07-24T21:35:00.000Z"
   },
   {
+    "titre": "Supprimer mon compte ou exporter mes données",
+    "slug": "compte",
+    "section": "Réglages",
+    "ordre": 20,
+    "resume": "Télécharger tes données ou supprimer définitivement ton compte, en self-service.",
+    "motsCles": [
+      "reglage"
+    ],
+    "majLe": "2026-08-09T13:18:00.000Z"
+  },
+  {
     "titre": "Le rappel du soir",
     "slug": "rappels",
     "section": "Intégrations",
