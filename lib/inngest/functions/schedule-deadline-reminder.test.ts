@@ -191,6 +191,17 @@ describe("schedule-deadline-reminder", () => {
     expect(sendNotificationMock).not.toHaveBeenCalled();
   });
 
+  // Issue #183 (C2a) : PostgREST renvoie un timestamptz avec le suffixe
+  // "+00:00" (pas "Z"), et parfois sans les millisecondes — une comparaison
+  // de strings brutes contre event.data.deadlineAt (Date.toISOString(),
+  // suffixe "Z") échouait donc systématiquement même sans changement réel de
+  // deadline. Régression : aucun rappel de deadline n'était jamais envoyé.
+  test("envoie le push même si deadline_at revient au format PostgREST (+00:00, même instant)", async () => {
+    dbTables.tasks[0].deadline_at = "2026-07-22T16:00:00+00:00";
+    await invoke(baseEvent);
+    expect(sendNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
   test("n'envoie rien si aucune souscription push n'existe", async () => {
     dbTables.push_subscriptions = [];
     await invoke(baseEvent);

@@ -69,7 +69,7 @@ const OTHER_ACHIEVEMENTS: AchievementDef[] = [
     code: "ALL_HEROES",
     category: "collection",
     rarity: "or",
-    title: "Ensemble on est plus fort",
+    title: "Attrapez les tous !",
     description: "Tous les héros débloqués.",
     countsTowardPlatinum: true,
     displayMode: "progress",

@@ -7,6 +7,7 @@ import {
   deactivateRecurringTemplate,
   toggleRestDay,
 } from "@/app/actions/recurring";
+import RecurringIcon from "@/components/ui/RecurringIcon";
 
 export interface ManagedTemplate {
   id: string;
@@ -130,7 +131,10 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
                 className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-ink">🔁 {t.title}</span>
+                  <span className="flex items-center gap-1 text-sm text-ink">
+                    <RecurringIcon className="h-3.5 w-3.5" />
+                    {t.title}
+                  </span>
                   <div className="flex gap-1">
                     {DAYS.map((d) => (
                       <span

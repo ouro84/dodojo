@@ -6,6 +6,7 @@ import type { Task } from "@/types";
 import { isNestableParent, isOptimisticTask } from "@/lib/game-engine";
 import SubtaskForm from "./SubtaskForm";
 import DeadlineControl from "./DeadlineControl";
+import RecurringIcon from "@/components/ui/RecurringIcon";
 
 export interface DragOverInfo {
   overTaskId: string;
@@ -131,8 +132,12 @@ export default function TaskRow({
         }`}
       >
         {task.is_recurring && (
-          <span aria-label="Quête récurrente" title="Quête récurrente" className="mr-1">
-            🔁
+          <span
+            aria-label="Quête récurrente"
+            title="Quête récurrente"
+            className="mr-1 inline-flex items-center"
+          >
+            <RecurringIcon className="h-3.5 w-3.5" />
           </span>
         )}
         {task.title}

@@ -79,7 +79,16 @@ export const scheduleDeadlineReminder = inngest.createFunction(
         .maybeSingle();
       const task = taskData as TaskRow | null;
       if (!task || task.is_completed || task.is_abandoned || !task.reminder_enabled) return null;
-      if (task.deadline_at !== deadlineAt) return null;
+      // Issue #183 (C2a) : comparaison de strings ISO brutes — event.data.deadlineAt
+      // vient de deadlineIso() côté client (Date.toISOString(), suffixe "Z"),
+      // task.deadline_at revient de PostgREST pour une colonne timestamptz
+      // (suffixe "+00:00") : deux représentations du même instant, jamais
+      // égales en tant que strings. `!==` faisait donc échouer cette garde à
+      // chaque fois — aucun rappel de deadline n'était jamais envoyé (bug
+      // confirmé en test live, run "Completed" mais check-still-valid → null).
+      if (!task.deadline_at || new Date(task.deadline_at).getTime() !== new Date(deadlineAt).getTime()) {
+        return null;
+      }
 
       const { data: profileData } = await supabase
         .from("profiles")
@@ -125,6 +134,15 @@ export const scheduleDeadlineReminder = inngest.createFunction(
           const statusCode = (err as { statusCode?: number }).statusCode;
           if (statusCode === 404 || statusCode === 410) {
             await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+          } else {
+            // Issue #183 (C2) : un run "Completed" ne garantissait aucune trace
+            // en cas d'échec d'envoi silencieux (statusCode ≠ 404/410) — visible
+            // dans les logs Vercel/Inngest, seule trace diagnosticable.
+            console.error("[inngest:schedule-deadline-reminder] envoi push échoué", {
+              endpoint: sub.endpoint,
+              statusCode,
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         }
       }

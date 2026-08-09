@@ -4,12 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { HEROES, getHero, isHeroOwned, DEFAULT_HERO_ID } from "@/lib/heroes";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { getSkinsForHero } from "@/lib/hero-skins";
-import {
-  equipHero,
-  purchaseHero,
-  equipSkin,
-  purchaseSkin,
-} from "@/app/actions/shop";
+import { purchaseHero, equipHeroAndSkin, purchaseSkin } from "@/app/actions/shop";
 import SkinCarousel from "@/components/shop/SkinCarousel";
 import AchievementToast from "@/components/combat/AchievementToast";
 
@@ -49,15 +44,7 @@ export function CharacterSelect({
 
   function onAction() {
     setError(null);
-    if (equipped) return;
-    if (owned) {
-      startTransition(async () => {
-        const res = await equipHero(selected.id);
-        if (res.error) setError(res.error);
-      });
-    } else if (affordable) {
-      setConfirmId(selected.id);
-    }
+    if (!owned && affordable) setConfirmId(selected.id);
   }
 
   function confirmPurchase() {
@@ -77,7 +64,7 @@ export function CharacterSelect({
   function onEquipSkin(skinId: string) {
     setError(null);
     startTransition(async () => {
-      const res = await equipSkin(selected.id, skinId);
+      const res = await equipHeroAndSkin(selected.id, skinId);
       if (res.error) setError(res.error);
     });
   }
@@ -106,8 +93,11 @@ export function CharacterSelect({
         </span>
       </div>
 
-      {/* En-tête héros : nom, élément, achat/équipement du héros lui-même
-          (distinct du CTA de tenue, porté par SkinCarousel ci-dessous). */}
+      {/* En-tête héros : nom, élément, achat du héros lui-même si non possédé.
+          Issue #183 : l'équipement (héros possédé) se fait désormais via le
+          seul CTA du carrousel de tenues ci-dessous — deux boutons "Équiper"
+          distincts sur le même écran (héros vs tenue) créaient une confusion
+          réelle ("le bouton n'a aucun effet" quand le mauvais était cliqué). */}
       <div className="flex flex-col items-center gap-1">
         <div className="font-display text-sm uppercase tracking-wide text-ink">
           {selected.name}
@@ -118,21 +108,17 @@ export function CharacterSelect({
             {error}
           </p>
         )}
-        <button
-          type="button"
-          data-testid="hero-cta"
-          onClick={onAction}
-          disabled={pending || equipped || (!owned && !affordable)}
-          className="mt-1 rounded border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
-        >
-          {equipped
-            ? "✓ Équipé"
-            : owned
-              ? "Équiper"
-              : affordable
-                ? `🪙 ${selected.price} · Débloquer`
-                : `🪙 ${selected.price}`}
-        </button>
+        {!owned && (
+          <button
+            type="button"
+            data-testid="hero-cta"
+            onClick={onAction}
+            disabled={pending || !affordable}
+            className="mt-1 rounded border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
+          >
+            {affordable ? `🪙 ${selected.price} · Débloquer` : `🪙 ${selected.price}`}
+          </button>
+        )}
       </div>
 
       {/* Carrousel 3D de tenues (issue #75) — fusionne l'ancien Stage (gros

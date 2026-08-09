@@ -23,22 +23,24 @@ export default async function ArtisansPage() {
   const ctx = await assembleAchievementContext(supabase, user.id);
 
   return (
-    <main className="screen-main gap-4 px-4 py-6">
-      <BackLink href="/vestiaire" label="Retour au Vestiaire" />
-      <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
-        Les Artisans
-      </h1>
-      <p className="text-center text-xs text-muted">
-        Chaque héros, chaque Boss, chaque décor a été façonné par quelqu&apos;un avant de finir
-        dans ton Arène.
-      </p>
-      <ArtisansCarousel
-        seenContext={{
-          unlockedHeroIds: ctx.unlockedHeroIds,
-          seenBossIds: ctx.seenBossIds,
-          seenBackgroundIds: ctx.seenBackgroundIds,
-        }}
-      />
+    <main className="screen-main h-dvh gap-3 overflow-hidden px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2">
+        <BackLink href="/vestiaire" label="Retour au Vestiaire" />
+        <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
+          Les Artisans
+        </h1>
+        <p className="text-center text-xs text-muted">
+          Chaque héros, chaque Boss, chaque décor a été façonné par quelqu&apos;un avant de finir
+          dans ton Arène.
+        </p>
+        <ArtisansCarousel
+          seenContext={{
+            unlockedHeroIds: ctx.unlockedHeroIds,
+            seenBossIds: ctx.seenBossIds,
+            seenBackgroundIds: ctx.seenBackgroundIds,
+          }}
+        />
+      </div>
       <BottomNav active="vestiaire" />
     </main>
   );

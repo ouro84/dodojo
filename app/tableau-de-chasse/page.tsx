@@ -99,7 +99,8 @@ export default async function PantheonPage() {
   }
 
   return (
-    <main className="screen-main gap-3 px-4 py-6">
+    <main className="screen-main h-dvh gap-3 overflow-hidden px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-2">
       <BackLink href="/vestiaire" label="Retour au Vestiaire" />
       <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
         Tableau de Chasse
@@ -180,6 +181,7 @@ export default async function PantheonPage() {
         </p>
         <CombatJournal entries={results} />
       </section>
+      </div>
 
       <BottomNav active="vestiaire" />
     </main>

@@ -97,7 +97,8 @@ export default async function AchievementsPage() {
   const counts = rarityCounts(unlockedCodes);
 
   return (
-    <main className="screen-main gap-3 px-4 py-6">
+    <main className="screen-main h-dvh gap-3 overflow-hidden px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-2">
       <BackLink href="/tableau-de-chasse" label="Retour au Tableau de Chasse" />
       <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
         Succès
@@ -194,6 +195,7 @@ export default async function AchievementsPage() {
           </section>
         );
       })}
+      </div>
 
       <BottomNav active="vestiaire" />
     </main>

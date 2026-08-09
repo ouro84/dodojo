@@ -58,16 +58,17 @@ export default async function EntrainementPage() {
   }));
 
   return (
-    <main className="screen-main gap-4 px-4 py-6">
-      <BackLink href="/vestiaire" label="Retour au Vestiaire" />
-      <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
-        Mes Routines
-      </h1>
-      <p className="text-center text-xs text-muted">
-        Tes quêtes quotidiennes réapparaissent d&apos;elles-mêmes au réveil, les
-        jours choisis.
-      </p>
-      <RecurringManager templates={managed} />
+    <main className="screen-main h-dvh gap-3 overflow-hidden px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2">
+        <BackLink href="/vestiaire" label="Retour au Vestiaire" />
+        <h1 className="text-center font-hud text-lg font-semibold uppercase tracking-wide text-ink">
+          Mes Routines
+        </h1>
+        <p className="text-center text-xs text-muted">
+          Tes quêtes quotidiennes réapparaissent d&apos;elles-mêmes au réveil, les jours choisis.
+        </p>
+        <RecurringManager templates={managed} />
+      </div>
       <BottomNav active="vestiaire" />
     </main>
   );
