@@ -83,12 +83,18 @@ export async function updateSession(request: NextRequest) {
 // US-22 : /oauth/* et /.well-known/* s'ajoutent à /api/* (US-11) — routes
 // techniques appelées sans cookie Supabase (Gemini), gèrent leur propre
 // authentification (PKCE, Bearer, service-role).
+// Issue #134 : pages légales publiques — un visiteur non authentifié (avant
+// inscription) doit pouvoir les lire, même raisonnement que /login/welcome.
 export function isPublicRoute(path: string): boolean {
   return (
     path.startsWith("/login") ||
     path.startsWith("/welcome") ||
     path.startsWith("/api/") ||
     path.startsWith("/oauth/") ||
-    path.startsWith("/.well-known/")
+    path.startsWith("/.well-known/") ||
+    path.startsWith("/mentions-legales") ||
+    path.startsWith("/confidentialite") ||
+    path.startsWith("/cgu") ||
+    path.startsWith("/informations-legales")
   );
 }
