@@ -10,21 +10,23 @@ test.describe("US-18 Le Marché Noir", () => {
 
   test("débloque puis équipe un héros", async ({ page }) => {
     await page.goto("/marche-noir");
-    const heroCta = page.getByTestId("hero-cta");
 
-    // Fire Knight équipé par défaut.
-    await expect(heroCta).toHaveText("✓ Équipé");
+    // Fire Knight possédé/équipé par défaut : aucun CTA d'achat héros.
+    await expect(page.getByTestId("hero-cta")).toHaveCount(0);
 
     // Sélectionner un héros verrouillé et l'acheter.
     await page.locator('[data-hero-cell="water_priestess"]').click();
+    const heroCta = page.getByTestId("hero-cta");
+    await expect(heroCta).toContainText("Débloquer");
     await heroCta.click();
     await page.getByRole("button", { name: "Confirmer" }).click();
 
-    // Devient possédé → bouton Équiper.
-    await expect(heroCta).toHaveText("Équiper");
+    // Devient possédé → le CTA héros disparaît, l'équipement se fait via la tenue.
+    await expect(heroCta).toHaveCount(0);
+    const skinCta = page.getByTestId("skin-cta");
+    await expect(skinCta).toHaveText("Équiper");
 
-    // Équiper.
-    await heroCta.click();
-    await expect(heroCta).toHaveText("✓ Équipé");
+    await skinCta.click();
+    await expect(skinCta).toHaveText("✓ Équipé");
   });
 });

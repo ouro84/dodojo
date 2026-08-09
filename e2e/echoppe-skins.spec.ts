@@ -64,11 +64,12 @@ test.describe("US-53 Tenues (carrousel)", () => {
     await page.locator('[data-hero-cell="crystal_mauler"]').click();
     await page.getByTestId("hero-cta").click(); // achat du héros
     await page.getByRole("button", { name: "Confirmer" }).click();
-    await expect(page.getByTestId("hero-cta")).toHaveText("Équiper");
-    // Le badge/CTA "équipée" d'une tenue ne s'affiche que si le héros lui-même
-    // est l'équipé courant (même règle que l'ancienne bande de swatches).
-    await page.getByTestId("hero-cta").click();
-    await expect(page.getByTestId("hero-cta")).toHaveText("✓ Équipé");
+    // Devient possédé → le CTA héros disparaît, seul le CTA de tenue équipe
+    // désormais héros + tenue en une action (issue #183).
+    await expect(page.getByTestId("hero-cta")).toHaveCount(0);
+    await expect(page.getByTestId("skin-cta")).toHaveText("Équiper");
+    await page.getByTestId("skin-cta").click();
+    await expect(page.getByTestId("skin-cta")).toHaveText("✓ Équipé");
 
     const group = page.getByRole("group", { name: "Tenues de Broyeur de Cristal" });
     await group.focus();
