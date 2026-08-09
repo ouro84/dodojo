@@ -56,13 +56,13 @@ export async function exportUserData(): Promise<{
     supabase.from("push_subscriptions").select("*").eq("user_id", user.id),
   ]);
 
-  const profileRow = (profile as Row[] | null)?.[0] ?? {};
-  const { webhook_token_hash: _hash, ...profileWithoutSecrets } = profileRow;
+  const profileRow: Row = { ...((profile as Row[] | null)?.[0] ?? {}) };
+  delete profileRow.webhook_token_hash;
 
   return {
     error: null,
     data: {
-      profile: profileWithoutSecrets,
+      profile: profileRow,
       tasks: (tasks as Row[] | null) ?? [],
       dayResults: (dayResults as Row[] | null) ?? [],
       unlockedHeroes: (unlockedHeroes as Row[] | null) ?? [],
@@ -109,11 +109,9 @@ export async function deleteAccount(confirmText: string): Promise<{ error: strin
     auth: { persistSession: false },
   });
 
-  let lastError: { message: string } | null = null;
   for (let attempt = 0; attempt < DELETE_USER_ATTEMPTS; attempt++) {
     const { error } = await admin.auth.admin.deleteUser(user.id);
     if (!error) return { error: null };
-    lastError = error;
   }
 
   return { error: "Dodojo n'a pas pu supprimer ton compte. Réessaie." };
