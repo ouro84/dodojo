@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ShareCardParams, ShareSource } from "@/lib/share-card";
 import { shareCardSearchParams, pickShareStrategy } from "@/lib/share-card";
 import { logShareEvent } from "@/app/actions/share";
+import GameIcon from "@/components/ui/GameIcon";
 
 interface ShareButtonProps {
   params: ShareCardParams;
@@ -75,9 +76,15 @@ export default function ShareButton({ params, source }: ShareButtonProps) {
         type="button"
         onClick={() => void handleShare()}
         disabled={status === "loading"}
-        className="rounded-md border border-gold bg-surface px-4 py-2 font-display text-xs uppercase tracking-wide text-gold disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-gold bg-surface px-4 py-2 font-display text-xs uppercase tracking-wide text-gold disabled:opacity-50"
       >
-        {status === "loading" ? "…" : "📤 Partager"}
+        {status === "loading" ? (
+          "…"
+        ) : (
+          <>
+            <GameIcon name="share" className="h-4 w-4" /> Partager
+          </>
+        )}
       </button>
       {status === "error" && (
         <p role="alert" className="text-xs text-alert">

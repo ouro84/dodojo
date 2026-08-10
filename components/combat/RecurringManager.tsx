@@ -8,6 +8,7 @@ import {
   toggleRestDay,
 } from "@/app/actions/recurring";
 import RecurringIcon from "@/components/ui/RecurringIcon";
+import GameIcon from "@/components/ui/GameIcon";
 
 export interface ManagedTemplate {
   id: string;
@@ -154,9 +155,10 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
                     type="button"
                     onClick={() => runAction(() => toggleRestDay(t.id))}
                     disabled={pending}
-                    className="rounded border border-border px-2 py-1 text-[11px] text-muted hover:text-ink disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-muted hover:text-ink disabled:opacity-40"
                   >
-                    {t.isRestToday ? "🛌 Repos aujourd'hui (activé)" : "🛌 Repos aujourd'hui"}
+                    <GameIcon name="sleep" className="h-3.5 w-3.5" />
+                    {t.isRestToday ? "Repos aujourd'hui (activé)" : "Repos aujourd'hui"}
                   </button>
                   <button
                     type="button"

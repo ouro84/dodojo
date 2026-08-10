@@ -4,23 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 import {
   ALL_ACHIEVEMENT_DEFS,
   TOTAL_ACHIEVEMENTS_COUNT,
+  RARITY_ICON_NAME,
   achievementProgressFor,
   rarityCounts,
   type AchievementContext,
-  type AchievementRarity,
 } from "@/lib/achievements";
 import BottomNav from "@/components/ui/BottomNav";
 import BackLink from "@/components/ui/BackLink";
+import GameIcon from "@/components/ui/GameIcon";
 import TitleSelector from "@/components/pantheon/TitleSelector";
 
 export const metadata: Metadata = { title: "Succès — Dodojo" };
-
-const RARITY_ICON: Record<AchievementRarity, string> = {
-  bronze: "🥉",
-  argent: "🥈",
-  or: "🥇",
-  platine: "💎",
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   hero: "Héros",
@@ -113,19 +107,23 @@ export default async function AchievementsPage() {
         className="flex flex-col gap-1 text-center text-xs text-muted"
       >
         <div className="flex justify-center gap-4">
-          <span>
-            <span aria-hidden="true">🥉</span> {counts.bronze.unlocked}/{counts.bronze.total}
+          <span className="inline-flex items-center gap-1">
+            <GameIcon name={RARITY_ICON_NAME.bronze} className="h-4 w-4" /> {counts.bronze.unlocked}/
+            {counts.bronze.total}
           </span>
-          <span>
-            <span aria-hidden="true">🥈</span> {counts.argent.unlocked}/{counts.argent.total}
+          <span className="inline-flex items-center gap-1">
+            <GameIcon name={RARITY_ICON_NAME.argent} className="h-4 w-4" /> {counts.argent.unlocked}/
+            {counts.argent.total}
           </span>
-          <span>
-            <span aria-hidden="true">🥇</span> {counts.or.unlocked}/{counts.or.total}
+          <span className="inline-flex items-center gap-1">
+            <GameIcon name={RARITY_ICON_NAME.or} className="h-4 w-4" /> {counts.or.unlocked}/
+            {counts.or.total}
           </span>
         </div>
         <div>
-          <span>
-            <span aria-hidden="true">💎</span> {counts.platine.unlocked}/{counts.platine.total}
+          <span className="inline-flex items-center gap-1">
+            <GameIcon name={RARITY_ICON_NAME.platine} className="h-4 w-4" /> {counts.platine.unlocked}/
+            {counts.platine.total}
           </span>
         </div>
       </section>
@@ -155,8 +153,8 @@ export default async function AchievementsPage() {
                     className={`rounded-md border border-border p-2 ${unlocked ? "" : "opacity-60"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span>
-                        <span aria-hidden="true">{RARITY_ICON[def.rarity]}</span>{" "}
+                      <span className="inline-flex items-center gap-1.5">
+                        <GameIcon name={RARITY_ICON_NAME[def.rarity]} className="h-4 w-4 shrink-0" />
                         {def.displayMode === "mystery" && !unlocked ? "???" : def.title}
                       </span>
                       {unlocked && row && (

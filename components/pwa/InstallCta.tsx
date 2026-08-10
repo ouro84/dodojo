@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 
 // CTA d'installation maison, ton pixel-art, affiché uniquement quand
@@ -16,9 +17,10 @@ export default function InstallCta() {
       onClick={() => {
         void promptInstall();
       }}
-      className="rounded-md border border-border bg-surface px-4 py-2 font-display text-xs uppercase tracking-wide text-gold"
+      className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 font-display text-xs uppercase tracking-wide text-gold"
     >
-      📲 Installer Dodojo
+      <Image src="/icons/icon-192.png" alt="" width={16} height={16} unoptimized />
+      Installer Dodojo
     </button>
   );
 }

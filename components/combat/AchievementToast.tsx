@@ -1,19 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { getAchievement, type AchievementRarity } from "@/lib/achievements";
+import { getAchievement, RARITY_ICON_NAME } from "@/lib/achievements";
+import GameIcon from "@/components/ui/GameIcon";
 
 interface AchievementToastProps {
   codes: string[];
   onDismissAll: () => void;
 }
-
-const RARITY_ICON: Record<AchievementRarity, string> = {
-  bronze: "🥉",
-  argent: "🥈",
-  or: "🥇",
-  platine: "💎",
-};
 
 // Issue #72 (D9) : non-bloquant, empilable, disparaît seul — contrairement
 // à LevelUpOverlay/PerfectOverlay (bloquants, focus trap), pas d'interaction
@@ -41,9 +35,7 @@ export default function AchievementToast({ codes, onDismissAll }: AchievementToa
             key={code}
             className="achievement-toast pointer-events-auto flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-left shadow-lg motion-reduce:animate-none"
           >
-            <span className="text-lg" aria-hidden="true">
-              {RARITY_ICON[def.rarity]}
-            </span>
+            <GameIcon name={RARITY_ICON_NAME[def.rarity]} className="h-5 w-5 shrink-0" />
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-gold">
                 Succès débloqué : {def.title}

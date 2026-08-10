@@ -1,5 +1,7 @@
 "use client";
 
+import GameIcon from "@/components/ui/GameIcon";
+
 // US-29 : coach du 1er combat, non bloquant, en surimpression basse de l'Arène.
 // L'utilisateur peut agir pendant qu'il est affiché. « Passer » (A2) le clôt.
 interface ArenaCoachProps {
@@ -23,9 +25,9 @@ export default function ArenaCoach({ step, onSuggest, onSkip }: ArenaCoachProps)
             <button
               type="button"
               onClick={onSuggest}
-              className="rounded-md border border-hp px-4 py-2 font-display text-xs uppercase tracking-wide text-hp-text"
+              className="inline-flex items-center gap-1.5 rounded-md border border-hp px-4 py-2 font-display text-xs uppercase tracking-wide text-hp-text"
             >
-              ⚡ Prendre en main Dodojo
+              <GameIcon name="lightning" className="h-4 w-4" /> Prendre en main Dodojo
             </button>
           </>
         ) : (

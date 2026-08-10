@@ -6,6 +6,7 @@ import type { EmblaCarouselType } from "embla-carousel";
 import type { Hero } from "@/types";
 import { getSkinsForHero, defaultSkinIdFor, isSkinOwned } from "@/lib/hero-skins";
 import { carousel3DTransform, skinCtaState } from "@/lib/carousel-3d";
+import GameIcon from "@/components/ui/GameIcon";
 import HeroIdle from "@/components/combat/HeroIdle";
 
 // Issue #75 : remplace la bande de pastilles de couleur par un carrousel 3D
@@ -217,8 +218,9 @@ export default function SkinCarousel({
           onClick={handleCtaClick}
           disabled={pending || cta.disabled}
           data-testid="skin-cta"
-          className="rounded border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
         >
+          {cta.icon && <GameIcon name={cta.icon} className="h-4 w-4" />}
           {cta.label}
         </button>
       ) : (

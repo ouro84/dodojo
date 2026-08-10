@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { regenerateWebhookToken } from "@/app/actions/webhook-token";
+import GameIcon from "@/components/ui/GameIcon";
 
 interface WebhookTokenSectionProps {
   hasToken: boolean;
@@ -69,7 +70,9 @@ export default function WebhookTokenSection({ hasToken, lastUsedAt }: WebhookTok
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-ink">🗣️ Raccourci Siri</p>
+        <p className="inline-flex items-center gap-1.5 text-sm text-ink">
+          <GameIcon name="mic" className="h-4 w-4" /> Raccourci Siri
+        </p>
         <button
           type="button"
           disabled={pending}

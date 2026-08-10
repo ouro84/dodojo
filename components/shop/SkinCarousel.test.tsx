@@ -108,7 +108,7 @@ describe("SkinCarousel", () => {
       expect(screen.getByTestId("skin-position")).toHaveTextContent("2/2");
     });
     const cta = screen.getByTestId("skin-cta");
-    expect(cta).toHaveTextContent("🪙 300 · Or insuffisant");
+    expect(cta).toHaveTextContent("300 · Or insuffisant");
     expect(cta).toBeDisabled();
   });
 

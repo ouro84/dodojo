@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { goldBalance, tableauChasseStats, xpThresholdForLevel } from "@/lib/game-engine";
@@ -9,6 +10,7 @@ import WinRateRing from "@/components/pantheon/WinRateRing";
 import CombatJournal from "@/components/pantheon/CombatJournal";
 import BottomNav from "@/components/ui/BottomNav";
 import BackLink from "@/components/ui/BackLink";
+import GameIcon from "@/components/ui/GameIcon";
 
 export const metadata: Metadata = { title: "Tableau de Chasse — Dodojo" };
 
@@ -157,8 +159,23 @@ export default async function PantheonPage() {
       <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
         <p className="font-display text-xs uppercase tracking-wide text-muted">Trésor</p>
         <div className="flex justify-between text-xs">
-          <Stat label="Or en cours" value={`${balance} 🪙`} />
-          <Stat label="Or all-time" value={`${stats.goldAllTime} 🪙`} align="right" />
+          <Stat
+            label="Or en cours"
+            value={
+              <span className="inline-flex items-center gap-1">
+                {balance} <GameIcon name="gold" className="h-4 w-4" />
+              </span>
+            }
+          />
+          <Stat
+            label="Or all-time"
+            value={
+              <span className="inline-flex items-center gap-1">
+                {stats.goldAllTime} <GameIcon name="gold" className="h-4 w-4" />
+              </span>
+            }
+            align="right"
+          />
         </div>
       </section>
 
@@ -194,7 +211,7 @@ function Stat({
   align = "left",
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   align?: "left" | "right";
 }) {
   return (

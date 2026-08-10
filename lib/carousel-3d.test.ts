@@ -43,29 +43,31 @@ describe("carousel3DTransform", () => {
 describe("skinCtaState", () => {
   it("tenue équipée : CTA désactivé, libellé ✓ Équipé", () => {
     const state = skinCtaState({ equipped: true, owned: true, price: 300, balance: 1000 });
-    expect(state).toEqual({ label: "✓ Équipé", disabled: true, variant: "equipped" });
+    expect(state).toEqual({ label: "✓ Équipé", disabled: true, variant: "equipped", icon: null });
   });
 
   it("tenue possédée mais pas équipée : CTA actif, libellé Équiper", () => {
     const state = skinCtaState({ equipped: false, owned: true, price: 300, balance: 1000 });
-    expect(state).toEqual({ label: "Équiper", disabled: false, variant: "equip" });
+    expect(state).toEqual({ label: "Équiper", disabled: false, variant: "equip", icon: null });
   });
 
   it("tenue non possédée, solde suffisant : CTA actif, débloquer au prix affiché", () => {
     const state = skinCtaState({ equipped: false, owned: false, price: 300, balance: 300 });
     expect(state).toEqual({
-      label: "🪙 300 · Débloquer",
+      label: "300 · Débloquer",
       disabled: false,
       variant: "unlock",
+      icon: "gold",
     });
   });
 
   it("tenue non possédée, solde insuffisant : CTA désactivé (issue #75, trou UX corrigé)", () => {
     const state = skinCtaState({ equipped: false, owned: false, price: 300, balance: 100 });
     expect(state).toEqual({
-      label: "🪙 300 · Or insuffisant",
+      label: "300 · Or insuffisant",
       disabled: true,
       variant: "insufficient",
+      icon: "gold",
     });
   });
 

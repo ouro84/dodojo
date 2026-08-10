@@ -10,7 +10,7 @@ test.describe("Les Artisans (issue #134)", () => {
     await page.getByRole("link", { name: /Les Artisans/ }).click();
     await page.waitForURL("/vestiaire/artisans");
     await expect(page.getByRole("heading", { name: "Les Artisans" })).toBeVisible();
-    await expect(page.getByTestId("artisan-position")).toHaveText("1/5");
+    await expect(page.getByTestId("artisan-position")).toHaveText("1/6");
     await expect(page.getByRole("tab", { name: "Héros" })).toBeVisible();
   });
 

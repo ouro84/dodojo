@@ -7,6 +7,7 @@ import { getSkinsForHero } from "@/lib/hero-skins";
 import { purchaseHero, equipHeroAndSkin, purchaseSkin } from "@/app/actions/shop";
 import SkinCarousel from "@/components/shop/SkinCarousel";
 import AchievementToast from "@/components/combat/AchievementToast";
+import GameIcon from "@/components/ui/GameIcon";
 
 // US-18/US-53 : écran de sélection de combattant façon VS Fighting.
 // En-tête héros + carrousel 3D de tenues (issue #75) en haut, matrice
@@ -87,9 +88,11 @@ export function CharacterSelect({
   return (
     <div data-testid="character-select" className="flex w-full flex-col gap-4">
       <div className="flex items-center justify-between font-display text-xs uppercase tracking-wide text-ink">
-        <span>⚔️ Choisis ton combattant</span>
-        <span data-testid="gold-balance" className="text-gold">
-          🪙 {balance}
+        <span className="inline-flex items-center gap-1.5">
+          <GameIcon name="sword" className="h-4 w-4" /> Choisis ton combattant
+        </span>
+        <span data-testid="gold-balance" className="inline-flex items-center gap-1 text-gold">
+          <GameIcon name="gold" className="h-4 w-4" /> {balance}
         </span>
       </div>
 
@@ -114,9 +117,10 @@ export function CharacterSelect({
             data-testid="hero-cta"
             onClick={onAction}
             disabled={pending || !affordable}
-            className="mt-1 rounded border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
+            className="mt-1 inline-flex items-center gap-1.5 rounded border border-border px-4 py-2 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-50"
           >
-            {affordable ? `🪙 ${selected.price} · Débloquer` : `🪙 ${selected.price}`}
+            <GameIcon name="gold" className="h-4 w-4" />
+            {affordable ? `${selected.price} · Débloquer` : selected.price}
           </button>
         )}
       </div>

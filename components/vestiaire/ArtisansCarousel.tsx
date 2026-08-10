@@ -18,15 +18,21 @@ import { getBackground } from "@/lib/backgrounds";
 import { bossSpriteMeta } from "@/lib/sprite-metadata";
 import HeroIdle from "@/components/combat/HeroIdle";
 import CharacterSprite from "@/components/combat/CharacterSprite";
+import GameIcon from "@/components/ui/GameIcon";
 
 const CATEGORY_LABEL: Record<ArtisanCategory, string> = {
   heros: "Héros",
   boss: "Boss",
   decors: "Décors",
   police: "Police",
+  icones: "Icônes",
 };
 
-const CATEGORY_ORDER: ArtisanCategory[] = ["heros", "boss", "decors", "police"];
+const CATEGORY_ORDER: ArtisanCategory[] = ["heros", "boss", "decors", "police", "icones"];
+
+// Un échantillon suffit à illustrer l'attribution — inutile de lister les 14
+// icônes extraites une à une ici (déjà documentées dans ASSETS.md § 8).
+const ICON_SAMPLE = ["trophy", "artisans", "marche", "guide", "legal", "sword"] as const;
 
 function ArtisanVisual({ entry }: { entry: ArtisanEntry }) {
   const ref = entry.spriteRef;
@@ -62,6 +68,15 @@ function ArtisanVisual({ entry }: { entry: ArtisanEntry }) {
           sizes="160px"
           className="object-cover [image-rendering:pixelated]"
         />
+      </div>
+    );
+  }
+  if (ref.kind === "icon") {
+    return (
+      <div className="flex h-28 w-40 flex-wrap items-center justify-center gap-2">
+        {ICON_SAMPLE.map((name) => (
+          <GameIcon key={name} name={name} className="h-6 w-6" />
+        ))}
       </div>
     );
   }
@@ -130,7 +145,10 @@ export default function ArtisansCarousel({
 
   const centered = ARTISANS[selectedIndex] ?? ARTISANS[0];
   const activeCategory = centered.category;
-  const showSeenBadge = centered.spriteRef.kind !== "font" && isArtisanSeen(centered, seenContext);
+  const showSeenBadge =
+    centered.spriteRef.kind !== "font" &&
+    centered.spriteRef.kind !== "icon" &&
+    isArtisanSeen(centered, seenContext);
 
   return (
     <div className="flex flex-col items-center gap-3" data-testid="artisans-carousel">
