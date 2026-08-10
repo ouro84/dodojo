@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 interface SubtaskFormProps {
   onAdd: (title: string) => void;
@@ -15,6 +15,9 @@ export default function SubtaskForm({
 }: SubtaskFormProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  // Un id fixe casserait dès que deux TaskRow nestables ouvrent leur
+  // SubtaskForm en même temps (id HTML dupliqué, association <label> ambiguë).
+  const inputId = useId();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,11 +47,11 @@ export default function SubtaskForm({
       onSubmit={handleSubmit}
       className="ml-6 flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5"
     >
-      <label htmlFor="new-subtask" className="sr-only">
+      <label htmlFor={inputId} className="sr-only">
         Ajouter une sous-tâche
       </label>
       <input
-        id="new-subtask"
+        id={inputId}
         name="title"
         type="text"
         autoFocus
@@ -56,7 +59,7 @@ export default function SubtaskForm({
         onChange={(event) => setTitle(event.target.value)}
         placeholder="Sous-tâche…"
         maxLength={140}
-        className="flex-1 rounded bg-transparent text-xs text-ink outline-none placeholder:text-faint focus-visible:outline focus-visible:outline-2 focus-visible:outline-xp focus-visible:outline-offset-2"
+        className="flex-1 rounded bg-transparent text-xs text-ink outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-xp"
       />
       <button
         type="submit"

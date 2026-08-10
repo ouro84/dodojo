@@ -78,7 +78,7 @@ export default function VsIntroOverlay({
   return (
     <div
       data-testid="vs-intro-overlay"
-      className={`pointer-events-none fixed inset-0 z-50 flex items-center justify-center transition-opacity ${
+      className={`pointer-events-none absolute inset-0 z-50 flex items-center justify-center transition-opacity ${
         fading ? "opacity-0" : "opacity-100"
       } ${flash ? "white-flash" : ""}`}
       style={{ transitionDuration: flash ? "200ms" : "500ms" }}

@@ -172,7 +172,7 @@ export default function HeroBar({
         onClick={() => setIsOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        className="flex flex-col gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-hp/20"
+        className="flex flex-col gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hp"
       >
         {bar}
         {footer}

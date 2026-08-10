@@ -130,7 +130,7 @@ export default function DeleteAccountSection() {
                 <button
                   type="submit"
                   disabled={pending || confirmText !== CONFIRM_TEXT}
-                  className="rounded bg-alert px-3 py-1.5 text-xs uppercase tracking-wide text-ink disabled:opacity-50"
+                  className="rounded bg-alert px-3 py-1.5 text-xs uppercase tracking-wide text-alert-ink disabled:opacity-50"
                 >
                   {pending ? "…" : "Supprimer définitivement"}
                 </button>
