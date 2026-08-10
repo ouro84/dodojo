@@ -108,13 +108,13 @@ export default function TaskRow({
         type="button"
         disabled={isLocked}
         aria-label={`Déplacer "${task.title}"`}
-        className="flex min-h-11 min-w-11 shrink-0 cursor-grab touch-none items-center justify-center text-faint hover:text-ink focus-visible:text-ink active:cursor-grabbing disabled:cursor-wait disabled:opacity-40"
+        className="shrink-0 cursor-grab touch-none px-2.5 py-2.5 text-faint hover:text-ink focus-visible:text-ink active:cursor-grabbing disabled:cursor-wait disabled:opacity-40"
         {...draggable.listeners}
         {...draggable.attributes}
       >
         ⠿
       </button>
-      <label className="flex min-h-11 min-w-11 shrink-0 items-center justify-center">
+      <label className="flex shrink-0 items-center justify-center p-2.5">
         <input
           type="checkbox"
           checked={task.is_completed}
@@ -185,7 +185,7 @@ export default function TaskRow({
           onClick={() => onReportTomorrow(task.id)}
           disabled={isLocked}
           aria-label={`Reporter "${task.title}" à demain`}
-          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-xs text-faint hover:text-ink focus-visible:text-ink disabled:cursor-wait disabled:opacity-40"
+          className="shrink-0 rounded px-2 py-2.5 text-xs text-faint hover:text-ink focus-visible:text-ink disabled:cursor-wait disabled:opacity-40"
         >
           →
         </button>
@@ -195,7 +195,7 @@ export default function TaskRow({
         onClick={() => onAbandon(task.id)}
         disabled={isLocked}
         aria-label={`Abandonner "${task.title}"`}
-        className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-xs text-faint hover:text-alert focus-visible:text-alert disabled:cursor-wait disabled:opacity-40"
+        className="shrink-0 rounded px-2.5 py-2.5 text-xs text-faint hover:text-alert focus-visible:text-alert disabled:cursor-wait disabled:opacity-40"
       >
         ×
       </button>
