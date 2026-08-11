@@ -9,6 +9,8 @@ nouvelle section versionnée et datée.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-11
+
 ### Produit
 - Issue #187 : Le Vestiaire passe d'une liste de 7 boutons identiques à une carte de nœuds décorative (ton héros équipé au centre, chemin en pointillés vers chaque section) — tous les nœuds restent cliquables directement, aucun déblocage. Les emojis utilisés comme icônes de navigation/statut (Vestiaire, Marché Noir, succès, série, notifications...) sont remplacés par des icônes 16-bit cohérentes avec l'univers arcade du jeu.
 - Issue #167 : l'Arène en desktop (≥1024px) n'est plus une page cassée avec un vide noir de chaque côté — cabinet de combat élargi (jusqu'à ~992px) et fond décoratif étendu à tout le viewport, qui reprend le vrai décor du jour (jamais un asset figé). Mobile/tablette inchangés.
