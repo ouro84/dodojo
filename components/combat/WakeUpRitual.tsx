@@ -32,7 +32,15 @@ interface WakeUpRitualProps {
   // à jour, renvoyées par le serveur) pour les fusionner dans son propre state.
   // Issue #156 : les routines régénérées en fin de rituel voyagent par le même
   // canal — même raison (bug #70), même contrainte.
-  onResolved: (resolved: { deferredTasks: Task[]; createdTasks: Task[] }) => void;
+  // Suppression du heal Héros : Terminé/Annihiler sur un reste verrouille son
+  // dégât sur `profiles.hp_damage_locked` (cf. currentLockedHpDamage,
+  // lib/game-engine.ts) — même besoin de fusion explicite côté client, sans
+  // quoi le profil déjà hydraté d'Arena.tsx ignorerait le nouveau total.
+  onResolved: (resolved: {
+    deferredTasks: Task[];
+    createdTasks: Task[];
+    hpDamageLocked?: { hp_damage_locked: number; hp_damage_locked_day: string };
+  }) => void;
 }
 
 function daysAgo(dayDate: string, todayKey: string): number {
@@ -65,9 +73,19 @@ export default function WakeUpRitual({
   // un state — lu synchronement dans la même fonction juste avant de résoudre,
   // pas besoin de re-render dessus).
   const deferredAccumulatorRef = useRef<Task[]>([]);
+  // Suppression du heal Héros : le serveur renvoie le total verrouillé courant
+  // à chaque Terminé/Annihiler — on garde le dernier connu (pas une somme, le
+  // serveur a déjà additionné) pour le transmettre à onResolved à la fin.
+  const hpDamageLockedRef = useRef<
+    { hp_damage_locked: number; hp_damage_locked_day: string } | undefined
+  >(undefined);
 
   const groups = useMemo(() => planWakeUp(tasks), [tasks]);
-  const heroHp = calculateHeroHp(overdueHpPenalties(tasks));
+  // Suppression du heal Héros : la jauge se base sur la liste ORIGINALE des
+  // restes (`overdueTasks`, figée au montage), jamais sur `tasks` qui
+  // rétrécit au fil de la résolution — sinon la jauge remonterait à vue
+  // pendant le rituel lui-même, exactement le heal qu'on supprime.
+  const heroHp = calculateHeroHp(overdueHpPenalties(overdueTasks));
   const todayKey = dayKey(new Date(), timezone);
 
   async function run(
@@ -81,6 +99,9 @@ export default function WakeUpRitual({
     if (result.error) {
       setError(result.error);
       return;
+    }
+    if (result.hpDamageLocked) {
+      hpDamageLockedRef.current = result.hpDamageLocked;
     }
     if (result.deferredTasks && result.deferredTasks.length > 0) {
       deferredAccumulatorRef.current = [
@@ -103,6 +124,7 @@ export default function WakeUpRitual({
       onResolved({
         deferredTasks: deferredAccumulatorRef.current,
         createdTasks: generated.createdTasks,
+        hpDamageLocked: hpDamageLockedRef.current,
       });
     }
   }

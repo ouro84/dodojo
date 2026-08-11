@@ -7,6 +7,12 @@ interface PenaltiesBreakdown {
   overdueHpPerItem: number;
   missedCount: number;
   missedHpPerItem: number;
+  // Suppression du heal Héros : dégâts déjà subis aujourd'hui pour des
+  // pénalités désormais résolues (coche/rage quit/Réveil) — ne comptent plus
+  // dans overdueCount/missedCount (sortis des pools live), mais restent
+  // acquis sur heroHp. Sans cette ligne, le détail additionnerait moins que
+  // l'écart réel entre currentHp et 100.
+  lockedDamage: number;
 }
 
 interface HeroBarProps {
@@ -95,7 +101,8 @@ export default function HeroBar({
   const missedHpPerItem = penaltiesBreakdown!.missedHpPerItem;
   const overdueTotal = overdueCount * overdueHpPerItem;
   const missedTotal = missedCount * missedHpPerItem;
-  const noPenalty = overdueCount === 0 && missedCount === 0;
+  const lockedDamage = penaltiesBreakdown!.lockedDamage;
+  const noPenalty = overdueCount === 0 && missedCount === 0 && lockedDamage === 0;
   const emptyHp = currentHp === 0;
 
   return (
@@ -145,6 +152,14 @@ export default function HeroBar({
                   <span className="ml-2 text-ink">-{missedTotal}</span>
                 </dd>
               </div>
+              {lockedDamage > 0 && (
+                <div className="flex items-center justify-between py-0.5">
+                  <dt>Déjà subis aujourd&apos;hui</dt>
+                  <dd className="font-hud tabular-nums">
+                    <span className="ml-2 text-ink">-{lockedDamage}</span>
+                  </dd>
+                </div>
+              )}
             </dl>
           )}
 

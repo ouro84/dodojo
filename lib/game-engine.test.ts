@@ -12,7 +12,12 @@ import {
   upcomingDeadlineCount,
   deadlineHpPenalties,
   deferredRestHpPenalties,
+  hpPenaltyToLock,
+  lockedHpPenalties,
+  currentLockedHpDamage,
+  nextLockedHpDamage,
   HERO_DAMAGE_PER_OVERDUE_TASK,
+  HERO_DAMAGE_PER_MISSED_DEADLINE,
   deadlineIso,
   localTimeFromIso,
   computeGoldEarned,
@@ -75,6 +80,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     day_date: "2026-07-16",
     position: 0,
     created_at: "2026-07-16T00:00:00.000Z",
+    hp_penalty: null,
     ...overrides,
   };
 }
@@ -195,56 +201,34 @@ describe("calculateHeroHp (pool HP Héros pondéré, US-05)", () => {
     expect(calculateHeroHp([])).toBe(100);
   });
 
-  test("retire le poids de chaque pénalité non résolue", () => {
-    const penalties = [
-      { ...makeTask({ id: "1" }), weight: 20 },
-      { ...makeTask({ id: "2" }), weight: 10 },
-    ];
+  test("retire le poids de chaque pénalité", () => {
+    const penalties = [{ weight: 20 }, { weight: 10 }];
     expect(calculateHeroHp(penalties)).toBe(70);
   });
 
-  test("ignore les pénalités déjà complétées ou abandonnées", () => {
-    const penalties = [
-      { ...makeTask({ id: "1", is_completed: true }), weight: 20 },
-      { ...makeTask({ id: "2", is_abandoned: true }), weight: 10 },
-      { ...makeTask({ id: "3" }), weight: 20 },
-    ];
-    expect(calculateHeroHp(penalties)).toBe(80);
-  });
-
   test("plafonne à 0, jamais négatif", () => {
-    const penalties = Array.from({ length: 10 }, (_, i) => ({
-      ...makeTask({ id: `t${i}` }),
-      weight: 20,
-    }));
+    const penalties = Array.from({ length: 10 }, () => ({ weight: 20 }));
     expect(calculateHeroHp(penalties)).toBe(0);
   });
 
   test("combine un poids -20 (retard reporté) et un poids -10 (deadline ratée) sur deux tâches distinctes", () => {
-    const penalties = [
-      { ...makeTask({ id: "overdue-1" }), weight: 20 },
-      { ...makeTask({ id: "deadline-1" }), weight: 10 },
-    ];
+    const penalties = [{ weight: 20 }, { weight: 10 }];
     expect(calculateHeroHp(penalties)).toBe(70);
   });
 
-  test("une pénalité résolue (cochée) libère son poids immédiatement", () => {
-    const penalties = [
-      { ...makeTask({ id: "1" }), weight: 10 },
-      { ...makeTask({ id: "1", is_completed: true }), weight: 10 },
-    ];
-    // Cocher la tâche (2e entrée) doit faire remonter le HP à 100.
-    expect(calculateHeroHp([penalties[1]])).toBe(100);
+  test("lockedDamage (2e argument) s'ajoute au pool live", () => {
+    expect(calculateHeroHp([{ weight: 10 }], 20)).toBe(70);
+  });
+
+  test("lockedDamage seul, sans pool live, plafonne aussi à 0", () => {
+    expect(calculateHeroHp([], 150)).toBe(0);
   });
 });
 
 describe("overdueHpPenalties (US-05)", () => {
-  test("attribue le poids -20 à chaque tâche en retard, en conservant ses champs", () => {
-    const tasks = [makeTask({ id: "1" }), makeTask({ id: "2", is_completed: true })];
-    expect(overdueHpPenalties(tasks)).toEqual([
-      { ...tasks[0], weight: 20 },
-      { ...tasks[1], weight: 20 },
-    ]);
+  test("attribue le poids -20 à chaque tâche en retard", () => {
+    const tasks = [makeTask({ id: "1" }), makeTask({ id: "2" })];
+    expect(overdueHpPenalties(tasks)).toEqual([{ weight: 20 }, { weight: 20 }]);
   });
 });
 
@@ -258,7 +242,7 @@ describe("deferredRestHpPenalties (by-pass A4-overdue, issue #101)", () => {
       makeTask({ id: "1", deferred_at: "2026-07-28T00:00:00.000Z" }),
     ];
     expect(deferredRestHpPenalties(tasks)).toEqual([
-      { ...tasks[0], weight: HERO_DAMAGE_PER_OVERDUE_TASK },
+      { weight: HERO_DAMAGE_PER_OVERDUE_TASK },
     ]);
   });
 
@@ -267,7 +251,7 @@ describe("deferredRestHpPenalties (by-pass A4-overdue, issue #101)", () => {
     expect(deferredRestHpPenalties(tasks)).toEqual([]);
   });
 
-  test("1 tâche deferred_at non-null mais is_completed → [] (résolue)", () => {
+  test("1 tâche deferred_at non-null mais is_completed → [] (résolue, dégât repris par hp_penalty)", () => {
     const tasks = [
       makeTask({
         id: "1",
@@ -305,8 +289,88 @@ describe("deferredRestHpPenalties (by-pass A4-overdue, issue #101)", () => {
       }),
     ];
     expect(deferredRestHpPenalties(tasks)).toEqual([
-      { ...tasks[0], weight: HERO_DAMAGE_PER_OVERDUE_TASK },
+      { weight: HERO_DAMAGE_PER_OVERDUE_TASK },
     ]);
+  });
+});
+
+describe("hpPenaltyToLock (suppression du heal Héros)", () => {
+  const now = new Date("2026-08-10T14:00:00.000Z");
+
+  test("deferred_at non-null → verrouille -20, prioritaire sur deadline_at", () => {
+    expect(
+      hpPenaltyToLock(
+        { deadline_at: "2026-08-10T13:00:00.000Z", deferred_at: "2026-08-10T08:00:00.000Z" },
+        now,
+      ),
+    ).toBe(HERO_DAMAGE_PER_OVERDUE_TASK);
+  });
+
+  test("deadline_at dépassée, pas de reste reporté → verrouille -10", () => {
+    expect(
+      hpPenaltyToLock({ deadline_at: "2026-08-10T13:00:00.000Z", deferred_at: null }, now),
+    ).toBe(HERO_DAMAGE_PER_MISSED_DEADLINE);
+  });
+
+  test("deadline_at pas encore dépassée → null (résolue à temps, aucun dégât)", () => {
+    expect(
+      hpPenaltyToLock({ deadline_at: "2026-08-10T15:00:00.000Z", deferred_at: null }, now),
+    ).toBeNull();
+  });
+
+  test("ni deadline ni reste reporté → null", () => {
+    expect(hpPenaltyToLock({ deadline_at: null, deferred_at: null }, now)).toBeNull();
+  });
+});
+
+describe("lockedHpPenalties (suppression du heal Héros)", () => {
+  test("tâche résolue avec hp_penalty verrouillé → weight repris", () => {
+    const tasks = [makeTask({ id: "1", is_completed: true, hp_penalty: 10 })];
+    expect(lockedHpPenalties(tasks)).toEqual([{ weight: 10 }]);
+  });
+
+  test("tâche abandonnée avec hp_penalty verrouillé → weight repris aussi", () => {
+    const tasks = [makeTask({ id: "1", is_abandoned: true, hp_penalty: 20 })];
+    expect(lockedHpPenalties(tasks)).toEqual([{ weight: 20 }]);
+  });
+
+  test("tâche active (non résolue) → ignorée même avec hp_penalty posé (déjà comptée par le pool live)", () => {
+    const tasks = [makeTask({ id: "1", hp_penalty: 10 })];
+    expect(lockedHpPenalties(tasks)).toEqual([]);
+  });
+
+  test("tâche résolue sans hp_penalty (résolue à temps) → ignorée", () => {
+    const tasks = [makeTask({ id: "1", is_completed: true, hp_penalty: null })];
+    expect(lockedHpPenalties(tasks)).toEqual([]);
+  });
+});
+
+describe("currentLockedHpDamage / nextLockedHpDamage (suppression du heal Héros)", () => {
+  test("currentLockedHpDamage : jour courant → renvoie la valeur stockée", () => {
+    expect(
+      currentLockedHpDamage({ hp_damage_locked: 40, hp_damage_locked_day: "2026-08-10" }, "2026-08-10"),
+    ).toBe(40);
+  });
+
+  test("currentLockedHpDamage : jour différent (ou jamais posé) → 0", () => {
+    expect(
+      currentLockedHpDamage({ hp_damage_locked: 40, hp_damage_locked_day: "2026-08-09" }, "2026-08-10"),
+    ).toBe(0);
+    expect(
+      currentLockedHpDamage({ hp_damage_locked: 0, hp_damage_locked_day: null }, "2026-08-10"),
+    ).toBe(0);
+  });
+
+  test("nextLockedHpDamage : additionne au jour courant", () => {
+    expect(
+      nextLockedHpDamage({ hp_damage_locked: 20, hp_damage_locked_day: "2026-08-10" }, "2026-08-10", 20),
+    ).toEqual({ hp_damage_locked: 40, hp_damage_locked_day: "2026-08-10" });
+  });
+
+  test("nextLockedHpDamage : repart de 0 si le jour stocké diffère (nouveau jour local)", () => {
+    expect(
+      nextLockedHpDamage({ hp_damage_locked: 40, hp_damage_locked_day: "2026-08-09" }, "2026-08-10", 20),
+    ).toEqual({ hp_damage_locked: 20, hp_damage_locked_day: "2026-08-10" });
   });
 });
 
@@ -362,7 +426,7 @@ describe("upcomingDeadlineCount (US-05)", () => {
 describe("deadlineHpPenalties (US-05)", () => {
   test("attribue le poids -10 à chaque deadline ratée", () => {
     const tasks = [makeTask({ id: "1" })];
-    expect(deadlineHpPenalties(tasks)).toEqual([{ ...tasks[0], weight: 10 }]);
+    expect(deadlineHpPenalties(tasks)).toEqual([{ weight: 10 }]);
   });
 });
 

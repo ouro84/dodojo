@@ -51,6 +51,9 @@ import {
   summarizeDay,
   XP_PER_TASK,
   deferredRestHpPenalties,
+  lockedHpPenalties,
+  currentLockedHpDamage,
+  hpPenaltyToLock,
   todayCombatStats,
   xpToNextLevel,
   type KoTier,
@@ -348,13 +351,6 @@ export default function Arena({
   const reminderToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [reminderToast, setReminderToast] = useState<{ taskId: string; message: string } | null>(null);
   const [heroPulse, setHeroPulse] = useState<{ key: number } | null>(null);
-  // A3 (issue #101) : pulse "heal" gold côté Héros à chaque remontée de
-  // heroHp (coche d'une pénalité, rage quit d'une deadline ratée). Pas
-  // étendu au Réveil (limité à l'Arène, cf. spec A3).
-  const [heroHealPulse, setHeroHealPulse] = useState<{
-    key: number;
-    amount: number;
-  } | null>(null);
   const [deadlineAlert, setDeadlineAlert] = useState<{
     taskId: string;
     taskTitle: string;
@@ -365,12 +361,6 @@ export default function Arena({
   const [emptyStateSeed, setEmptyStateSeed] = useState(randomSeed);
   const [wasEmpty, setWasEmpty] = useState(false);
   const heroPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heroHealPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heroHealPulseCounterRef = useRef(0);
-  // A3 : ref du heroHp précédent pour détecter les remontées (delta > 0).
-  // Initialisé à null pour ne pas pulser au montage (au 1er rendu, on
-  // initialise simplement le ref sans émettre de pulse).
-  const prevHeroHpRef = useRef<number | null>(null);
   const heroPulseCounterRef = useRef(0);
   const tasksRef = useRef(tasks);
 
@@ -384,15 +374,32 @@ export default function Arena({
   const currentHp = calculateBossCurrentHp(tasks);
   const activeTasks = tasks.filter((task) => !task.is_abandoned);
   const missedDeadlines = missedDeadlineTasks(activeTasks, now);
-  const heroHp = calculateHeroHp([
-    ...overdueHpPenalties(overdueTasks),
-    ...deadlineHpPenalties(missedDeadlines),
-    // By-pass A4-overdue (issue #101) : pénalité -20 persistante des restes
-    // déferrés depuis Le Réveil. Le state local `tasks` contient déjà les
-    // tâches rapportées par `onResolved(deferredTasks)` (cf. Bug #70) — on
-    // les passe au pool via `deferred_at` non-null + !is_completed && !is_abandoned.
-    ...deferredRestHpPenalties(tasks),
-  ]);
+  // Suppression du heal Héros : dégât déjà subi aujourd'hui pour des
+  // pénalités désormais résolues, réparti en deux sources qui ne peuvent pas
+  // partager la même colonne :
+  // - tasksLockedDamage : tâches du jour courant, verrouillées sur
+  //   `tasks.hp_penalty` à leur résolution (setTaskCompleted/rageQuitTask).
+  // - profileLockedDamage : restes résolus via Le Réveil (completeOverdueTask/
+  //   annihilateOverdueTask/annihilateOverdueOlderThan) — ces tâches changent
+  //   de day_date ou sortent de toute requête "aujourd'hui", leur dégât ne
+  //   peut donc pas être porté par une ligne de tâche.
+  const lockedTaskPenalties = lockedHpPenalties(tasks);
+  const tasksLockedDamage = lockedTaskPenalties.reduce((total, entry) => total + entry.weight, 0);
+  const profileLockedDamage = currentLockedHpDamage(profile, today);
+  const heroHp = calculateHeroHp(
+    [
+      ...overdueHpPenalties(overdueTasks),
+      ...deadlineHpPenalties(missedDeadlines),
+      // By-pass A4-overdue (issue #101) : pénalité -20 persistante des restes
+      // déferrés depuis Le Réveil. Le state local `tasks` contient déjà les
+      // tâches rapportées par `onResolved(deferredTasks)` (cf. Bug #70) — on
+      // les passe au pool via `deferred_at` non-null + !is_completed && !is_abandoned.
+      ...deferredRestHpPenalties(tasks),
+      // Sans ce pool, résoudre une tâche pénalisée ferait remonter les HP.
+      ...lockedTaskPenalties,
+    ],
+    profileLockedDamage,
+  );
   // A4 (issue #101) : sets d'ids pour activer les chips pénalité -10/-20 HP
   // sur les TaskRow correspondantes. Déjà filtrées `!is_completed &&
   // !is_abandoned` côté calcul (activeTasks filtre `is_abandoned` ;
@@ -478,9 +485,6 @@ export default function Arena({
       if (xpPulseTimeoutRef.current) clearTimeout(xpPulseTimeoutRef.current);
       if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
       if (heroPulseTimeoutRef.current) clearTimeout(heroPulseTimeoutRef.current);
-      // A3 : cleanup du timeout heal pulse (sinon fuite + setHeroHealPulse
-      // sur un composant démonté = warning React).
-      if (heroHealPulseTimeoutRef.current) clearTimeout(heroHealPulseTimeoutRef.current);
       // Issue #48 : timers d'impact/hit-stop des animations de combat.
       if (impactTimerRef.current) clearTimeout(impactTimerRef.current);
       if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
@@ -628,30 +632,6 @@ export default function Arena({
     return () => clearInterval(timer);
   }, []);
 
-  // A3 (issue #101) : à chaque remontée de heroHp (delta > 0), on émet un
-  // pulse "heal" gold au-dessus du Héros. Les baisses (delta <= 0) ne se
-  // déclenchent pas ici — elles sont déjà couvertes par heroPulse existant
-  // (polling deadline). On évite aussi un pulse au montage via prevHeroHpRef
-  // initialisé à null (premier rendu : on se contente d'amorcer le ref).
-  useEffect(() => {
-    const prev = prevHeroHpRef.current;
-    if (prev === null) {
-      prevHeroHpRef.current = heroHp;
-      return;
-    }
-    const delta = heroHp - prev;
-    prevHeroHpRef.current = heroHp;
-
-    if (delta > 0) {
-      heroHealPulseCounterRef.current += 1;
-      const key = heroHealPulseCounterRef.current;
-      setHeroHealPulse({ key, amount: delta });
-      if (heroHealPulseTimeoutRef.current) clearTimeout(heroHealPulseTimeoutRef.current);
-      heroHealPulseTimeoutRef.current = setTimeout(() => {
-        setHeroHealPulse((current) => (current?.key === key ? null : current));
-      }, 1400);
-    }
-  }, [heroHp]);
 
   // Combo : incrémente de `hits` (tâches terminées d'un coup) et flashe la
   // bannière si un palier est atteint. `reset` remet la série à zéro.
@@ -896,6 +876,7 @@ export default function Arena({
       day_date: today,
       position: nextSiblingPosition(roots),
       created_at: new Date().toISOString(),
+      hp_penalty: null,
     };
 
     setTasks((prev) => [...prev, optimisticTask]);
@@ -986,6 +967,7 @@ export default function Arena({
       day_date: today,
       position: nextSiblingPosition(siblings),
       created_at: new Date().toISOString(),
+      hp_penalty: null,
     };
 
     setTasks((prev) => [...prev, optimisticTask]);
@@ -1068,6 +1050,7 @@ export default function Arena({
       day_date: tomorrowDayDate,
       position: nextSiblingPosition(roots),
       created_at: new Date().toISOString(),
+      hp_penalty: null,
     };
 
     setTomorrowTasks((prev) => [...prev, optimisticTask]);
@@ -1114,6 +1097,7 @@ export default function Arena({
       day_date: tomorrowDayDate,
       position: nextSiblingPosition(siblings),
       created_at: new Date().toISOString(),
+      hp_penalty: null,
     };
 
     setTomorrowTasks((prev) => [...prev, optimisticTask]);
@@ -1317,13 +1301,24 @@ export default function Arena({
     }
 
     const nextCompletionById = new Map(cascade.map((c) => [c.taskId, c.isCompleted]));
+    // Suppression du heal Héros : le serveur verrouille hp_penalty dans le
+    // même appel (setTaskCompleted), mais son résultat ne renvoie pas la ligne
+    // tâche mise à jour — sans ce calcul optimiste, le state client resterait
+    // sur `hp_penalty: null` jusqu'au prochain fetch complet, et heroHp
+    // healerait à l'écran le temps d'un refresh. `hpPenaltyToLock` est pure et
+    // déterministe (mêmes entrées, même sortie que le serveur), donc ce calcul
+    // client anticipe exactement ce que la base va persister.
+    const lockNow = new Date();
     const nextTasks = tasks.map((task) => {
       const nextCompleted = nextCompletionById.get(task.id);
       const nextPosition = positionByTaskId.get(task.id);
+      const becomingCompleted = nextCompleted === true && !task.is_completed;
+      const lockedPenalty = becomingCompleted ? hpPenaltyToLock(task, lockNow) : null;
       return {
         ...task,
         is_completed: nextCompleted === undefined ? task.is_completed : nextCompleted,
         position: nextPosition === undefined ? task.position : nextPosition,
+        hp_penalty: lockedPenalty !== null ? lockedPenalty : task.hp_penalty,
       };
     });
 
@@ -1555,9 +1550,18 @@ export default function Arena({
 
     // Cascade optimiste (racine + sous-tâches actives) : le Boss rétrécit.
     const cascadeIds = new Set(collectAbandonCascade(id, tasks));
+    // Suppression du heal Héros : même raison que handleToggle — anticipe le
+    // verrouillage serveur (rageQuitTask) pour que le state client ne healed
+    // pas le temps d'un refresh.
+    const lockNow = new Date();
     const nextTasks = tasks.map((task) =>
       cascadeIds.has(task.id)
-        ? { ...task, is_abandoned: true, abandon_reason: "rage_quit" as const }
+        ? {
+            ...task,
+            is_abandoned: true,
+            abandon_reason: "rage_quit" as const,
+            hp_penalty: hpPenaltyToLock(task, lockNow) ?? task.hp_penalty,
+          }
         : task,
     );
     const nextProfile = applyRageQuitPenalty(profile);
@@ -1739,7 +1743,7 @@ export default function Arena({
           overdueTasks={overdueTasks}
           timezone={profile.timezone}
           aggressivityLevel={level}
-          onResolved={({ deferredTasks, createdTasks }) => {
+          onResolved={({ deferredTasks, createdTasks, hpDamageLocked }) => {
             setShowWakeUp(false);
             // Bug #70 : "Reporter" ramenait la tâche en base (day_date du
             // jour) mais l'Arène gardait son state initial (fetché avant
@@ -1750,6 +1754,14 @@ export default function Arena({
             const merged = [...deferredTasks, ...createdTasks];
             if (merged.length > 0) {
               setTasks((previous) => [...previous, ...merged]);
+            }
+            // Suppression du heal Héros : Terminé/Annihiler sur un reste fait
+            // sortir la tâche de day_date=today (ou carrément de la table),
+            // le serveur agrège donc son dégât sur le profil — même besoin de
+            // fusion explicite que ci-dessus (state client déjà hydraté,
+            // revalidatePath seul ne le pousse jamais).
+            if (hpDamageLocked) {
+              setProfile((previous) => ({ ...previous, ...hpDamageLocked }));
             }
           }}
         />
@@ -1871,6 +1883,11 @@ export default function Arena({
               overdueHpPerItem: HERO_DAMAGE_PER_OVERDUE_TASK,
               missedCount: missedDeadlines.length,
               missedHpPerItem: HERO_DAMAGE_PER_MISSED_DEADLINE,
+              // Suppression du heal Héros : dégât déjà subi aujourd'hui pour
+              // des pénalités désormais résolues (cf. tasksLockedDamage/
+              // profileLockedDamage ci-dessus) — sans cette ligne, le détail
+              // additionnerait moins que l'écart réel avec heroHp.
+              lockedDamage: tasksLockedDamage + profileLockedDamage,
             }}
             heroXpToNextLevel={xpToNextLevel(profile.level, profile.xp)}
             bossName={bossName}
@@ -1909,13 +1926,6 @@ export default function Arena({
             <FloatingText
               amount={HERO_DAMAGE_PER_MISSED_DEADLINE}
               kind="damage"
-              anchor="hero"
-            />
-          )}
-          {heroHealPulse && (
-            <FloatingText
-              amount={heroHealPulse.amount}
-              kind="heal"
               anchor="hero"
             />
           )}

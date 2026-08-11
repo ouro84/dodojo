@@ -16,6 +16,7 @@ interface HeroPenaltiesBreakdown {
   overdueHpPerItem: number;
   missedCount: number;
   missedHpPerItem: number;
+  lockedDamage: number;
 }
 
 interface VersusSceneProps {
