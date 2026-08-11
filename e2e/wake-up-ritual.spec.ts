@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, seedOverdueTask, deleteTaskById, getTaskById } from "./fixtures";
+import { login, seedOverdueTask, deleteTaskById, getTaskById, resetHpDamageLocked } from "./fixtures";
 
 // Le Réveil (US-08) dépend de tâches d'un jour local passé. seedOverdueTask
 // (e2e/fixtures.ts) insère directement un reste via le client service_role,
@@ -48,6 +48,10 @@ test.describe("Le Réveil (US-08)", () => {
         .toMatchObject({ is_abandoned: true, abandon_reason: "annihilated" });
     } finally {
       await deleteTaskById(taskId);
+      // Issue #191 : "Annihiler" verrouille le dégât sur profiles.hp_damage_locked
+      // (deleteTaskById ne le touche pas) — sans ce reset, il fuit vers tous les
+      // tests suivants du run qui supposent une jauge à 100.
+      await resetHpDamageLocked();
     }
   });
 });
