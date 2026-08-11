@@ -37,6 +37,19 @@ test.describe("Deadlines horaires (US-05)", () => {
     await expect(
       row.getByLabel(`Modifier la deadline de "${taskTitle}" (14:00)`),
     ).toBeVisible({ timeout: 15_000 });
+
+    // Issue #191 : "14:00" est une heure fixe qui peut déjà être passée au
+    // moment du run (CI comme local). Le nettoyage de fin de test (afterEach,
+    // abandonViaUi → rageQuitTask) verrouillerait alors -10 HP de façon
+    // définitive sur cette tâche jamais supprimée (hp_penalty, cf.
+    // hpPenaltyToLock) — une pollution permanente du compte e2e partagé pour
+    // le reste du run. On efface la deadline avant l'abandon, comme le test
+    // suivant le fait déjà pour vérifier l'effacement.
+    await row.getByLabel(`Modifier la deadline de "${taskTitle}" (14:00)`).click();
+    await page.getByRole("button", { name: "Effacer" }).click();
+    await expect(row.getByLabel(`Fixer une deadline pour "${taskTitle}"`)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("effacer une deadline la retire de la tâche", async ({ page }) => {
