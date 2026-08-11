@@ -40,7 +40,7 @@ export default function AchievementToast({ codes, onDismissAll }: AchievementToa
               <p className="font-display text-xs uppercase tracking-wide text-gold">
                 Succès débloqué : {def.title}
               </p>
-              <p className="text-[11px] text-muted">{def.description}</p>
+              <p className="text-xs text-muted">{def.description}</p>
             </div>
           </div>
         );

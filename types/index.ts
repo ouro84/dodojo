@@ -30,6 +30,17 @@ export interface Profile {
   // Issue #156 : dernier jour local pour lequel les routines ont été générées.
   // Cache de saut, pas un verrou (cf. migration 20260802120000).
   last_recurring_gen_day: string | null;
+  // Suppression du heal Héros : dégâts définitivement acquis pour le jour
+  // local `hp_damage_locked_day` (même patron que last_recurring_gen_day —
+  // un cache de saut, pas un verrou). Porte les restes résolus via Le Réveil
+  // (completeOverdueTask/annihilateOverdueTask/annihilateOverdueOlderThan) :
+  // ces tâches changent de day_date ou disparaissent de toute requête
+  // "aujourd'hui", leur dégât ne peut donc pas être porté par tasks.hp_penalty
+  // (réservé aux tâches du jour courant). `hp_damage_locked` n'a de sens que
+  // si `hp_damage_locked_day` correspond au jour local courant — sinon
+  // traiter comme 0 (cf. currentLockedHpDamage, lib/game-engine.ts).
+  hp_damage_locked: number;
+  hp_damage_locked_day: string | null;
   created_at: string;
 }
 
@@ -79,6 +90,13 @@ export interface Task {
   day_date: string;
   position: number;
   created_at: string;
+  // Suppression du heal Héros : poids (-10 ou -20) verrouillé sur cette tâche
+  // au moment où elle est résolue (coche/rage quit) alors qu'elle portait déjà
+  // une pénalité active (deadline dépassée ou reste reporté). Contrairement au
+  // calcul live (missedDeadlineTasks/deferredRestHpPenalties), ce champ ne
+  // redescend jamais à null une fois posé : résoudre une tâche pénalisée ne
+  // doit plus rendre les HP perdus. Null = jamais pénalisée à sa résolution.
+  hp_penalty: number | null;
 }
 
 export interface RecurringTemplate {

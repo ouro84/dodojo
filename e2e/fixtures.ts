@@ -132,7 +132,6 @@ async function getE2eAdmin(): Promise<{ admin: SupabaseClient; uid: string }> {
 export async function purgeE2eAccountState(admin: SupabaseClient, uid: string): Promise<void> {
   await admin.from("tasks").delete().eq("user_id", uid);
   await admin.from("recurring_templates").delete().eq("user_id", uid);
-  await admin.from("profiles").update({ last_recurring_gen_day: null }).eq("id", uid);
   await admin.from("daily_boss").delete().eq("user_id", uid);
   await admin.from("day_results").delete().eq("user_id", uid);
   await admin.from("unlocked_achievements").delete().eq("user_id", uid);
@@ -145,6 +144,16 @@ export async function purgeE2eAccountState(admin: SupabaseClient, uid: string): 
   await admin
     .from("profiles")
     .update({
+      last_recurring_gen_day: null,
+      // Issue #191 : suppression du heal Héros — `hp_damage_locked` est un
+      // cache de saut day-scoped (même patron que `last_recurring_gen_day`)
+      // qui ne redescend JAMAIS tout seul en cours de journée (c'est son but).
+      // Sans ce reset, un dégât verrouillé par un run précédent (ou par un
+      // test plus tôt dans ce même run) fuit vers tous les tests suivants qui
+      // supposent une jauge à 100 — contrairement aux tâches (purgées ci-
+      // dessus), ce champ vit sur `profiles` et survit à un DELETE de `tasks`.
+      hp_damage_locked: 0,
+      hp_damage_locked_day: null,
       equipped_hero_id: "fire_knight",
       equipped_skin_id: null,
       equipped_title_code: null,
@@ -500,6 +509,22 @@ export async function deleteTaskById(id: string): Promise<void> {
   }
   const admin = createClient(url, key, { auth: { persistSession: false } });
   await admin.from("tasks").delete().eq("id", id);
+}
+
+// Issue #191 (suppression du heal Héros) : `completeOverdueTask`/
+// `annihilateOverdueTask`/`annihilateOverdueOlderThan` verrouillent le dégât
+// du reste sur `profiles.hp_damage_locked` (day-scoped, ne redescend jamais
+// tout seul en cours de journée — c'est le but de la mécanique). `deleteTaskById`
+// ne suffit donc plus à nettoyer après un test qui clique "Terminé"/"Annihiler"
+// dans Le Réveil : la tâche disparaît mais le dégât reste verrouillé sur le
+// profil et fuit vers tous les tests suivants du même run. À appeler en
+// `finally` de tout test qui déclenche l'un de ces trois chemins.
+export async function resetHpDamageLocked(): Promise<void> {
+  const { admin, uid } = await getE2eAdmin();
+  await admin
+    .from("profiles")
+    .update({ hp_damage_locked: 0, hp_damage_locked_day: null })
+    .eq("id", uid);
 }
 
 // US-12 : purge les day_results du compte e2e du worker courant et sème une

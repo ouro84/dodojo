@@ -36,6 +36,7 @@ describe("HeroBar", () => {
             overdueHpPerItem: 20,
             missedCount: 0,
             missedHpPerItem: 10,
+            lockedDamage: 0,
           }}
         />
         <button>Hors</button>
@@ -54,7 +55,7 @@ describe("HeroBar", () => {
         title="Calme"
         currentHp={80}
         maxHp={100}
-        penaltiesBreakdown={{ overdueCount: 0, overdueHpPerItem: 20, missedCount: 0, missedHpPerItem: 10 }}
+        penaltiesBreakdown={{ overdueCount: 0, overdueHpPerItem: 20, missedCount: 0, missedHpPerItem: 10, lockedDamage: 0 }}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Ari/ }));
@@ -68,10 +69,34 @@ describe("HeroBar", () => {
         currentHp={80}
         maxHp={100}
         xpToNextLevel={45}
-        penaltiesBreakdown={{ overdueCount: 0, overdueHpPerItem: 20, missedCount: 0, missedHpPerItem: 10 }}
+        penaltiesBreakdown={{ overdueCount: 0, overdueHpPerItem: 20, missedCount: 0, missedHpPerItem: 10, lockedDamage: 0 }}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Ari/ }));
     expect(screen.getByRole("dialog")).toHaveTextContent("45");
+  });
+
+  // Suppression du heal Héros : un dégât verrouillé (pénalité résolue mais
+  // acquise) doit apparaître dans le détail et empêcher le message rassurant
+  // "Aucune pénalité", même quand overdueCount/missedCount sont à 0.
+  it("affiche le dégât verrouillé et masque le message 'Aucune pénalité'", () => {
+    render(
+      <HeroBar
+        heroName="Ari"
+        currentHp={90}
+        maxHp={100}
+        penaltiesBreakdown={{
+          overdueCount: 0,
+          overdueHpPerItem: 20,
+          missedCount: 0,
+          missedHpPerItem: 10,
+          lockedDamage: 10,
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Ari/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("-10");
+    expect(dialog).not.toHaveTextContent("Aucune pénalité");
   });
 });

@@ -7,9 +7,12 @@ import {
   applyXpDelta,
   collectAbandonCascade,
   dayKey,
+  HERO_DAMAGE_PER_OVERDUE_TASK,
+  hpPenaltyToLock,
   isNestableParent,
   nextComboState,
   nextDayKey,
+  nextLockedHpDamage,
   nextSiblingPosition,
   RAGE_QUIT_XP_PENALTY,
   xpForCompletion,
@@ -43,6 +46,12 @@ export interface TaskActionResult {
   // fusion explicite côté client (même besoin que deferredTasks, cf. bug #70).
   reportedTasks?: Task[];
   broughtBackTasks?: Task[];
+  // Suppression du heal Héros : total de dégât verrouillé sur le profil pour
+  // le jour local courant, renvoyé par completeOverdueTask/annihilateOverdueTask/
+  // annihilateOverdueOlderThan — la tâche résolue change de day_date ou sort
+  // de toute requête "aujourd'hui", son dégât ne peut donc pas voyager sur une
+  // ligne de tâche (fusion explicite côté client, même raison que ci-dessus).
+  hpDamageLocked?: { hp_damage_locked: number; hp_damage_locked_day: string };
 }
 
 // Le "jour" du jeu est le jour local de l'utilisateur (RG-03), pas l'UTC.
@@ -57,6 +66,31 @@ async function userToday(
     .eq("id", userId)
     .maybeSingle();
   return dayKey(new Date(), data?.timezone ?? "UTC");
+}
+
+// Suppression du heal Héros : verrouille `count` pénalités -20 (poids fixe du
+// pool "overdue", cf. HERO_DAMAGE_PER_OVERDUE_TASK) sur le profil pour le
+// jour local courant. Utilisé par completeOverdueTask / annihilateOverdueTask
+// / annihilateOverdueOlderThan — ces actions résolvent des tâches dont le
+// day_date reste dans le passé (ou sortent de toute requête "aujourd'hui"),
+// leur dégât ne peut donc pas être porté par une ligne de tâche comme le fait
+// `tasks.hp_penalty` pour le reste du jour courant (setTaskCompleted/rageQuitTask).
+async function lockOverdueDamage(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  count: number,
+): Promise<{ hp_damage_locked: number; hp_damage_locked_day: string } | undefined> {
+  if (count <= 0) return undefined;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone, hp_damage_locked, hp_damage_locked_day")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile) return undefined;
+  const today = dayKey(new Date(), profile.timezone ?? "UTC");
+  const next = nextLockedHpDamage(profile, today, count * HERO_DAMAGE_PER_OVERDUE_TASK);
+  await supabase.from("profiles").update(next).eq("id", userId);
+  return next;
 }
 
 // US-03 : addTask délègue désormais à insertTaskForUser (lib/task-insertion.ts),
@@ -197,7 +231,7 @@ export async function setTaskCompleted(
 
   const { data: existingTask, error: fetchError } = await supabase
     .from("tasks")
-    .select("is_completed, is_abandoned, xp_awarded")
+    .select("is_completed, is_abandoned, xp_awarded, deadline_at, deferred_at")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -210,9 +244,22 @@ export async function setTaskCompleted(
     };
   }
 
+  // Suppression du heal Héros : si la tâche portait déjà une pénalité active
+  // (deadline dépassée, reste reporté) au moment où elle est cochée, son
+  // poids est verrouillé sur `hp_penalty` — sinon elle sortirait des pools
+  // live (missedDeadlineTasks/deferredRestHpPenalties) et les HP remonteraient.
+  // Lu avant l'update ci-dessous, qui efface `deferred_at`.
+  const hpPenaltyLock = isCompleted
+    ? hpPenaltyToLock(existingTask, new Date())
+    : null;
+
   const { error: updateError } = await supabase
     .from("tasks")
-    .update({ is_completed: isCompleted, deferred_at: null })
+    .update({
+      is_completed: isCompleted,
+      deferred_at: null,
+      ...(hpPenaltyLock !== null ? { hp_penalty: hpPenaltyLock } : {}),
+    })
     .eq("id", id)
     .eq("user_id", user.id);
 
@@ -345,7 +392,7 @@ export async function rageQuitTask(id: string): Promise<TaskActionResult> {
   // Charge la tâche + sa fratrie potentielle (mêmes racine/enfants) pour la cascade pure.
   const { data: siblings, error: fetchError } = await supabase
     .from("tasks")
-    .select("id, parent_id, is_completed, is_abandoned")
+    .select("id, parent_id, is_completed, is_abandoned, deadline_at, deferred_at")
     .eq("user_id", user.id);
 
   if (fetchError || !siblings) {
@@ -370,6 +417,27 @@ export async function rageQuitTask(id: string): Promise<TaskActionResult> {
 
   if (error) {
     return { error: "Impossible d'abandonner cette tâche. Réessaie." };
+  }
+
+  // Suppression du heal Héros : verrouille le poids de chaque tâche cascadée
+  // qui portait déjà une pénalité active (lu depuis `siblings`, capturé avant
+  // l'update ci-dessus qui efface `deferred_at`). Groupé par montant (10 ou
+  // 20) pour éviter un update par tâche.
+  const now = new Date();
+  const idsByLockAmount = new Map<number, string[]>();
+  for (const taskId of cascadeIds) {
+    const row = siblings.find((s) => s.id === taskId);
+    const amount = row ? hpPenaltyToLock(row, now) : null;
+    if (amount !== null) {
+      idsByLockAmount.set(amount, [...(idsByLockAmount.get(amount) ?? []), taskId]);
+    }
+  }
+  for (const [amount, ids] of idsByLockAmount) {
+    await supabase
+      .from("tasks")
+      .update({ hp_penalty: amount })
+      .in("id", ids)
+      .eq("user_id", user.id);
   }
 
   // Issue #114 : la cascade entière (racine + sous-tâches actives) n'a plus
@@ -569,8 +637,13 @@ export async function completeOverdueTask(id: string): Promise<TaskActionResult>
   // Issue #114 : la tâche (et sa cascade) validées n'ont plus besoin de leur
   // rappel de deadline.
   await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  // Suppression du heal Héros : chaque tâche validée ici portait -20 HP
+  // (pool "overdue") — le dégât est verrouillé sur le profil, sinon la
+  // tâche validée sortirait de `overdueTasks` au prochain chargement et les
+  // HP remonteraient tout seuls.
+  const hpDamageLocked = await lockOverdueDamage(supabase, user.id, (updated ?? []).length);
   revalidatePath("/");
-  return { error: null };
+  return { error: null, hpDamageLocked };
 }
 
 // US-08 (D5) : reporte au jour local courant — la tâche revient dans la liste
@@ -646,13 +719,19 @@ export async function annihilateOverdueTask(id: string): Promise<TaskActionResul
     .update({ is_abandoned: true, abandon_reason: "annihilated" })
     .or(`id.eq.${id},parent_id.eq.${id}`)
     .eq("user_id", user.id)
+    // Suppression du heal Héros : sans ce garde, ré-annihiler une tâche déjà
+    // annihilée (clic redondant) reverrouillerait -20 une 2e fois pour rien —
+    // idempotence déjà assurée pour completeOverdueTask (eq is_abandoned false).
+    .eq("is_abandoned", false)
     .select("id");
 
   if (error) return { error: "Impossible d'annihiler ce reste. Réessaie." };
   // Issue #114 : reste annihilé (et sa cascade) — plus de rappel à envoyer.
   await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  // Suppression du heal Héros : même raison que completeOverdueTask.
+  const hpDamageLocked = await lockOverdueDamage(supabase, user.id, (updated ?? []).length);
   revalidatePath("/");
-  return { error: null };
+  return { error: null, hpDamageLocked };
 }
 
 // US-08 (A4) : action groupée anti "mur de la honte" — reporte tous les restes
@@ -716,8 +795,10 @@ export async function annihilateOverdueOlderThan(days: number): Promise<TaskActi
   if (error) return { error: "Impossible d'annihiler les vieux restes. Réessaie." };
   // Issue #114 : tous les vieux restes annihilés perdent leur rappel.
   await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  // Suppression du heal Héros : même raison que completeOverdueTask/annihilateOverdueTask.
+  const hpDamageLocked = await lockOverdueDamage(supabase, user.id, (updated ?? []).length);
   revalidatePath("/");
-  return { error: null };
+  return { error: null, hpDamageLocked };
 }
 
 // US-05 : fixe/modifie/efface l'heure limite d'une tâche (popover ⏰ sur

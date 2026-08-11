@@ -228,7 +228,7 @@ export default function RosterPreview({ bosses, backgrounds, heroes }: RosterPre
               alt={`Bust de ${boss.name}`}
               className="h-16 w-auto self-start border border-border [image-rendering:pixelated]"
             />
-            <p className="text-[11px] text-muted">{boss.lore}</p>
+            <p className="text-xs text-muted">{boss.lore}</p>
             <div className="relative h-48 w-full overflow-hidden rounded-lg border border-border">
               {bg && (
                 <Image

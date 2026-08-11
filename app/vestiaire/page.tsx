@@ -90,7 +90,12 @@ export default async function QgPage() {
 
   return (
     <main className="screen-main h-dvh gap-3 overflow-hidden px-4 py-4">
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-2">
+      {/* Issue #189 : lg:justify-center comble le vide sous le contenu sur grand
+          viewport (contenu naturellement plus court que h-dvh) sans risquer le
+          piège classique de justify-content:center + overflow (contenu qui
+          déborderait vers le haut serait tronqué au scroll) — restreint à
+          lg: où le contenu ne déborde jamais en pratique. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-2 lg:justify-center">
         <h1 className="text-center font-display text-lg uppercase tracking-wide text-ink">
           Le Vestiaire
         </h1>

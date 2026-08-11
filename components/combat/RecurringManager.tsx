@@ -155,7 +155,7 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
                     type="button"
                     onClick={() => runAction(() => toggleRestDay(t.id))}
                     disabled={pending}
-                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-muted hover:text-ink disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-muted hover:text-ink disabled:opacity-40"
                   >
                     <GameIcon name="sleep" className="h-3.5 w-3.5" />
                     {t.isRestToday ? "Repos aujourd'hui (activé)" : "Repos aujourd'hui"}
@@ -164,7 +164,7 @@ export default function RecurringManager({ templates }: RecurringManagerProps) {
                     type="button"
                     onClick={() => runAction(() => deactivateRecurringTemplate(t.id))}
                     disabled={pending}
-                    className="rounded border border-border px-2 py-1 text-[11px] text-faint hover:text-alert disabled:opacity-40"
+                    className="rounded border border-border px-2 py-1 text-xs text-faint hover:text-alert disabled:opacity-40"
                   >
                     Désactiver
                   </button>

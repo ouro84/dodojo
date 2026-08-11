@@ -72,7 +72,7 @@ export default function TitleSelector({ unlockedCodes, equippedCode }: TitleSele
               disabled={pending}
               onClick={() => handleSelect(option.code)}
               onKeyDown={(event) => handleKeyDown(event, index)}
-              className={`rounded-md border px-2 py-1.5 text-left text-xs disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-hp/20 ${
+              className={`rounded-md border px-2 py-1.5 text-left text-xs disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hp ${
                 isSelected ? "border-hp text-ink" : "border-border text-muted"
               }`}
             >

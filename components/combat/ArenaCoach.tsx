@@ -38,7 +38,7 @@ export default function ArenaCoach({ step, onSuggest, onSkip }: ArenaCoachProps)
         <button
           type="button"
           onClick={onSkip}
-          className="text-[11px] text-faint underline underline-offset-2"
+          className="text-xs text-faint underline underline-offset-2"
         >
           Passer
         </button>

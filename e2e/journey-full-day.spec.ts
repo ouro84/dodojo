@@ -4,6 +4,7 @@ import {
   deleteTaskById,
   dismissKoOverlayIfPresent,
   login,
+  resetHpDamageLocked,
   seedOverdueTask,
 } from "./fixtures";
 
@@ -94,6 +95,10 @@ test.describe("Parcours : cycle complet d'une journée (issue #50)", () => {
       await page.waitForURL("/vestiaire");
     } finally {
       await deleteTaskById(overdueId);
+      // Issue #191 : "Terminé" verrouille le dégât sur profiles.hp_damage_locked
+      // (deleteTaskById ne le touche pas) — sans ce reset, il fuit vers tous les
+      // tests suivants du run qui supposent une jauge à 100.
+      await resetHpDamageLocked();
       await page.goto("/");
       await abandonViaUi(page, taskTitle);
     }

@@ -76,7 +76,7 @@ test.describe("A2 — Popover breakdown pénalités HeroBar", () => {
   });
 
   test("la jauge Héros du Réveil n'a pas de popover (aria-haspopup absent)", async ({ page }) => {
-    const { seedOverdueTask, deleteTaskById } = await import("./fixtures");
+    const { seedOverdueTask, deleteTaskById, resetHpDamageLocked } = await import("./fixtures");
     const title = `E2E pas popover réveil ${Date.now()}`;
     const taskId = await seedOverdueTask(title);
     try {
@@ -102,6 +102,10 @@ test.describe("A2 — Popover breakdown pénalités HeroBar", () => {
       // La tâche reste en base marquée complétée (pas de suppression defy RG-04,
       // mais c'est un utilitaire de test → on nettoie pour les runs suivants).
       await deleteTaskById(taskId);
+      // Issue #191 : "Terminé" verrouille le dégât sur profiles.hp_damage_locked
+      // (deleteTaskById ne le touche pas) — sans ce reset, il fuit vers tous les
+      // tests suivants du run qui supposent une jauge à 100.
+      await resetHpDamageLocked();
     }
   });
 });

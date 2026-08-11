@@ -56,6 +56,10 @@ class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
     return this;
   }
 
+  limit(): this {
+    return this;
+  }
+
   private apply(): Row[] {
     if (this.mode === "insert" && this.insertedRow) {
       this.rows.push(this.insertedRow);
@@ -66,7 +70,17 @@ class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
       for (const row of matched) Object.assign(row, this.patch);
       return matched;
     }
-    return this.rows;
+    // Clone en lecture : un `select` renvoie un instantané détaché, comme le
+    // vrai Supabase (les lignes désérialisées ne sont pas des références
+    // vivantes vers l'état serveur) — sans ça, un `update` déclenché APRÈS un
+    // `select` mutait rétroactivement les objets déjà lus par un appelant qui
+    // avait fetché sa propre copie avant de faire son propre update ailleurs
+    // (rageQuitTask lit deadline_at/deferred_at avant d'effacer ce dernier).
+    // Découvert en l'ajoutant : sans lui, `existingTask` (setTaskCompleted)
+    // était mutée en place par l'update qui le précède, donc `isRealTransition`
+    // valait toujours `false` — la branche XP/achievements n'était jamais
+    // réellement exercée par ces tests malgré l'apparence de passer.
+    return this.rows.map((row) => ({ ...row }));
   }
 
   async maybeSingle(): Promise<{ data: Row | null; error: null }> {
@@ -493,3 +507,195 @@ describe("setTaskDeadline — moteur de rappel (#114)", () => {
     expect(scheduleCalls).toEqual([]);
   });
 });
+
+describe("Suppression du heal Héros — verrouillage à la résolution", () => {
+  test("setTaskCompleted verrouille hp_penalty=10 quand la deadline était déjà dépassée", async () => {
+    const id = "99999999-0000-0000-0000-000000000001";
+    const task: Row = {
+      id,
+      user_id: "u1",
+      is_completed: false,
+      is_abandoned: false,
+      xp_awarded: null,
+      deadline_at: "2020-01-01T00:00:00.000Z",
+      deferred_at: null,
+    };
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [task],
+    });
+    const { setTaskCompleted } = await import("./tasks");
+    await setTaskCompleted(id, true);
+    expect(task.hp_penalty).toBe(10);
+  });
+
+  test("setTaskCompleted ne verrouille rien quand la deadline n'est pas dépassée", async () => {
+    const id = "99999999-0000-0000-0000-000000000002";
+    const task: Row = {
+      id,
+      user_id: "u1",
+      is_completed: false,
+      is_abandoned: false,
+      xp_awarded: null,
+      deadline_at: "2999-01-01T00:00:00.000Z",
+      deferred_at: null,
+    };
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [task],
+    });
+    const { setTaskCompleted } = await import("./tasks");
+    await setTaskCompleted(id, true);
+    expect(task.hp_penalty).toBeUndefined();
+  });
+
+  test("setTaskCompleted verrouille hp_penalty=20 sur un reste reporté (deferred_at posé)", async () => {
+    const id = "99999999-0000-0000-0000-000000000003";
+    const task: Row = {
+      id,
+      user_id: "u1",
+      is_completed: false,
+      is_abandoned: false,
+      xp_awarded: null,
+      deadline_at: null,
+      deferred_at: "2026-08-10T08:00:00.000Z",
+    };
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [task],
+    });
+    const { setTaskCompleted } = await import("./tasks");
+    await setTaskCompleted(id, true);
+    expect(task.hp_penalty).toBe(20);
+  });
+
+  test("setTaskCompleted ne verrouille rien au décochage (isCompleted=false)", async () => {
+    const id = "99999999-0000-0000-0000-000000000004";
+    const task: Row = {
+      id,
+      user_id: "u1",
+      is_completed: true,
+      is_abandoned: false,
+      xp_awarded: 10,
+      deadline_at: "2020-01-01T00:00:00.000Z",
+      deferred_at: null,
+    };
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC" }],
+      tasks: [task],
+    });
+    const { setTaskCompleted } = await import("./tasks");
+    await setTaskCompleted(id, false);
+    expect(task.hp_penalty).toBeUndefined();
+  });
+
+  test("rageQuitTask verrouille hp_penalty=20 sur la racine et sa sous-tâche, toutes deux déférées", async () => {
+    const rootId = "99999999-0000-0000-0000-000000000005";
+    const childId = "99999999-0000-0000-0000-000000000006";
+    const root: Row = {
+      id: rootId,
+      user_id: "u1",
+      parent_id: null,
+      is_completed: false,
+      is_abandoned: false,
+      deadline_at: null,
+      deferred_at: "2026-08-10T08:00:00.000Z",
+    };
+    const child: Row = {
+      id: childId,
+      user_id: "u1",
+      parent_id: rootId,
+      is_completed: false,
+      is_abandoned: false,
+      deadline_at: null,
+      deferred_at: "2026-08-10T08:00:00.000Z",
+    };
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0 }],
+      tasks: [root, child],
+    });
+    const { rageQuitTask } = await import("./tasks");
+    await rageQuitTask(rootId);
+    expect(root.hp_penalty).toBe(20);
+    expect(child.hp_penalty).toBe(20);
+  });
+
+  test("rageQuitTask ne verrouille rien sur une tâche sans pénalité active", async () => {
+    const id = "99999999-0000-0000-0000-000000000007";
+    const task: Row = {
+      id,
+      user_id: "u1",
+      parent_id: null,
+      is_completed: false,
+      is_abandoned: false,
+      deadline_at: null,
+      deferred_at: null,
+    };
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0 }],
+      tasks: [task],
+    });
+    const { rageQuitTask } = await import("./tasks");
+    await rageQuitTask(id);
+    expect(task.hp_penalty).toBeUndefined();
+  });
+
+  test("completeOverdueTask renvoie le dégât verrouillé cumulé (racine + sous-tâche = 2 × -20)", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC", hp_damage_locked: 0, hp_damage_locked_day: null }],
+      tasks: [
+        { id: "99999999-0000-0000-0000-000000000008", user_id: "u1", is_abandoned: false },
+        {
+          id: "99999999-0000-0000-0000-000000000009",
+          user_id: "u1",
+          parent_id: "99999999-0000-0000-0000-000000000008",
+          is_abandoned: false,
+        },
+      ],
+    });
+    const { completeOverdueTask } = await import("./tasks");
+    const result = await completeOverdueTask("99999999-0000-0000-0000-000000000008");
+    expect(result.hpDamageLocked?.hp_damage_locked).toBe(40);
+  });
+
+  test("annihilateOverdueTask renvoie le dégât verrouillé, cumulé avec un lock déjà posé le même jour", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [
+        { id: "u1", level: 1, xp: 0, timezone: "UTC", hp_damage_locked: 20, hp_damage_locked_day: dayKeyToday() },
+      ],
+      tasks: [{ id: "99999999-0000-0000-0000-00000000000a", user_id: "u1" }],
+    });
+    const { annihilateOverdueTask } = await import("./tasks");
+    const result = await annihilateOverdueTask("99999999-0000-0000-0000-00000000000a");
+    expect(result.hpDamageLocked?.hp_damage_locked).toBe(40);
+  });
+
+  test("annihilateOverdueTask repart de 0 si le lock stocké portait sur un autre jour", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [
+        { id: "u1", level: 1, xp: 0, timezone: "UTC", hp_damage_locked: 60, hp_damage_locked_day: "2000-01-01" },
+      ],
+      tasks: [{ id: "99999999-0000-0000-0000-00000000000b", user_id: "u1" }],
+    });
+    const { annihilateOverdueTask } = await import("./tasks");
+    const result = await annihilateOverdueTask("99999999-0000-0000-0000-00000000000b");
+    expect(result.hpDamageLocked?.hp_damage_locked).toBe(20);
+  });
+
+  test("annihilateOverdueOlderThan renvoie le dégât verrouillé pour toutes les lignes affectées", async () => {
+    fakeClient = new FakeSupabaseClient({
+      profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC", hp_damage_locked: 0, hp_damage_locked_day: null }],
+      tasks: [
+        { id: "99999999-0000-0000-0000-00000000000c", user_id: "u1", is_completed: false, is_abandoned: false },
+        { id: "99999999-0000-0000-0000-00000000000d", user_id: "u1", is_completed: false, is_abandoned: false },
+      ],
+    });
+    const { annihilateOverdueOlderThan } = await import("./tasks");
+    const result = await annihilateOverdueOlderThan(3);
+    expect(result.hpDamageLocked?.hp_damage_locked).toBe(40);
+  });
+});
+
+function dayKeyToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}

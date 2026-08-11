@@ -327,32 +327,40 @@ export type DeferredRestTask = Pick<
 
 // US-05 : le pool HP Héros accepte un poids par tâche (overdue reporté = -20,
 // deadline horaire ratée = -10) plutôt qu'un poids fixe pour toute la liste.
-export type HeroHpPenaltyTask = Pick<Task, "is_abandoned" | "is_completed"> & {
-  weight: number;
-};
+// Plus de filtre par état de résolution ici (suppression du heal) : chaque
+// pool builder (overdueHpPenalties, deadlineHpPenalties,
+// deferredRestHpPenalties, lockedHpPenalties) décide lui-même si une tâche
+// doit compter — calculateHeroHp se contente de sommer ce qu'on lui donne.
+export type HeroHpPenaltyTask = { weight: number };
 
-export function calculateHeroHp(penaltyTasks: HeroHpPenaltyTask[]): number {
-  const damage = penaltyTasks
-    .filter((task) => !task.is_abandoned && !task.is_completed)
-    .reduce((total, task) => total + task.weight, 0);
+export function calculateHeroHp(
+  penaltyTasks: HeroHpPenaltyTask[],
+  lockedDamage: number = 0,
+): number {
+  const damage =
+    penaltyTasks.reduce((total, task) => total + task.weight, 0) + lockedDamage;
 
   return Math.max(0, HERO_MAX_HP - damage);
 }
 
 // Construit les entrées pondérées du pool HP Héros pour des tâches en retard
 // (reportées d'un jour précédent, poids -20). Utilisé par le Réveil
-// et l'Arène.
+// et l'Arène. N'est appelé qu'avec des tâches déjà non résolues (la requête
+// "overdueTasks" filtre is_completed=false/is_abandoned=false) — une fois
+// résolue via Le Réveil, la tâche sort de ce pool et son dégât est repris
+// par profiles.hp_damage_locked (cf. currentLockedHpDamage) pour ne pas healer.
 export function overdueHpPenalties(tasks: OverdueTask[]): HeroHpPenaltyTask[] {
-  return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
+  return tasks.map(() => ({ weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
 }
 
 // Issue #101 (Axe A, by-pass spec A4-overdue) : construit les entrées pondérées
 // du pool HP Héros pour des tâches reportées depuis Le Réveil (poids -20 par
 // reste). Contrairement à `overdueHpPenalties`, ce pool inclut des tâches dont
-// `deferred_at` est non nul — la pénalité -20 "reste reporté" persiste après
-// le Report (qui changeait uniquement `day_date` à `today`) jusqu'à résolution
-// (coche/rage quit). Utilisé par l'Arène via `tasks` (state local qui contient
-// déjà les tâches déferrées rapportées par `onResolved`).
+// `deferred_at` est non nul — la pénalité -20 "reste reporté" reste active sur
+// la HeroBar tant que la tâche n'est pas résolue. Une fois résolue (coche/rage
+// quit), elle sort de ce pool live ; son dégât est repris définitivement par
+// `tasks.hp_penalty` (verrouillé côté serveur à la résolution, cf.
+// hpPenaltyToLock) pour ne pas healer — voir `lockedHpPenalties`.
 //
 // Robustesse : on utilise `!= null` (loose equality) plutôt que `!== null`
 // (strict) pour tolérer le cas où la colonne `deferred_at` n'existe pas encore
@@ -368,7 +376,7 @@ export function deferredRestHpPenalties(
       (task) =>
         task.deferred_at != null && !task.is_completed && !task.is_abandoned,
     )
-    .map((task) => ({ ...task, weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
+    .map(() => ({ weight: HERO_DAMAGE_PER_OVERDUE_TASK }));
 }
 
 export type DeadlineTask = Pick<
@@ -405,9 +413,72 @@ export function upcomingDeadlineCount(tasks: DeadlineTask[], now: Date): number 
 }
 
 // Construit les entrées pondérées du pool HP Héros pour des deadlines ratées du
-// jour courant (poids -10, cf. spec US-05).
+// jour courant (poids -10, cf. spec US-05). N'est appelé qu'avec le résultat
+// de `missedDeadlineTasks` (déjà non résolues) — une fois la tâche résolue,
+// son dégât est repris par `tasks.hp_penalty` (cf. lockedHpPenalties).
 export function deadlineHpPenalties(tasks: DeadlineTask[]): HeroHpPenaltyTask[] {
-  return tasks.map((task) => ({ ...task, weight: HERO_DAMAGE_PER_MISSED_DEADLINE }));
+  return tasks.map(() => ({ weight: HERO_DAMAGE_PER_MISSED_DEADLINE }));
+}
+
+// Suppression du heal Héros : au moment où une tâche est résolue (coche,
+// rage quit) alors qu'elle portait déjà une pénalité active, le poids doit
+// être verrouillé plutôt que simplement recalculé en direct (sinon résoudre
+// la tâche la fait sortir des pools live ci-dessus → HP remonte → heal).
+// Une tâche déférée prime sur une deadline (mutuellement exclusives en
+// pratique : deferOverdueTask efface toujours deadline_at au report).
+export function hpPenaltyToLock(
+  task: Pick<Task, "deadline_at" | "deferred_at">,
+  now: Date,
+): number | null {
+  if (task.deferred_at !== null) {
+    return HERO_DAMAGE_PER_OVERDUE_TASK;
+  }
+  if (task.deadline_at !== null && new Date(task.deadline_at).getTime() <= now.getTime()) {
+    return HERO_DAMAGE_PER_MISSED_DEADLINE;
+  }
+  return null;
+}
+
+export type LockedHpPenaltyTask = Pick<Task, "is_completed" | "is_abandoned" | "hp_penalty">;
+
+// Pool HP Héros pour les tâches du jour courant déjà résolues mais dont le
+// poids a été verrouillé à la résolution (`hp_penalty`, cf. hpPenaltyToLock).
+// Le garde `is_completed || is_abandoned` évite un double-comptage si la
+// tâche redevient active puis se re-résout plus tard dans la même journée :
+// tant qu'elle est active, son dégât est déjà porté par le pool live
+// (missedDeadlineTasks/deferredRestHpPenalties) ; `hp_penalty` reste posé en
+// mémoire mais n'est lu ici que quand la tâche est de nouveau résolue.
+export function lockedHpPenalties(tasks: LockedHpPenaltyTask[]): HeroHpPenaltyTask[] {
+  return tasks
+    .filter((task) => (task.is_completed || task.is_abandoned) && task.hp_penalty !== null)
+    .map((task) => ({ weight: task.hp_penalty as number }));
+}
+
+export type LockedHpDamageProfile = {
+  hp_damage_locked: number;
+  hp_damage_locked_day: string | null;
+};
+
+// Cache de saut day-scoped (même patron que last_recurring_gen_day) : la
+// valeur stockée n'a de sens que si elle porte sur le jour local courant.
+export function currentLockedHpDamage(
+  profile: LockedHpDamageProfile,
+  today: string,
+): number {
+  return profile.hp_damage_locked_day === today ? profile.hp_damage_locked : 0;
+}
+
+// Additionne `amount` au dégât verrouillé du jour courant, en repartant de 0
+// si la valeur stockée portait sur un jour différent (nouveau jour local).
+export function nextLockedHpDamage(
+  profile: LockedHpDamageProfile,
+  today: string,
+  amount: number,
+): { hp_damage_locked: number; hp_damage_locked_day: string } {
+  return {
+    hp_damage_locked: currentLockedHpDamage(profile, today) + amount,
+    hp_damage_locked_day: today,
+  };
 }
 
 export type ReminderTask = Pick<
