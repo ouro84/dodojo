@@ -125,3 +125,37 @@ describe("PushReminderToggle", () => {
     expect(subscribeToPushMock).not.toHaveBeenCalled();
   });
 });
+
+// Issue #194 : la permission navigateur était lue dans l'initialiseur d'un
+// `useState`, donc évaluée pendant le SSR → "unsupported" côté serveur (`<p>`)
+// vs le toggle côté client (`<div>`), soit un mismatch d'hydratation #418 sur
+// `/vestiaire/profil`. Elle passe par `useSyncExternalStore`, dont le snapshot
+// serveur vaut "pending". Le risque introduit est l'inverse du bug : rester
+// bloqué en "pending" (toggle désactivé à vie) si le store ne résout jamais
+// côté client. La preuve de non-régression du mismatch lui-même est en e2e
+// (`e2e/hydration.spec.ts`) : jsdom ne distingue pas rendu serveur et rendu
+// client, il ne peut donc pas reproduire l'écart.
+describe("PushReminderToggle — permission résolue après hydratation (issue #194)", () => {
+  test("permission 'default' : le toggle est actionnable, jamais bloqué en pending", () => {
+    stubNotification("default");
+
+    render(<PushReminderToggle hasSubscription={false} />);
+
+    expect(screen.getByRole("button", { name: "Activer" })).toBeEnabled();
+  });
+
+  test("permission 'granted' + souscription en base : statut on actionnable", () => {
+    stubNotification("granted");
+
+    render(<PushReminderToggle hasSubscription />);
+
+    expect(screen.getByRole("button", { name: "Désactiver" })).toBeEnabled();
+  });
+
+  test("API Notification absente : message d'indisponibilité, aucun bouton", () => {
+    render(<PushReminderToggle hasSubscription={false} />);
+
+    expect(screen.getByText(/indisponible sur ce navigateur/)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});

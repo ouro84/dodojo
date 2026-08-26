@@ -17,7 +17,11 @@ interface ShopActionResult {
 export async function purchaseHero(heroId: string): Promise<ShopActionResult> {
   const hero = getHero(heroId);
   if (!hero) return { error: "Ce combattant n'existe pas." };
-  if (hero.isDefault) return { error: null };
+  // Aucun court-circuit sur `hero.isDefault` : depuis US-29 la possession est
+  // strictement en base (`isHeroOwned`) et `isDefault` n'est plus qu'un
+  // fallback de rendu (DEFAULT_HERO_ID). Un `return` anticipe ici rendait
+  // fire_knight définitivement inachetable — donc invisible dans l'Arène —
+  // pour tout joueur ayant choisi un autre starter à l'onboarding.
 
   const supabase = await createClient();
   const {

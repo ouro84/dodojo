@@ -84,6 +84,7 @@ import { rageQuitConfirmBody, rageQuitPunchline } from "@/lib/copy/rage-quit";
 import { deadlineAlertLine, buildDeadlineReminderPayload } from "@/lib/copy/deadline";
 import { planningUnlockedLine } from "@/lib/copy/planning";
 import { randomSeed } from "@/lib/copy/variant";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { resolveAggressivityLevel } from "@/lib/aggressivity";
 import { createKeyedQueue } from "@/lib/async-queue";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -240,13 +241,13 @@ export default function Arena({
   } | null>(null);
   const comboTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Issue #48 : animations de combat. Reprend exactement le patron déjà
-  // utilisé par IdleSprite/ImpactVfx pour détecter prefers-reduced-motion.
-  const [reducedMotion] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
+  // Issue #48 : animations de combat. Issue #194 : la détection passe par
+  // `usePrefersReducedMotion` (useSyncExternalStore) et non plus par un
+  // initialiseur de `useState` — lire `matchMedia` au rendu initial le faisait
+  // évaluer pendant le SSR (toujours `false`), d'où un mismatch d'hydratation
+  // sur l'Arène pour tout utilisateur en reduced-motion. Voir le commentaire du
+  // hook pour les conséquences (clic perdu juste après le chargement).
+  const reducedMotion = usePrefersReducedMotion();
   const [heroAnim, setHeroAnim] = useState<{
     state: "idle" | "attack" | "hurt";
     anim?: HeroAttackAnim;
