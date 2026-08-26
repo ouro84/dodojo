@@ -10,6 +10,7 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Corrections
+- Issue #194 : trois écrans se re-construisaient entièrement au chargement à cause d'une erreur d'hydratation React, ce qui pouvait avaler le premier clic fait juste après l'affichage (Le Profil, l'Arène). Corrigé : le toggle de rappel du soir, le compte à rebours avant minuit et la détection « animations réduites » attendent désormais le navigateur au lieu de deviner côté serveur.
 - Issue #192 : le Chevalier de Feu est de nouveau achetable au Marché Noir. Si ton starter d'onboarding était un autre héros, le débloquer était impossible — le clic sur "Confirmer" ne faisait strictement rien, même avec assez d'or — et il restait donc inaccessible à vie sur ce profil. Les 6 autres héros et toutes les tenues n'étaient pas concernés.
 
 ## [1.0.0] - 2026-08-11

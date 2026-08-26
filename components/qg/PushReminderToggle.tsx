@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import { getServiceWorkerRegistration } from "@/lib/pwa/update-prompt-client";
 import { urlBase64ToUint8Array } from "@/lib/pwa/push-subscribe";
 import { subscribeToPush, unsubscribeFromPush } from "@/app/actions/push";
@@ -10,15 +10,45 @@ interface PushReminderToggleProps {
   hasSubscription: boolean; // état initial connu côté serveur (au chargement du Vestiaire)
 }
 
-type ToggleStatus = "unsupported" | "denied" | "off" | "on";
+// "pending" = rendu serveur et rendu d'hydratation, avant que la permission
+// réelle du navigateur ne soit lisible (cf. commentaire du store ci-dessous).
+type ToggleStatus = "pending" | "unsupported" | "denied" | "off" | "on";
+type BrowserPermission = "pending" | "unsupported" | NotificationPermission;
 
-function readNotificationPermission(): NotificationPermission | "unsupported" {
+// Issue #194 : la permission était lue dans l'initialiseur d'un
+// `useState(() => computeStatus(...))`, donc évaluée **aussi pendant le SSR**
+// (un composant client est rendu sur le serveur avant hydratation). Sans
+// `window`, la lecture renvoyait "unsupported" : le HTML serveur portait le
+// `<p>` "indisponible sur ce navigateur" là où le client rendait le `<div>` du
+// toggle. Mismatch d'hydratation (#418) sur `/vestiaire/profil` à chaque
+// chargement → React régénère tout l'arbre client et **abandonne le replay des
+// évènements discrets** capturés pendant l'hydratation, donc un clic parti
+// juste après l'affichage est perdu sans trace (cause du rouge déterministe de
+// `e2e/volume-interieur.spec.ts`).
+//
+// `useSyncExternalStore` est le patron projet pour exposer une valeur
+// browser-only sans mismatch (cf. `hooks/useBrowserTimezone.ts`,
+// `hooks/useSpeechToText.ts`) : React rend avec `getServerSnapshot` pendant
+// l'hydratation — même sortie que le HTML serveur — puis re-rend avec la
+// valeur client juste après, sans erreur. Ne jamais revenir à une lecture de
+// `Notification` dans le rendu initial.
+function subscribeToPermission(): () => void {
+  // `Notification.permission` ne notifie aucun changement ; une révocation en
+  // cours de session est de toute façon rattrapée au prochain chargement.
+  return () => {};
+}
+
+function getClientPermission(): BrowserPermission {
   if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
   return Notification.permission;
 }
 
-function computeStatus(hasSubscription: boolean): ToggleStatus {
-  const permission = readNotificationPermission();
+function getServerPermission(): BrowserPermission {
+  return "pending";
+}
+
+function computeStatus(permission: BrowserPermission, hasSubscription: boolean): ToggleStatus {
+  if (permission === "pending") return "pending";
   if (permission === "unsupported") return "unsupported";
   if (permission === "denied") return "denied";
   return hasSubscription && permission === "granted" ? "on" : "off";
@@ -32,23 +62,33 @@ function computeStatus(hasSubscription: boolean): ToggleStatus {
 export default function PushReminderToggle({ hasSubscription }: PushReminderToggleProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<ToggleStatus>(() => computeStatus(hasSubscription));
+  const permission = useSyncExternalStore(
+    subscribeToPermission,
+    getClientPermission,
+    getServerPermission,
+  );
+  // Statut dérivé de la permission du navigateur, sauf après une action de
+  // l'utilisateur dans cette session (activate/deactivate), qui prime.
+  const [override, setOverride] = useState<ToggleStatus | null>(null);
   // Ajustement d'état pendant le rendu (pattern React recommandé) plutôt
   // qu'un useEffect : évite le rendu en cascade signalé par
-  // react-hooks/set-state-in-effect tout en recalculant le statut si la
-  // prop serveur change (ex. navigation retour au Vestiaire).
+  // react-hooks/set-state-in-effect tout en repartant de la permission réelle
+  // si la prop serveur change (ex. navigation retour au Vestiaire).
   const [prevHasSubscription, setPrevHasSubscription] = useState(hasSubscription);
   if (hasSubscription !== prevHasSubscription) {
     setPrevHasSubscription(hasSubscription);
-    setStatus(computeStatus(hasSubscription));
+    setOverride(null);
   }
+  const status = override ?? computeStatus(permission, hasSubscription);
 
   function activate() {
     setError(null);
     startTransition(async () => {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        setStatus(permission === "denied" ? "denied" : "off");
+      // Nom distinct de la `permission` du store ci-dessus (shadowing) : ici
+      // c'est le résultat frais du prompt, pas le snapshot du rendu.
+      const prompted = await Notification.requestPermission();
+      if (prompted !== "granted") {
+        setOverride(prompted === "denied" ? "denied" : "off");
         return;
       }
 
@@ -96,7 +136,7 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
         setError(result.error);
         return;
       }
-      setStatus("on");
+      setOverride("on");
     });
   }
 
@@ -108,7 +148,7 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
       const endpoint = pushSubscription?.endpoint;
       await pushSubscription?.unsubscribe();
       if (endpoint) await unsubscribeFromPush(endpoint);
-      setStatus("off");
+      setOverride("off");
     });
   }
 
@@ -129,7 +169,11 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
         </p>
         <button
           type="button"
-          disabled={pending || status === "denied"}
+          // "pending" : la permission réelle n'est pas encore lisible (rendu
+          // serveur / hydratation). Le bouton est de toute façon inerte avant
+          // hydratation — l'afficher désactivé est honnête, et ça garde
+          // surtout un HTML identique de part et d'autre de l'hydratation.
+          disabled={pending || status === "denied" || status === "pending"}
           onClick={status === "on" ? deactivate : activate}
           className="rounded-md border border-border bg-bg px-3 py-2.5 font-display text-[10px] uppercase tracking-wide text-gold disabled:opacity-50"
         >
