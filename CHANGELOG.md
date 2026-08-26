@@ -9,6 +9,9 @@ nouvelle section versionnée et datée.
 
 ## [Unreleased]
 
+### Corrections
+- Issue #192 : le Chevalier de Feu est de nouveau achetable au Marché Noir. Si ton starter d'onboarding était un autre héros, le débloquer était impossible — le clic sur "Confirmer" ne faisait strictement rien, même avec assez d'or — et il restait donc inaccessible à vie sur ce profil. Les 6 autres héros et toutes les tenues n'étaient pas concernés.
+
 ## [1.0.0] - 2026-08-11
 
 ### Produit
