@@ -218,8 +218,9 @@ export async function dismissKoOverlayIfPresent(page: Page): Promise<void> {
   // (DEATH_DURATION_MS + KO_FADE_MS + KO_OVERLAY_EXTRA_DELAY_MS,
   // lib/combat-animation.ts) — un simple `isVisible()` immédiat le rate si le
   // K.O. vient tout juste de se produire, et l'overlay finit par apparaître
-  // PENDANT le clic suivant (repro : task-reorder-race.spec.ts, toggle-cascade
-  // .spec.ts — le cochage qui vide le Boss est la toute dernière action avant
+  // PENDANT le clic suivant (repro : task-ordering.spec.ts — ex-task-reorder-
+  // race.spec.ts, fusionné par l'issue #195 — et toggle-cascade.spec.ts : le
+  // cochage qui vide le Boss est la toute dernière action avant
   // l'abandon). On n'attend cette apparition différée QUE si le Boss est
   // effectivement à 0 HP maintenant (sinon aucun K.O. n'est en cours).
   const bossBar = page.getByRole("progressbar", { name: /Vie du Boss/ });
