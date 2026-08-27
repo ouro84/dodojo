@@ -10,6 +10,10 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Corrections
+- Issue #196 : sur la carte du Vestiaire, tous les cercles du chemin ont désormais la même bordure dorée — seuls ceux de droite l'avaient, ce qui donnait l'impression d'une colonne active et d'une colonne éteinte. La taille des cercles continue de signaler les deux sections principales.
+- Issue #195 : valider une tâche la fait de nouveau descendre en bas de liste, et une tâche créée s'affiche au-dessus des tâches déjà validées. L'ordre partait avec un temps de retard sur ce que tu venais de faire : cocher deux tâches d'affilée pouvait renvoyer la seconde tout en haut, et une tâche ajoutée rester coincée sous les validées — très visible en 4G, quasi jamais sur une connexion rapide. Les tâches dictées à Siri ou créées par Gemini arrivaient elles aussi sous les validées : corrigé également. Et taper une tâche puis Entrée pendant que la précédente s'enregistre fonctionne enfin (l'Entrée était purement ignoré, sans le moindre message).
+
+### Corrections
 - Issue #194 : trois écrans se re-construisaient entièrement au chargement à cause d'une erreur d'hydratation React, ce qui pouvait avaler le premier clic fait juste après l'affichage (Le Profil, l'Arène). Corrigé : le toggle de rappel du soir, le compte à rebours avant minuit et la détection « animations réduites » attendent désormais le navigateur au lieu de deviner côté serveur.
 - Issue #192 : le Chevalier de Feu est de nouveau achetable au Marché Noir. Si ton starter d'onboarding était un autre héros, le débloquer était impossible — le clic sur "Confirmer" ne faisait strictement rien, même avec assez d'or — et il restait donc inaccessible à vie sur ce profil. Les 6 autres héros et toutes les tenues n'étaient pas concernés.
 

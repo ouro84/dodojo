@@ -57,9 +57,18 @@ export default function AddTaskForm({
         className="flex-1 rounded bg-transparent text-sm text-ink outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-xp"
       />
       <MicButton disabled={pending} onTranscript={onAdd} label={micLabel} />
+      {/* Issue #195 : `pending` ne désactive plus la soumission. La soumission
+          implicite d'un formulaire passe par un clic sur son bouton par défaut,
+          et un bouton `disabled` l'annule purement et simplement : taper une
+          tâche puis Entrée pendant qu'un ajout était encore en vol ne faisait
+          RIEN (texte conservé dans le champ, aucun retour) — exactement ce que
+          fait un utilisateur qui enchaîne trois tâches. Les ajouts concurrents
+          sont désormais sérialisés côté Arène (`addQueueRef`), donc les
+          accepter ne crée plus de collision de positions. */}
       <button
         type="submit"
-        disabled={pending || !title.trim()}
+        aria-busy={pending}
+        disabled={!title.trim()}
         className="rounded-md bg-hp px-3 py-2.5 font-display text-xs uppercase tracking-wide text-ink disabled:opacity-40"
       >
         {submitLabel}

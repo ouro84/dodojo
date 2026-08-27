@@ -42,11 +42,9 @@ import {
   comboIntensity,
   nextComboState,
   type ComboState,
-  insertNewActiveTaskId,
   nextDayKey,
   isPlanningUnlocked,
   nextSiblingPosition,
-  planCompletionReorder,
   planReorder,
   summarizeDay,
   XP_PER_TASK,
@@ -269,6 +267,12 @@ export default function Arena({
   // (parentId) — deux reorderSiblingsAction concurrents sur le même groupe
   // ne doivent jamais s'écraser selon l'ordre d'arrivée réseau.
   const reorderQueueRef = useRef(createKeyedQueue<string | null>());
+  // Issue #195 : file d'ajout (une seule création en vol à la fois). Deux
+  // `addTask` concurrents calculeraient la même position en base ; la file
+  // permet d'accepter une saisie enchaînée sans collision. `addQueueDepthRef`
+  // ne sert qu'à savoir quand `isAdding` (état visuel) peut retomber.
+  const addQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const addQueueDepthRef = useRef(0);
   const impactTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const freezeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Issue #48 (Task 4.1) : attaque du Boss sur deadline ratée / Rage Quit.
@@ -852,13 +856,13 @@ export default function Arena({
 
   function handleAdd(title: string) {
     optimisticIdCounterRef.current += 1;
-    // Bug #111 reorder : exclure les racines abandonnées. `roots.map(id)` nourrit
-    // `reorderSiblingsAction`, qui rejette (`is_abandoned`) tout id abandonné —
-    // sur ce compte partagé qui accumule des racines "Rage Quit"/"Annihiler"
-    // (RG-04, jamais de DELETE), une seule racine abandonnée suffisait à faire
-    // échouer le reorder et, via le rollback, à effacer la tâche qu'on venait
-    // d'ajouter (cf. previousSnapshot ci-dessous).
-    const roots = tasks.filter((task) => task.parent_id === null && !task.is_abandoned);
+    // Issue #195 : la position optimiste se lit sur `tasksRef.current` et non
+    // sur le `tasks` de la fermeture — plusieurs ajouts peuvent désormais
+    // s'enchaîner sans attendre (cf. la file ci-dessous), donc le `tasks` du
+    // rendu courant est déjà périmé pour le deuxième.
+    const roots = tasksRef.current.filter(
+      (task) => task.parent_id === null && !task.is_abandoned && task.day_date === today,
+    );
     const optimisticTask: Task = {
       id: `optimistic-${optimisticIdCounterRef.current}`,
       user_id: profile.id,
@@ -880,74 +884,51 @@ export default function Arena({
       hp_penalty: null,
     };
 
+    // Issue #195 : insérée en dernière position, mais affichée au-dessus des
+    // complétées — c'est le tri dérivé (`compareForDisplay`) qui s'en charge,
+    // sans écriture de position ni appel de réordonnancement.
     setTasks((prev) => [...prev, optimisticTask]);
     triggerPulse(20, "heal");
     setIsAdding(true);
 
-    void addTaskAction(title).then((result) => {
-      setIsAdding(false);
-      if (result.error) {
-        setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
-        setBanner(result.error);
-        return;
-      }
-      // Remplace l'id optimiste par l'id réel : toute action ultérieure sur
-      // cette tâche (sous-tâche, drag & drop) a besoin du vrai UUID côté serveur.
-      if (result.id) {
-        const realId = result.id;
-        setTasks((prev) =>
-          prev.map((task) =>
-            task.id === optimisticTask.id ? { ...task, id: realId } : task,
-          ),
-        );
-
-        // Issue #111 : si des tâches racines sont déjà complétées, place la
-        // nouvelle tâche juste au-dessus d'elles plutôt qu'en toute fin.
-        const completedRootIds = new Set(
-          roots.filter((task) => task.is_completed).map((task) => task.id),
-        );
-        if (completedRootIds.size > 0) {
-          const orderedIds = insertNewActiveTaskId(
-            roots.map((task) => task.id),
-            realId,
-            completedRootIds,
-          );
-          // Rollback ciblé sur les positions touchées, capturées depuis le
-          // `prev` réel de ce setTasks (pas un `tasks` de fermeture, stale
-          // depuis avant l'ajout optimiste) — un reorder en erreur ne doit
-          // jamais effacer la tâche qui vient d'être ajoutée avec succès.
-          const previousPositions = new Map<string, number>();
-          setTasks((prev) => {
-            const positionByTaskId = new Map(orderedIds.map((taskId, index) => [taskId, index]));
-            return prev.map((task) => {
-              const position = positionByTaskId.get(task.id);
-              if (position === undefined) return task;
-              previousPositions.set(task.id, task.position);
-              return { ...task, position };
-            });
-          });
-          void reorderQueueRef.current
-            .run(null, () => reorderSiblingsAction(null, orderedIds))
-            .then((reorderResult) => {
-              if (reorderResult.error) {
-                setTasks((prev) =>
-                  prev.map((task) =>
-                    previousPositions.has(task.id)
-                      ? { ...task, position: previousPositions.get(task.id)! }
-                      : task,
-                  ),
-                );
-              }
-            });
+    // Issue #195 : les ajouts sont sérialisés côté client. Deux `addTask`
+    // concurrents liraient le même `max(position)` en base et repartiraient
+    // avec la même position. C'est ce qui permet d'accepter une saisie
+    // enchaînée (cf. AddTaskForm : la soumission au clavier n'est plus bloquée
+    // pendant qu'un ajout est en vol) sans créer de collision de positions.
+    addQueueRef.current = addQueueRef.current
+      .then(() => addTaskAction(title))
+      .then((result) => {
+        if (result.error) {
+          setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
+          setBanner(result.error);
+          return;
         }
-      }
-    });
+        // Remplace l'id optimiste par l'id réel : toute action ultérieure sur
+        // cette tâche (sous-tâche, drag & drop) a besoin du vrai UUID côté serveur.
+        if (result.id) {
+          const realId = result.id;
+          setTasks((prev) =>
+            prev.map((task) =>
+              task.id === optimisticTask.id ? { ...task, id: realId } : task,
+            ),
+          );
+        }
+      })
+      .finally(() => {
+        // `isAdding` ne retombe qu'une fois la file vidée : il ne bloque plus
+        // la saisie (issue #195), il ne sert qu'à l'état visuel du bouton.
+        if (addQueueDepthRef.current > 0) addQueueDepthRef.current -= 1;
+        if (addQueueDepthRef.current === 0) setIsAdding(false);
+      });
+    addQueueDepthRef.current += 1;
   }
 
   function handleAddSubtask(parentId: string, title: string) {
     optimisticIdCounterRef.current += 1;
-    // Cf. handleAdd : exclure les sous-tâches abandonnées du pool de reorder.
-    const siblings = tasks.filter(
+    // Cf. handleAdd : lu sur `tasksRef.current` (state à jour) et sans les
+    // sous-tâches abandonnées (RG-04 : elles restent en base).
+    const siblings = tasksRef.current.filter(
       (task) => task.parent_id === parentId && !task.is_abandoned,
     );
     const optimisticTask: Task = {
@@ -971,6 +952,7 @@ export default function Arena({
       hp_penalty: null,
     };
 
+    // Issue #195 : cf. handleAdd — l'ordre est dérivé, aucune position à écrire.
     setTasks((prev) => [...prev, optimisticTask]);
     triggerPulse(10, "heal");
     setAddingSubtaskParentId(parentId);
@@ -990,41 +972,6 @@ export default function Arena({
           ),
         );
 
-        const completedSiblingIds = new Set(
-          siblings.filter((task) => task.is_completed).map((task) => task.id),
-        );
-        if (completedSiblingIds.size > 0) {
-          const orderedIds = insertNewActiveTaskId(
-            siblings.map((task) => task.id),
-            realId,
-            completedSiblingIds,
-          );
-          // Cf. handleAdd : rollback ciblé sur les positions, jamais sur un
-          // snapshot stale d'avant l'ajout.
-          const previousPositions = new Map<string, number>();
-          setTasks((prev) => {
-            const positionByTaskId = new Map(orderedIds.map((taskId, index) => [taskId, index]));
-            return prev.map((task) => {
-              const position = positionByTaskId.get(task.id);
-              if (position === undefined) return task;
-              previousPositions.set(task.id, task.position);
-              return { ...task, position };
-            });
-          });
-          void reorderQueueRef.current
-            .run(parentId, () => reorderSiblingsAction(parentId, orderedIds))
-            .then((reorderResult) => {
-              if (reorderResult.error) {
-                setTasks((prev) =>
-                  prev.map((task) =>
-                    previousPositions.has(task.id)
-                      ? { ...task, position: previousPositions.get(task.id)! }
-                      : task,
-                  ),
-                );
-              }
-            });
-        }
       }
     });
   }
@@ -1295,12 +1242,6 @@ export default function Arena({
     const previousProfileSnapshot = profile;
     const previousHp = currentHp;
 
-    const reorderPlans = planCompletionReorder(tasks, cascade);
-    const positionByTaskId = new Map<string, number>();
-    for (const plan of reorderPlans) {
-      plan.orderedTaskIds.forEach((id, index) => positionByTaskId.set(id, index));
-    }
-
     const nextCompletionById = new Map(cascade.map((c) => [c.taskId, c.isCompleted]));
     // Suppression du heal Héros : le serveur verrouille hp_penalty dans le
     // même appel (setTaskCompleted), mais son résultat ne renvoie pas la ligne
@@ -1310,18 +1251,23 @@ export default function Arena({
     // déterministe (mêmes entrées, même sortie que le serveur), donc ce calcul
     // client anticipe exactement ce que la base va persister.
     const lockNow = new Date();
-    const nextTasks = tasks.map((task) => {
+    const toggledTasks = tasks.map((task) => {
       const nextCompleted = nextCompletionById.get(task.id);
-      const nextPosition = positionByTaskId.get(task.id);
       const becomingCompleted = nextCompleted === true && !task.is_completed;
       const lockedPenalty = becomingCompleted ? hpPenaltyToLock(task, lockNow) : null;
       return {
         ...task,
         is_completed: nextCompleted === undefined ? task.is_completed : nextCompleted,
-        position: nextPosition === undefined ? task.position : nextPosition,
         hp_penalty: lockedPenalty !== null ? lockedPenalty : task.hp_penalty,
       };
     });
+
+    // Issue #195 : aucune position n'est touchée ici. L'ordre d'affichage est
+    // dérivé de `is_completed` par `sortTasksHierarchically` (via
+    // `compareForDisplay`), donc cocher suffit à faire descendre la tâche —
+    // plus de plan d'ordre calculé au clic puis envoyé après l'aller-retour,
+    // qui se périmait dès qu'une autre mutation passait entre-temps.
+    const nextTasks = toggledTasks;
 
     setTasks(nextTasks);
 
@@ -1436,26 +1382,8 @@ export default function Arena({
       setComboCount(serverComboCount);
     }
 
-    // Issue #111 : persistance best-effort du nouvel ordre. Un échec ici ne
-    // remet pas en cause la complétion déjà confirmée (c'est un bonus visuel,
-    // pas une règle métier critique) — seule la position optimiste de ce
-    // groupe est restaurée si l'appel échoue.
-    for (const plan of reorderPlans) {
-      void reorderQueueRef.current
-        .run(plan.parentId, () => reorderSiblingsAction(plan.parentId, plan.orderedTaskIds))
-        .then((result) => {
-          if (result.error) {
-            setTasks((current) =>
-              current.map((task) => {
-                const previous = previousTasksSnapshot.find((t) => t.id === task.id);
-                return previous && task.parent_id === plan.parentId
-                  ? { ...task, position: previous.position }
-                  : task;
-              }),
-            );
-          }
-        });
-    }
+    // Issue #195 : plus aucun appel de réordonnancement ici — `setTaskCompleted`
+    // a déjà renuméroté la fratrie côté serveur, dans le même aller-retour.
     } finally {
       // Fix #3 : libère le verrou quel que soit le chemin (succès, erreur
       // serveur, voire exception runtime non catchée). On enlève toutes les

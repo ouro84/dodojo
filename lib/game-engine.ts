@@ -33,7 +33,7 @@ export function nextSiblingPosition<T extends Pick<Task, "position">>(
     : Math.max(...siblings.map((task) => task.position)) + 1;
 }
 
-export type HierarchyTask = Pick<Task, "id" | "parent_id" | "position">;
+export type HierarchyTask = Pick<Task, "id" | "parent_id" | "position" | "is_completed">;
 
 export function sortTasksHierarchically<T extends HierarchyTask>(tasks: T[]): T[] {
   const byId = new Map(tasks.map((task) => [task.id, task]));
@@ -51,16 +51,60 @@ export function sortTasksHierarchically<T extends HierarchyTask>(tasks: T[]): T[
     childrenByParent.set(task.parent_id as string, siblings);
   }
 
-  const byPosition = (a: T, b: T) => a.position - b.position;
-  roots.sort(byPosition);
+  // Issue #195 : ordre d'affichage dérivé (complétées en bas) — cf.
+  // `compareForDisplay`. Le même comparateur sert à `planReorder`, sinon un
+  // drag & drop raisonnerait sur un ordre différent de celui affiché.
+  roots.sort(compareForDisplay);
 
   return roots.flatMap((root) => [
     root,
-    ...(childrenByParent.get(root.id) ?? []).sort(byPosition),
+    ...(childrenByParent.get(root.id) ?? []).sort(compareForDisplay),
   ]);
 }
 
-export type ReorderableTask = Pick<Task, "id" | "parent_id" | "position" | "is_abandoned">;
+export type OrderableTask = Pick<Task, "id" | "position" | "is_completed">;
+
+// Issue #195 : l'ordre d'affichage d'une fratrie est DÉRIVÉ de son contenu —
+// les tâches complétées passent en bas, point. Rien n'est écrit en base pour
+// l'obtenir, donc il n'y a plus aucun ordre à transporter, à périmer, ni à
+// renuméroter.
+//
+// Ce que ça remplace : l'ordre était calculé côté client au moment du clic
+// (`planCompletionReorder`) puis envoyé à `reorderSiblings` APRÈS l'aller-retour
+// de la mutation. Toute mutation concurrente pendant la fenêtre réseau périmait
+// ce payload — cocher deux tâches d'affilée et le plan de la première, appliqué
+// en dernier, remettait la seconde en TÊTE de liste (reproduit sous latence).
+// Le serveur rejetait en plus le payload entier si un seul id était devenu
+// `is_abandoned` entre-temps (silencieusement, l'appel étant best-effort), ou
+// ne renumérotait que les ids reçus, laissant des positions dupliquées que le
+// tri sur `position` seule départageait arbitrairement côté Postgres.
+//
+// Une première version du correctif renumérotait le groupe côté serveur à
+// chaque toggle/ajout : correcte, mais **mesurée trop coûteuse** — cocher la
+// première tâche d'une liste de 20 décale les 20 lignes, soit 20 UPDATE
+// séquentiels, et une boucle qui coche tout devient quadratique (+50 % sur
+// `e2e/ko-overlay-viewport.spec.ts`, suite e2e complète × 2). Dériver au rendu
+// coûte zéro écriture.
+//
+// Le départage sur l'id à position égale n'est pas cosmétique : des positions
+// dupliquées existent réellement en base (payloads partiels de l'ancien
+// mécanisme), et sans lui l'ordre affiché dépendrait de l'ordre de retour de
+// Postgres, donc changerait d'un chargement à l'autre.
+export function compareForDisplay(a: OrderableTask, b: OrderableTask): number {
+  return (
+    Number(a.is_completed) - Number(b.is_completed) ||
+    a.position - b.position ||
+    a.id.localeCompare(b.id)
+  );
+}
+
+// `is_completed` : `planReorder` doit trier la fratrie dans l'ordre RÉELLEMENT
+// affiché (issue #195), sinon un drop calcule sa cible sur un ordre que
+// l'utilisateur ne voit pas dès qu'une complétée garde une position basse.
+export type ReorderableTask = Pick<
+  Task,
+  "id" | "parent_id" | "position" | "is_abandoned" | "is_completed"
+>;
 
 export interface DropTarget {
   overTaskId: string;
@@ -111,7 +155,7 @@ export function planReorder(
     .filter(
       (task) => task.parent_id === parentId && task.id !== dragged.id && !task.is_abandoned,
     )
-    .sort((a, b) => a.position - b.position)
+    .sort(compareForDisplay)
     .map((task) => task.id);
 
   if (insertMode === "append") {
@@ -129,117 +173,6 @@ export function planReorder(
     ],
   };
 }
-
-// Issue #111 : déplace UNE SEULE tâche (celle qui vient de changer d'état)
-// dans la liste ordonnée de sa fratrie, sans toucher à l'ordre relatif des
-// autres — y compris un réordonnancement manuel préexistant (drag & drop),
-// qui reste donc toujours prioritaire sur cette règle automatique. Cocher =
-// va en toute dernière position. Décocher = revient juste après la dernière
-// tâche encore active (pas juste "avant la première complétée" : si une
-// tâche complétée a été draguée manuellement au-dessus d'une active, elle
-// doit rester au-dessus — l'insertion se fait après la dernière active
-// rencontrée, jamais avant une complétée qui précède déjà des actives).
-function insertAfterLastActive(
-  ids: string[],
-  insertId: string,
-  completedIds: Set<string>,
-): string[] {
-  let insertAt = 0;
-  for (let i = 0; i < ids.length; i += 1) {
-    if (!completedIds.has(ids[i])) insertAt = i + 1;
-  }
-  return [...ids.slice(0, insertAt), insertId, ...ids.slice(insertAt)];
-}
-
-export function reorderAfterCompletionToggle(
-  orderedIds: string[],
-  toggledId: string,
-  isCompleted: boolean,
-  completedIds: Set<string>,
-): string[] {
-  const withoutToggled = orderedIds.filter((id) => id !== toggledId);
-  if (isCompleted) {
-    return [...withoutToggled, toggledId];
-  }
-  return insertAfterLastActive(withoutToggled, toggledId, completedIds);
-}
-
-// Issue #111 : position d'une tâche nouvellement créée — dernière position
-// parmi les non-cochées (juste après la dernière tâche active). Identique au
-// comportement existant (ajout en toute fin) quand la fratrie n'a aucune
-// tâche complétée.
-export function insertNewActiveTaskId(
-  orderedIds: string[],
-  newId: string,
-  completedIds: Set<string>,
-): string[] {
-  return insertAfterLastActive(orderedIds, newId, completedIds);
-}
-
-export type ReorderableCompletionTask = Pick<
-  Task,
-  "id" | "parent_id" | "position" | "is_completed" | "is_abandoned"
->;
-
-export interface CompletionReorderPlan {
-  parentId: string | null;
-  orderedTaskIds: string[];
-}
-
-// Issue #111 : à partir d'une cascade de complétion (`computeToggleCascade`),
-// calcule le nouvel ordre de chaque fratrie touchée (le groupe racine et/ou
-// le groupe des sous-tâches d'un parent précis — une cascade ne peut toucher
-// que ces deux groupes au maximum, RG-01). Chaque tâche de la cascade est
-// déplacée une à une (dans l'ordre de la cascade) via
-// `reorderAfterCompletionToggle`, ce qui préserve l'ordre relatif de tout le
-// reste de la fratrie.
-export function planCompletionReorder(
-  allTasks: ReorderableCompletionTask[],
-  cascade: ToggleCascadeEntry[],
-): CompletionReorderPlan[] {
-  if (cascade.length === 0) return [];
-
-  const byId = new Map(allTasks.map((task) => [task.id, task]));
-  const nextCompletedById = new Map(cascade.map((c) => [c.taskId, c.isCompleted]));
-  const isCompletedAfter = (task: ReorderableCompletionTask) =>
-    nextCompletedById.get(task.id) ?? task.is_completed;
-
-  const groupsTouched = new Set<string | null>();
-  for (const change of cascade) {
-    const task = byId.get(change.taskId);
-    if (task) groupsTouched.add(task.parent_id);
-  }
-
-  const plans: CompletionReorderPlan[] = [];
-  for (const parentId of groupsTouched) {
-    const groupTasks = allTasks.filter(
-      (task) => task.parent_id === parentId && !task.is_abandoned,
-    );
-    let orderedIds = [...groupTasks]
-      .sort((a, b) => a.position - b.position)
-      .map((task) => task.id);
-
-    const completedIds = new Set(
-      groupTasks.filter(isCompletedAfter).map((task) => task.id),
-    );
-
-    for (const change of cascade) {
-      const task = byId.get(change.taskId);
-      if (!task || task.parent_id !== parentId) continue;
-      orderedIds = reorderAfterCompletionToggle(
-        orderedIds,
-        change.taskId,
-        change.isCompleted,
-        completedIds,
-      );
-    }
-
-    plans.push({ parentId, orderedTaskIds: orderedIds });
-  }
-
-  return plans;
-}
-
 export interface ToggleCascadeEntry {
   taskId: string;
   isCompleted: boolean;

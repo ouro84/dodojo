@@ -136,7 +136,7 @@ Ce système rejette explicitement l'esthétique SaaS/outil de productivité épu
 - **Indigo Néon** (`oklch(0.54 0.17 275)`, token `xp`) : jauge d'XP, bordure du héros/tenue actuellement équipé (Marché Noir). Variante sourde `xp-dim` (`oklch(0.28 0.08 275)`) en piste de jauge. **`xp-text`** (`oklch(0.625 0.17 275)`) : même rôle que `hp-text`, pour l'indigo utilisé comme couleur de texte.
 
 ### Tertiary
-- **Or** (`oklch(0.85 0.13 85)`, token `gold`) : solde de monnaie, CTA « Terminer la journée », bordure de sélection dans Le Marché Noir, flammes de série, en-tête "PERFECT". `gold-ink` (`oklch(0.22 0.03 85)`) est le texte prévu sur fond or plein.
+- **Or** (`oklch(0.85 0.13 85)`, token `gold`) : solde de monnaie, CTA « Terminer la journée », bordure de sélection dans Le Marché Noir, flammes de série, en-tête "PERFECT", bordure des nœuds de la carte du Vestiaire (issue #196 : tous les nœuds, jamais un sous-ensemble — la couleur y est un liant visuel, pas une hiérarchie ; c'est la taille du nœud qui code l'importance). `gold-ink` (`oklch(0.22 0.03 85)`) est le texte prévu sur fond or plein.
 
 ### Neutral
 - **Fond Arcade** (`oklch(0.14 0.015 25)`, token `bg`) : fond par défaut de l'app.
@@ -192,7 +192,7 @@ Layered à plat, jamais d'ombre portée : aucune valeur `box-shadow` décorative
 - **Corner Style:** `rounded-md` (6px) pour lignes de tâche, formulaires, panneaux de confirmation ; `rounded-lg` (8px) pour les grands panneaux (stage de sélection de héros, overlays plein écran).
 - **Background:** `surface` sur fond `bg`/`stage`, ou `bg-black/40`–`bg-black/60` pour un panneau posé sur le décor de combat.
 - **Shadow Strategy:** aucune — cf. Elevation.
-- **Border:** 1px `border` par défaut ; `border-hp` en surbrillance de zone de drop, `border-gold`/`border-xp` en sélection/équipement (Le Marché Noir).
+- **Border:** 1px `border` par défaut ; `border-hp` en surbrillance de zone de drop, `border-gold`/`border-xp` en sélection/équipement (Le Marché Noir), `border-gold` sur les nœuds de la carte du Vestiaire.
 - **Internal Padding:** `px-3 py-2` (lignes de tâche, formulaire d'ajout) à `p-4` (panneaux, stage héros).
 
 ### Inputs / Fields
