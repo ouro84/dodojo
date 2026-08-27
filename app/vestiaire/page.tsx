@@ -18,7 +18,9 @@ export const metadata: Metadata = { title: "Le Vestiaire — Dodojo" };
 // niveaux" d'arcade), jamais une mécanique de progression : tous les nœuds
 // restent cliquables direct, aucun verrou. Positions en % sur une base
 // viewBox 300×460 (cf. maquette de shape) ; la taille "major" code
-// l'importance réelle (Marché Noir / Tableau de Chasse), pas un ordre.
+// l'importance réelle (Marché Noir / Tableau de Chasse), pas un ordre —
+// et depuis l'issue #196 elle la code SEULE, la bordure dorée étant commune à
+// tous les nœuds.
 interface MapNode {
   href: string;
   icon: GameIconName | "recurring";
@@ -137,9 +139,14 @@ export default async function QgPage() {
               className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 rounded-md p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-xp"
               style={{ left: `${node.left}%`, top: `${node.top}%` }}
             >
+              {/* Issue #196 : bordure dorée sur TOUS les nœuds. Seuls les deux
+                  nœuds `major` l'avaient, et comme ils sont tous les deux à
+                  droite du chemin, la carte se lisait comme "colonne de droite
+                  dorée, colonne de gauche éteinte" — une hiérarchie de couleur
+                  involontaire là où seule la taille doit coder l'importance. */}
               <span
-                className={`flex items-center justify-center rounded-full border bg-surface-2 ${
-                  node.major ? "h-14 w-14 border-gold" : "h-11 w-11 border-border"
+                className={`flex items-center justify-center rounded-full border border-gold bg-surface-2 ${
+                  node.major ? "h-14 w-14" : "h-11 w-11"
                 }`}
               >
                 {node.icon === "recurring" ? (
