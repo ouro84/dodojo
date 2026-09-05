@@ -1,11 +1,18 @@
 import { describe, expect, test, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FakeSupabaseClient } from "./fake-supabase";
-import { addSubtaskForUser, addTaskForUser, completeTaskForUser } from "./tasks";
+import { addSubtaskForUser, addTaskForUser, completeTaskForUser, setTaskDeadlineForUser } from "./tasks";
+
+const cancelCalls: string[] = [];
+const scheduleCalls: Array<{ taskId: string; offsetMinutes: number }> = [];
 
 vi.mock("@/lib/inngest/deadline-reminder", () => ({
-  cancelDeadlineReminder: async () => {},
-  scheduleDeadlineReminder: async () => {},
+  cancelDeadlineReminder: async (taskId: string) => {
+    cancelCalls.push(taskId);
+  },
+  scheduleDeadlineReminder: async (p: { taskId: string; offsetMinutes: number }) => {
+    scheduleCalls.push(p);
+  },
 }));
 
 function client(tasks: Record<string, unknown>[]): FakeSupabaseClient {
@@ -86,5 +93,36 @@ describe("addSubtaskForUser", () => {
       "Sous-tache",
     );
     expect(res.error).toBe("task_abandoned");
+  });
+});
+
+describe("setTaskDeadlineForUser", () => {
+  test("effacer la deadline annule le rappel sans en reprogrammer", async () => {
+    cancelCalls.length = 0;
+    scheduleCalls.length = 0;
+    const c = client([
+      { id: "44444444-4444-4444-4444-444444444444", reminder_enabled: true, reminder_offset_minutes: null },
+    ]);
+    const res = await setTaskDeadlineForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "44444444-4444-4444-4444-444444444444",
+      null,
+    );
+    expect(res.error).toBeNull();
+    expect(cancelCalls).toContain("44444444-4444-4444-4444-444444444444");
+    expect(scheduleCalls).toHaveLength(0);
+  });
+
+  test("refuse un id non-UUID sans emettre de requete", async () => {
+    const c = client([]);
+    const res = await setTaskDeadlineForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "optimistic-3",
+      "2026-09-06T12:00:00.000Z",
+    );
+    expect(res.error).toBe("invalid_task_id");
+    expect(c.calls).toBe(0);
   });
 });

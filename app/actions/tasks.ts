@@ -18,8 +18,8 @@ import {
 import type { CascadeTask } from "@/lib/game-engine";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
-import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
-import { addSubtaskForUser, addTaskForUser, completeTaskForUser } from "@/lib/domain/tasks";
+import { cancelDeadlineReminder } from "@/lib/inngest/deadline-reminder";
+import { addSubtaskForUser, addTaskForUser, completeTaskForUser, setTaskDeadlineForUser } from "@/lib/domain/tasks";
 import type { DomainErrorCode } from "@/lib/domain/errors";
 import type { Task } from "@/types";
 
@@ -660,10 +660,6 @@ export async function setTaskDeadline(
   reminderOffsetMinutes?: number | null,
   reminderEnabled?: boolean,
 ): Promise<TaskActionResult> {
-  if (!UUID_RE.test(id)) {
-    return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
-  }
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -673,37 +669,22 @@ export async function setTaskDeadline(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const updates: Record<string, unknown> = { deadline_at: deadlineAt };
-  if (reminderOffsetMinutes !== undefined) updates.reminder_offset_minutes = reminderOffsetMinutes;
-  if (reminderEnabled !== undefined) updates.reminder_enabled = reminderEnabled;
+  const outcome = await setTaskDeadlineForUser(
+    supabase,
+    user.id,
+    id,
+    deadlineAt,
+    reminderOffsetMinutes,
+    reminderEnabled,
+  );
 
-  const { error } = await supabase.from("tasks").update(updates).eq("id", id).eq("user_id", user.id);
-
-  if (error) {
-    return { error: "Impossible de fixer cette deadline. Réessaie." };
-  }
-
-  if (deadlineAt === null) {
-    await cancelDeadlineReminder(id);
-  } else {
-    const { data: resolved } = await supabase
-      .from("tasks")
-      .select("reminder_enabled, reminder_offset_minutes")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (resolved?.reminder_enabled) {
-      const { data: profileRow } = await supabase
-        .from("profiles")
-        .select("reminder_offset_minutes")
-        .eq("id", user.id)
-        .maybeSingle();
-      const offset = resolved.reminder_offset_minutes ?? profileRow?.reminder_offset_minutes ?? 30;
-      await cancelDeadlineReminder(id);
-      await scheduleDeadlineReminder({ taskId: id, userId: user.id, deadlineAt, offsetMinutes: offset });
-    } else {
-      await cancelDeadlineReminder(id);
-    }
+  if (outcome.error !== null) {
+    return {
+      error:
+        outcome.error === "invalid_task_id"
+          ? "Cette tâche n'est pas encore prête, réessaie dans un instant."
+          : "Impossible de fixer cette deadline. Réessaie.",
+    };
   }
 
   revalidatePath("/");
