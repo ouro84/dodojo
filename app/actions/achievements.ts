@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import {
   bestTitleCode,
@@ -8,14 +9,12 @@ import {
   type AchievementContext,
 } from "@/lib/achievements";
 
-type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
-
 // Assemble le contexte complet depuis les tables sources. Aucune logique de
 // condition ici (D2) — seulement de la lecture. Réutilisé par les 4
 // checkpoints (tâche, jour, boss, héros) pour ne jamais dupliquer ces
 // requêtes.
 export async function assembleAchievementContext(
-  supabase: SupabaseServer,
+  supabase: SupabaseClient,
   userId: string,
 ): Promise<AchievementContext> {
   const [
@@ -81,7 +80,7 @@ export async function assembleAchievementContext(
 // joueur n'a jamais choisi manuellement (D8). Renvoie les codes nouvellement
 // débloqués — l'appelant les fait remonter au client pour AchievementToast.
 export async function applyNewAchievements(
-  supabase: SupabaseServer,
+  supabase: SupabaseClient,
   userId: string,
   ctx: AchievementContext,
 ): Promise<string[]> {
