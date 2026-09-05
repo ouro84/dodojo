@@ -31,7 +31,7 @@ declare
   v_now timestamptz := now();
 begin
   insert into public.mcp_rate_limit (user_id, window_started_at, request_count)
-  values (p_user_id, v_now, 1)
+  values (p_user_id, v_now, 0)
   on conflict (user_id) do nothing;
 
   select window_started_at, request_count
@@ -41,19 +41,26 @@ begin
     for update;
 
   if v_now - v_window_started_at > (p_window_seconds || ' seconds')::interval then
-    update public.mcp_rate_limit
-      set window_started_at = v_now, request_count = 1
-      where user_id = p_user_id;
-    return true;
+    v_window_started_at := v_now;
+    v_request_count := 0;
   end if;
 
   if v_request_count >= p_limit then
+    -- Persister un eventuel reset de fenetre meme si la requete est
+    -- refusee, sinon une fenetre expiree ne redemarre jamais tant que
+    -- personne ne passe sous la limite.
+    update public.mcp_rate_limit
+      set window_started_at = v_window_started_at, request_count = v_request_count
+      where user_id = p_user_id;
     return false;
   end if;
 
   update public.mcp_rate_limit
-    set request_count = request_count + 1
+    set window_started_at = v_window_started_at, request_count = v_request_count + 1
     where user_id = p_user_id;
   return true;
 end;
 $$;
+
+revoke execute on function public.consume_mcp_quota(uuid, int, int) from public;
+grant execute on function public.consume_mcp_quota(uuid, int, int) to service_role;

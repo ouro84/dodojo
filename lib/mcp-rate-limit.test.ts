@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { consumeMcpQuota } from "./mcp-rate-limit";
 
