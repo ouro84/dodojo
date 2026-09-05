@@ -59,9 +59,16 @@ class FakeSupabaseClient {
     if (!this.tables[table]) this.tables[table] = [];
     return new FakeQueryBuilder(this.tables[table]);
   }
+  // consumeMcpQuota (lib/mcp-rate-limit.ts) appelle supabase.rpc(...) - par
+  // defaut ca autorise (data: true), sauf override explicite par un test qui
+  // teste specifiquement le rate limit.
+  async rpc(): Promise<{ data: boolean; error: null }> {
+    return { data: rpcQuotaResult, error: null };
+  }
 }
 
 let dbTables: Record<string, Row[]>;
+let rpcQuotaResult: boolean;
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => new FakeSupabaseClient(dbTables),
@@ -75,9 +82,11 @@ function stubEnv(): void {
   vi.stubEnv("NEXT_PRIVATE_KEY_SUPABASE", "fake-service-role-key");
 }
 
-function baseTables(expiresAt: string): Record<string, Row[]> {
+function baseTables(expiresAt: string, scope = "tasks:read tasks:write"): Record<string, Row[]> {
   return {
-    oauth_tokens: [{ user_id: "u1", access_token_hash: hashOpaqueToken(ACCESS_TOKEN), expires_at: expiresAt }],
+    oauth_tokens: [
+      { user_id: "u1", access_token_hash: hashOpaqueToken(ACCESS_TOKEN), expires_at: expiresAt, scope },
+    ],
     profiles: [{ id: "u1", timezone: "Europe/Paris" }],
     tasks: [],
   };
@@ -87,6 +96,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(NOW));
   dbTables = baseTables(expiresAtFromNow(ACCESS_TOKEN_TTL_MS, new Date(NOW)));
+  rpcQuotaResult = true;
   stubEnv();
 });
 
@@ -197,5 +207,56 @@ describe("POST /api/mcp - tools/call add_task (US-22)", () => {
     );
     const body = await response.json();
     expect(body.error.code).toBe(-32601);
+  });
+});
+
+describe("POST /api/mcp - scopes (issue #201)", () => {
+  test("tools/list ne renvoie que les tools couverts par le scope du token", async () => {
+    dbTables.oauth_tokens[0].scope = "tasks:read";
+    const { POST } = await import("./route");
+    const response = await POST(mcpRequest({ jsonrpc: "2.0", id: 7, method: "tools/list" }));
+    const body = await response.json();
+    expect(body.result.tools).toEqual([]);
+  });
+
+  test("tools/call sur add_task avec un token scope tasks:read seul -> isError avec message de scope, pas -32601", async () => {
+    dbTables.oauth_tokens[0].scope = "tasks:read";
+    const { POST } = await import("./route");
+    const response = await POST(
+      mcpRequest({
+        jsonrpc: "2.0",
+        id: 8,
+        method: "tools/call",
+        params: { name: "add_task", arguments: { title: "Rappeler le client" } },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.error).toBeUndefined();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain("tasks:write");
+    expect(dbTables.tasks).toHaveLength(0);
+  });
+});
+
+describe("POST /api/mcp - rate limit (issue #201)", () => {
+  test("un token ayant atteint son quota recoit une erreur rate_limited, jamais un 500", async () => {
+    rpcQuotaResult = false;
+    const { POST } = await import("./route");
+    const response = await POST(
+      mcpRequest({
+        jsonrpc: "2.0",
+        id: 9,
+        method: "tools/call",
+        params: { name: "add_task", arguments: { title: "Rappeler le client" } },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(response.status).not.toBe(500);
+    expect(body.error.message).toBe("rate_limited");
+    expect(dbTables.tasks).toHaveLength(0);
   });
 });
