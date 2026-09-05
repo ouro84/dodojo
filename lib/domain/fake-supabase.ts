@@ -4,7 +4,7 @@
 // refacto, on ne peut donc pas l'y remplacer par un import. Les deux copies
 // seront fusionnées dans un PR ultérieur.
 
-import { describe, expect, test, vi } from "vitest";
+import { vi } from "vitest";
 
 type Row = Record<string, unknown>;
 
