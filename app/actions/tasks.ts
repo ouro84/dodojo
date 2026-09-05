@@ -2,27 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import {
-  applyRageQuitPenalty,
-  applyXpDelta,
-  collectAbandonCascade,
-  dayKey,
-  HERO_DAMAGE_PER_OVERDUE_TASK,
-  hpPenaltyToLock,
-  isNestableParent,
-  nextComboState,
-  nextDayKey,
-  nextLockedHpDamage,
-  nextSiblingPosition,
-  RAGE_QUIT_XP_PENALTY,
-  xpForCompletion,
-  XP_PER_TASK,
-} from "@/lib/game-engine";
-import type { CascadeTask } from "@/lib/game-engine";
-import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
-import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
-import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
+import {
+  addSubtaskForUser,
+  addTaskForUser,
+  addTomorrowTaskForUser,
+  annihilateOverdueOlderThanForUser,
+  annihilateOverdueTaskForUser,
+  bringToTodayForUser,
+  completeOverdueTaskForUser,
+  completeTaskForUser,
+  deferAllOverdueForUser,
+  deferOverdueTaskForUser,
+  rageQuitTaskForUser,
+  reorderSiblingsForUser,
+  reportToTomorrowForUser,
+  setTaskDeadlineForUser,
+  undoRageQuitForUser,
+} from "@/lib/domain/tasks";
+import type { DomainErrorCode } from "@/lib/domain/errors";
 import type { Task } from "@/types";
 
 // Audit #67, PR5 : `id` alimente un filtre PostgREST `.or()` construit par
@@ -54,48 +52,13 @@ export interface TaskActionResult {
   hpDamageLocked?: { hp_damage_locked: number; hp_damage_locked_day: string };
 }
 
-// Le "jour" du jeu est le jour local de l'utilisateur (RG-03), pas l'UTC.
-// On lit le fuseau stocké sur le profil (renseigné à l'onboarding).
-async function userToday(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-): Promise<string> {
-  const { data } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", userId)
-    .maybeSingle();
-  return dayKey(new Date(), data?.timezone ?? "UTC");
-}
-
-// Suppression du heal Héros : verrouille `count` pénalités -20 (poids fixe du
-// pool "overdue", cf. HERO_DAMAGE_PER_OVERDUE_TASK) sur le profil pour le
-// jour local courant. Utilisé par completeOverdueTask / annihilateOverdueTask
-// / annihilateOverdueOlderThan — ces actions résolvent des tâches dont le
-// day_date reste dans le passé (ou sortent de toute requête "aujourd'hui"),
-// leur dégât ne peut donc pas être porté par une ligne de tâche comme le fait
-// `tasks.hp_penalty` pour le reste du jour courant (setTaskCompleted/rageQuitTask).
-async function lockOverdueDamage(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  count: number,
-): Promise<{ hp_damage_locked: number; hp_damage_locked_day: string } | undefined> {
-  if (count <= 0) return undefined;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone, hp_damage_locked, hp_damage_locked_day")
-    .eq("id", userId)
-    .maybeSingle();
-  if (!profile) return undefined;
-  const today = dayKey(new Date(), profile.timezone ?? "UTC");
-  const next = nextLockedHpDamage(profile, today, count * HERO_DAMAGE_PER_OVERDUE_TASK);
-  await supabase.from("profiles").update(next).eq("id", userId);
-  return next;
-}
-
 // US-03 : addTask délègue désormais à insertTaskForUser (lib/task-insertion.ts),
 // PARTAGÉE avec la route webhook Siri (app/api/webhook/add-task) — un seul
 // endroit calcule position/day_date/HP (RG-01/RG-02), jamais deux fois.
+// Issue #201 (lot 1) : wrapper mince autour de addTaskForUser (lib/domain/tasks.ts).
+// `validateTaskTitle` est rappelée ici (double validation volontaire, sans coût
+// car pure) pour restituer le message précis (titre vide vs trop long) que le
+// domaine ne porte pas — celui-ci ne renvoie qu'un code générique `invalid_title`.
 export async function addTask(title: string): Promise<TaskActionResult> {
   const validation = validateTaskTitle(title);
   if ("error" in validation) {
@@ -111,36 +74,20 @@ export async function addTask(title: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  let outcome;
-  try {
-    outcome = await insertTaskForUser(supabase, {
-      userId: user.id,
-      title: validation.title,
-      timezone: profile?.timezone ?? "UTC",
-    });
-  } catch {
+  const outcome = await addTaskForUser(supabase, user.id, validation.title);
+  if (outcome.error !== null) {
     return { error: "Le monstre a résisté à l'invocation. Réessaie." };
   }
 
   revalidatePath("/");
-  return { error: null, id: outcome.taskId };
+  return { error: null, id: outcome.id };
 }
 
-export async function addSubtask(
-  parentId: string,
-  title: string,
-): Promise<TaskActionResult> {
+export async function addSubtask(parentId: string, title: string): Promise<TaskActionResult> {
   const validation = validateTaskTitle(title);
   if ("error" in validation) {
     return { error: validation.error };
   }
-  const trimmed = validation.title;
 
   const supabase = await createClient();
   const {
@@ -151,67 +98,32 @@ export async function addSubtask(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: parent, error: parentError } = await supabase
-    .from("tasks")
-    // Issue #116 : `day_date` du parent lu ici pour que la sous-tâche hérite
-    // du bon jour (une sous-tâche de la section "Demain" doit rester "demain",
-    // pas retomber sur "aujourd'hui" comme avant ce correctif).
-    .select("id, parent_id, is_abandoned, day_date")
-    .eq("id", parentId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (parentError || !parent) {
-    return { error: "Cette tâche est introuvable." };
-  }
-
-  if (parent.is_abandoned) {
-    return { error: "Cette tâche a été abandonnée, pas de sous-tâche possible." };
-  }
-
-  if (!isNestableParent(parent)) {
-    return { error: "Deux niveaux, pas plus — cette tâche est déjà une sous-tâche." };
-  }
-
-  const { data: siblings, error: siblingsError } = await supabase
-    .from("tasks")
-    .select("position")
-    .eq("parent_id", parentId);
-
-  if (siblingsError) {
-    return { error: "La sous-tâche a résisté à l'invocation. Réessaie." };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from("tasks")
-    .insert({
-      user_id: user.id,
-      parent_id: parentId,
-      title: trimmed,
-      day_date: parent.day_date,
-      position: nextSiblingPosition(siblings ?? []),
-    })
-    .select("id")
-    .single();
-
-  if (error || !inserted) {
-    return { error: "La sous-tâche a résisté à l'invocation. Réessaie." };
+  const outcome = await addSubtaskForUser(supabase, user.id, parentId, validation.title);
+  if (outcome.error !== null) {
+    return { error: subtaskErrorMessage(outcome.error) };
   }
 
   revalidatePath("/");
-  return { error: null, id: inserted.id };
+  return { error: null, id: outcome.id };
+}
+
+function subtaskErrorMessage(code: DomainErrorCode): string {
+  if (code === "task_not_found") return "Cette tâche est introuvable.";
+  if (code === "task_abandoned") return "Cette tâche a été abandonnée, pas de sous-tâche possible.";
+  if (code === "depth_limit") return "Deux niveaux, pas plus — cette tâche est déjà une sous-tâche.";
+  return "La sous-tâche a résisté à l'invocation. Réessaie.";
 }
 
 export async function setTaskCompleted(
   id: string,
   isCompleted: boolean,
 ): Promise<TaskActionResult> {
-  // Fix #95 : un id `optimistic-*` arrive ici si l'utilisateur toggle une
-  // tâche dont la création n'est pas encore confirmée par le serveur (tap
-  // rapide avant résolution de `addTask`). Sans cette garde, l'id forgé
-  // remonte jusqu'à PostgREST `.eq("id", "optimistic-N")` → 0 ligne ou erreur
-  // uuid incompréhensible côté client ("Le coup n'est pas passé"). Message
-  // métier dédié plutôt que l'erreur générique UUID.
+  // Fix #95 : un id `optimistic-*` ne doit JAMAIS atteindre Supabase — cette
+  // garde doit rester AVANT createClient()/getUser(), pas seulement dans la
+  // garde interne de completeTaskForUser (défense en profondeur pour le futur
+  // serveur MCP qui appelle le domaine directement) : sinon un tap optimiste
+  // avec une session expirée renverrait "Session expirée" au lieu du message
+  // dédié, et chaque tap rejeté coûterait un aller-retour réseau vers GoTrue.
   if (!UUID_RE.test(id)) {
     return {
       error: isCompleted
@@ -229,140 +141,34 @@ export async function setTaskCompleted(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: existingTask, error: fetchError } = await supabase
-    .from("tasks")
-    .select("is_completed, is_abandoned, xp_awarded, deadline_at, deferred_at")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const outcome = await completeTaskForUser(supabase, user.id, id, isCompleted);
 
-  if (fetchError || !existingTask) {
-    return {
-      error: isCompleted
-        ? "Le coup n'est pas passé. Réessaie."
-        : "Impossible d'annuler le coup. Réessaie.",
-    };
-  }
-
-  // Suppression du heal Héros : si la tâche portait déjà une pénalité active
-  // (deadline dépassée, reste reporté) au moment où elle est cochée, son
-  // poids est verrouillé sur `hp_penalty` — sinon elle sortirait des pools
-  // live (missedDeadlineTasks/deferredRestHpPenalties) et les HP remonteraient.
-  // Lu avant l'update ci-dessous, qui efface `deferred_at`.
-  const hpPenaltyLock = isCompleted
-    ? hpPenaltyToLock(existingTask, new Date())
-    : null;
-
-  const { error: updateError } = await supabase
-    .from("tasks")
-    .update({
-      is_completed: isCompleted,
-      deferred_at: null,
-      ...(hpPenaltyLock !== null ? { hp_penalty: hpPenaltyLock } : {}),
-    })
-    .eq("id", id)
-    .eq("user_id", user.id);
-
-  if (updateError) {
-    return {
-      error: isCompleted
-        ? "Le coup n'est pas passé. Réessaie."
-        : "Impossible d'annuler le coup. Réessaie.",
-    };
-  }
-
-  // Issue #114 : une tâche complétée n'a plus besoin de son rappel de
-  // deadline — un décochage ne reschedule rien (l'utilisateur peut re-cocher
-  // avant la deadline, cf. setTaskDeadline pour la logique de (re)programmation).
-  if (isCompleted) {
-    await cancelDeadlineReminder(id);
-  }
-
-  const isRealTransition = existingTask.is_completed !== isCompleted;
-  let level: number | undefined;
-  let xp: number | undefined;
-  let leveledUp = false;
-  let comboCount: number | undefined;
-  let newAchievements: string[] = [];
-
-  // Le profil n'est jamais absent en usage normal (onboarding le garantit) ;
-  // si le fetch échoue quand même, on ne bloque pas la validation de la
-  // tâche pour autant — seul le gain d'XP est perdu pour ce coup.
-  if (isRealTransition && !existingTask.is_abandoned) {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("level, xp, combo_count, last_combo_completed_at")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (!profileError && profile) {
-      if (isCompleted) {
-        // Issue #115 : combo server-authoritative — série de coups à moins de
-        // 15 min d'intervalle, module l'XP réellement accordée à ce coup.
-        const nextCombo = nextComboState(
-          {
-            comboCount: profile.combo_count,
-            lastCompletedAt: profile.last_combo_completed_at,
-          },
-          new Date(),
-        );
-        const xpDelta = xpForCompletion(nextCombo.comboCount);
-        const nextXp = applyXpDelta(profile, xpDelta);
-        leveledUp = nextXp.level > profile.level;
-        level = nextXp.level;
-        xp = nextXp.xp;
-        comboCount = nextCombo.comboCount;
-
-        await supabase
-          .from("profiles")
-          .update({
-            level: nextXp.level,
-            xp: nextXp.xp,
-            combo_count: nextCombo.comboCount,
-            last_combo_completed_at: nextCombo.lastCompletedAt,
-          })
-          .eq("id", user.id);
-
-        await supabase
-          .from("tasks")
-          .update({ xp_awarded: xpDelta })
-          .eq("id", id)
-          .eq("user_id", user.id);
-
-        const ctx = await assembleAchievementContext(supabase, user.id);
-        newAchievements = await applyNewAchievements(supabase, user.id, ctx);
-      } else {
-        // Décocher : rembourse exactement ce qui avait été accordé (fallback
-        // flat XP_PER_TASK pour une tâche complétée avant cette migration,
-        // donc sans xp_awarded stocké) et casse la série, comme un abandon.
-        const refund = existingTask.xp_awarded ?? XP_PER_TASK;
-        const nextXp = applyXpDelta(profile, -refund);
-        leveledUp = nextXp.level > profile.level;
-        level = nextXp.level;
-        xp = nextXp.xp;
-        comboCount = 0;
-
-        await supabase
-          .from("profiles")
-          .update({
-            level: nextXp.level,
-            xp: nextXp.xp,
-            combo_count: 0,
-            last_combo_completed_at: null,
-          })
-          .eq("id", user.id);
-
-        await supabase
-          .from("tasks")
-          .update({ xp_awarded: null })
-          .eq("id", id)
-          .eq("user_id", user.id);
-      }
-    }
+  if (outcome.error !== null) {
+    return { error: completionErrorMessage(outcome.error, isCompleted) };
   }
 
   revalidatePath("/");
-  return { error: null, level, xp, leveledUp, comboCount, newAchievements };
+  return {
+    error: null,
+    level: outcome.level,
+    xp: outcome.xp,
+    leveledUp: outcome.leveledUp,
+    comboCount: outcome.comboCount,
+    newAchievements: outcome.newAchievements,
+  };
+}
+
+// Traduction code → copy « voix ». Les deux variantes par code existent parce
+// que cocher et décocher n'ont jamais eu le même message (Fix #95 : ne pas
+// afficher « Le coup n'est pas passé » quand la vraie cause est un tap trop
+// rapide sur une tâche pas encore créée).
+function completionErrorMessage(code: DomainErrorCode, isCompleted: boolean): string {
+  if (code === "invalid_task_id") {
+    return isCompleted
+      ? "La tâche n'est pas encore prête, réessaie dans un instant."
+      : "Impossible d'annuler pour l'instant, réessaie dans un instant.";
+  }
+  return isCompleted ? "Le coup n'est pas passé. Réessaie." : "Impossible d'annuler le coup. Réessaie.";
 }
 
 // US-15 : Rage Quit — abandonner une tâche active du jour en cours de combat.
@@ -370,6 +176,7 @@ export async function setTaskCompleted(
 // Boss rétréci (la tâche sort du calcul HP), cascade sur les sous-tâches actives.
 // RG-04 : jamais de DELETE, on pose is_abandoned=true + abandon_reason='rage_quit'.
 // Le malus est appliqué UNE fois par action (pas par tâche cascadée).
+// Issue #201 (lot 1) : wrapper mince autour de rageQuitTaskForUser (lib/domain/tasks.ts).
 export async function rageQuitTask(id: string): Promise<TaskActionResult> {
   // Fix #95 : id `optimistic-*` envoyable si l'utilisateur déclenche un Rage
   // Quit (clic sur × puis confirm) sur une tâche fraîchement créée avant la
@@ -389,95 +196,19 @@ export async function rageQuitTask(id: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  // Charge la tâche + sa fratrie potentielle (mêmes racine/enfants) pour la cascade pure.
-  const { data: siblings, error: fetchError } = await supabase
-    .from("tasks")
-    .select("id, parent_id, is_completed, is_abandoned, deadline_at, deferred_at")
-    .eq("user_id", user.id);
-
-  if (fetchError || !siblings) {
+  const outcome = await rageQuitTaskForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
     return { error: "Impossible d'abandonner cette tâche. Réessaie." };
-  }
-
-  const cascadeIds = collectAbandonCascade(id, siblings as CascadeTask[]);
-  if (cascadeIds.length === 0) {
-    // Déjà abandonnée / complétée / introuvable → no-op idempotent (B2).
-    return { error: null };
-  }
-
-  const { error } = await supabase
-    .from("tasks")
-    .update({
-      is_abandoned: true,
-      abandon_reason: "rage_quit",
-      deferred_at: null,
-    })
-    .in("id", cascadeIds)
-    .eq("user_id", user.id);
-
-  if (error) {
-    return { error: "Impossible d'abandonner cette tâche. Réessaie." };
-  }
-
-  // Suppression du heal Héros : verrouille le poids de chaque tâche cascadée
-  // qui portait déjà une pénalité active (lu depuis `siblings`, capturé avant
-  // l'update ci-dessus qui efface `deferred_at`). Groupé par montant (10 ou
-  // 20) pour éviter un update par tâche.
-  const now = new Date();
-  const idsByLockAmount = new Map<number, string[]>();
-  for (const taskId of cascadeIds) {
-    const row = siblings.find((s) => s.id === taskId);
-    const amount = row ? hpPenaltyToLock(row, now) : null;
-    if (amount !== null) {
-      idsByLockAmount.set(amount, [...(idsByLockAmount.get(amount) ?? []), taskId]);
-    }
-  }
-  for (const [amount, ids] of idsByLockAmount) {
-    await supabase
-      .from("tasks")
-      .update({ hp_penalty: amount })
-      .in("id", ids)
-      .eq("user_id", user.id);
-  }
-
-  // Issue #114 : la cascade entière (racine + sous-tâches actives) n'a plus
-  // besoin de son rappel de deadline une fois abandonnée.
-  await Promise.allSettled(cascadeIds.map((cascadeId) => cancelDeadlineReminder(cascadeId)));
-
-  // Malus XP unique, clampé, sans de-level (D3).
-  let level: number | undefined;
-  let xp: number | undefined;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("level, xp")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile) {
-    const next = applyRageQuitPenalty(profile);
-    level = next.level;
-    xp = next.xp;
-    // Issue #115 : abandonner brise la série, comme décocher — le combo n'a
-    // plus de raison d'être client-only "purement visuel" une fois qu'il
-    // module l'XP réelle, il doit rester cohérent avec le serveur en toutes
-    // circonstances.
-    await supabase
-      .from("profiles")
-      .update({
-        level: next.level,
-        xp: next.xp,
-        combo_count: 0,
-        last_combo_completed_at: null,
-      })
-      .eq("id", user.id);
   }
 
   revalidatePath("/");
-  return { error: null, level, xp };
+  return { error: null, level: outcome.level, xp: outcome.xp };
 }
 
 // US-15 : annuler un Rage Quit (même jour). Restaure is_abandoned=false, efface
 // abandon_reason, rembourse +5 XP (clampé). Ne remonte que les tâches réellement
 // rage-quit (garde par abandon_reason) — un « Annihiler » n'est pas annulable ici.
+// Issue #201 (lot 1) : wrapper mince autour de undoRageQuitForUser (lib/domain/tasks.ts).
 export async function undoRageQuit(id: string): Promise<TaskActionResult> {
   if (!UUID_RE.test(id)) {
     return { error: "Identifiant de tâche invalide." };
@@ -492,47 +223,20 @@ export async function undoRageQuit(id: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: restored, error } = await supabase
-    .from("tasks")
-    .update({ is_abandoned: false, abandon_reason: null })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    .eq("abandon_reason", "rage_quit")
-    .select("id");
-
-  if (error) {
+  const outcome = await undoRageQuitForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
     return { error: "Impossible d'annuler l'abandon. Réessaie." };
-  }
-  if (!restored || restored.length === 0) {
-    return { error: null }; // rien à restaurer (déjà annulé / pas un rage quit)
-  }
-
-  // Remboursement +5 XP (clampé via applyXpDelta pour garder un profil valide).
-  let level: number | undefined;
-  let xp: number | undefined;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("level, xp")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile) {
-    const next = applyXpDelta(profile, RAGE_QUIT_XP_PENALTY);
-    level = next.level;
-    xp = next.xp;
-    await supabase
-      .from("profiles")
-      .update({ level: next.level, xp: next.xp })
-      .eq("id", user.id);
   }
 
   revalidatePath("/");
-  return { error: null, level, xp };
+  return { error: null, level: outcome.level, xp: outcome.xp };
 }
 
 // US-19 : reparente et/ou réordonne un groupe de tâches (drag & drop). Le
 // client a déjà décidé le plan (lib/game-engine.ts, planReorder) ; le
 // serveur revalide juste les invariants (RG-01) avant de persister position
 // et parent_id pour chaque id de la liste, dans l'ordre donné.
+// Issue #201 (lot 1) : wrapper mince autour de reorderSiblingsForUser (lib/domain/tasks.ts).
 export async function reorderSiblings(
   parentId: string | null,
   orderedTaskIds: string[],
@@ -560,55 +264,21 @@ export async function reorderSiblings(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: allTasks, error: fetchError } = await supabase
-    .from("tasks")
-    .select("id, parent_id, is_abandoned")
-    .eq("user_id", user.id);
-
-  if (fetchError || !allTasks) {
-    return { error: "Impossible de réorganiser ces tâches. Réessaie." };
-  }
-
-  const byId = new Map(allTasks.map((task) => [task.id, task]));
-
-  if (parentId !== null) {
-    const targetParent = byId.get(parentId);
-    if (!targetParent || targetParent.is_abandoned || !isNestableParent(targetParent)) {
-      return { error: "Cette tâche est introuvable." };
-    }
-  }
-
-  for (const id of orderedTaskIds) {
-    const task = byId.get(id);
-    if (!task || task.is_abandoned) {
-      return { error: "Cette tâche est introuvable." };
-    }
-
-    const isChangingParent = task.parent_id !== parentId;
-    if (isChangingParent && parentId !== null) {
-      const hasChildren = allTasks.some((other) => other.parent_id === id);
-      if (hasChildren) {
-        return {
-          error: "Cette tâche a déjà des sous-tâches, elle ne peut pas devenir une sous-tâche.",
-        };
-      }
-    }
-  }
-
-  for (let i = 0; i < orderedTaskIds.length; i += 1) {
-    const { error } = await supabase
-      .from("tasks")
-      .update({ parent_id: parentId, position: i })
-      .eq("id", orderedTaskIds[i])
-      .eq("user_id", user.id);
-
-    if (error) {
-      return { error: "Impossible de réorganiser ces tâches. Réessaie." };
-    }
+  const outcome = await reorderSiblingsForUser(supabase, user.id, parentId, orderedTaskIds);
+  if (outcome.error !== null) {
+    return { error: reorderErrorMessage(outcome.error) };
   }
 
   revalidatePath("/");
   return { error: null };
+}
+
+function reorderErrorMessage(code: DomainErrorCode): string {
+  if (code === "task_not_found") return "Cette tâche est introuvable.";
+  if (code === "depth_limit") {
+    return "Cette tâche a déjà des sous-tâches, elle ne peut pas devenir une sous-tâche.";
+  }
+  return "Impossible de réorganiser ces tâches. Réessaie.";
 }
 
 // US-08 (A1) : la tâche a été faite hors app — on la valide rétroactivement
@@ -625,25 +295,13 @@ export async function completeOverdueTask(id: string): Promise<TaskActionResult>
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({ is_completed: true, deferred_at: null })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    .eq("is_abandoned", false)
-    .select("id");
+  const outcome = await completeOverdueTaskForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
+    return { error: "Impossible de valider ce reste. Réessaie." };
+  }
 
-  if (error) return { error: "Impossible de valider ce reste. Réessaie." };
-  // Issue #114 : la tâche (et sa cascade) validées n'ont plus besoin de leur
-  // rappel de deadline.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
-  // Suppression du heal Héros : chaque tâche validée ici portait -20 HP
-  // (pool "overdue") — le dégât est verrouillé sur le profil, sinon la
-  // tâche validée sortirait de `overdueTasks` au prochain chargement et les
-  // HP remonteraient tout seuls.
-  const hpDamageLocked = await lockOverdueDamage(supabase, user.id, (updated ?? []).length);
   revalidatePath("/");
-  return { error: null, hpDamageLocked };
+  return { error: null, hpDamageLocked: outcome.hpDamageLocked };
 }
 
 // US-08 (D5) : reporte au jour local courant — la tâche revient dans la liste
@@ -660,45 +318,17 @@ export async function deferOverdueTask(id: string): Promise<TaskActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const today = await userToday(supabase, user.id);
+  const outcome = await deferOverdueTaskForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
+    return { error: "Impossible de reporter ce reste. Réessaie." };
+  }
 
-  const { data: roots } = await supabase
-    .from("tasks")
-    .select("position")
-    .eq("user_id", user.id)
-    .eq("day_date", today)
-    .is("parent_id", null);
-
-  // US-05 : la deadline (déjà passée la veille) est effacée au report pour ne
-  // pas cumuler le malus "deadline ratée" (-10) avec le malus "retard reporté"
-  // (-20) déjà appliqué par le mécanisme existant sur la même tâche.
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({
-      day_date: today,
-      position: nextSiblingPosition(roots ?? []),
-      deadline_at: null,
-      // Issue #101 (Axe A, by-pass A4-overdue) : le flag `deferred_at` persiste
-      // jusqu'à résolution (coche/rage quit). La pénalité -20 "reste reporté"
-      // reste active sur la HeroBar après Report, jusqu'à ce que l'utilisateur
-      // résolve la tâche.
-      deferred_at: new Date().toISOString(),
-    })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    .eq("is_abandoned", false)
-    .select();
-
-  if (error) return { error: "Impossible de reporter ce reste. Réessaie." };
-  // Issue #114 : la deadline vient d'être effacée (deadline_at: null
-  // ci-dessus) — le rappel programmé n'a plus de raison d'exister.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   // Bug #70 : les lignes mises à jour sont renvoyées explicitement — le
   // Le Réveil est un overlay client qui ne re-fetch jamais l'Arène en
   // se fermant, donc sans ça la tâche reportée reste invisible côté client
   // (day_date correct en base, mais jamais montrée) jusqu'au prochain rechargement.
-  return { error: null, deferredTasks: (updated ?? []) as Task[] };
+  return { error: null, deferredTasks: outcome.deferredTasks };
 }
 
 // US-08 (D6) : annihiler = is_abandoned (RG-04, jamais DELETE). Ton non-punitif
@@ -714,24 +344,13 @@ export async function annihilateOverdueTask(id: string): Promise<TaskActionResul
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({ is_abandoned: true, abandon_reason: "annihilated" })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    // Suppression du heal Héros : sans ce garde, ré-annihiler une tâche déjà
-    // annihilée (clic redondant) reverrouillerait -20 une 2e fois pour rien —
-    // idempotence déjà assurée pour completeOverdueTask (eq is_abandoned false).
-    .eq("is_abandoned", false)
-    .select("id");
+  const outcome = await annihilateOverdueTaskForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
+    return { error: "Impossible d'annihiler ce reste. Réessaie." };
+  }
 
-  if (error) return { error: "Impossible d'annihiler ce reste. Réessaie." };
-  // Issue #114 : reste annihilé (et sa cascade) — plus de rappel à envoyer.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
-  // Suppression du heal Héros : même raison que completeOverdueTask.
-  const hpDamageLocked = await lockOverdueDamage(supabase, user.id, (updated ?? []).length);
   revalidatePath("/");
-  return { error: null, hpDamageLocked };
+  return { error: null, hpDamageLocked: outcome.hpDamageLocked };
 }
 
 // US-08 (A4) : action groupée anti "mur de la honte" — reporte tous les restes
@@ -743,30 +362,15 @@ export async function deferAllOverdue(): Promise<TaskActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const today = await userToday(supabase, user.id);
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({
-      day_date: today,
-      deadline_at: null,
-      // Issue #101 (Axe A, by-pass A4-overdue) : même logique que
-      // deferOverdueTask — `deferred_at` persiste jusqu'à résolution.
-      deferred_at: new Date().toISOString(),
-    })
-    .eq("user_id", user.id)
-    .lt("day_date", today)
-    .eq("is_completed", false)
-    .eq("is_abandoned", false)
-    .select();
+  const outcome = await deferAllOverdueForUser(supabase, user.id);
+  if (outcome.error !== null) {
+    return { error: "Impossible de tout reporter. Réessaie." };
+  }
 
-  if (error) return { error: "Impossible de tout reporter. Réessaie." };
-  // Issue #114 : même raison que deferOverdueTask — deadline effacée, rappel
-  // programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
   // Bug #70 : voir deferOverdueTask ci-dessus — même besoin de renvoyer les
   // lignes reportées pour que le Réveil les remonte à l'Arène.
-  return { error: null, deferredTasks: (updated ?? []) as Task[] };
+  return { error: null, deferredTasks: outcome.deferredTasks };
 }
 
 // US-08 (A4) : action groupée — annihile les restes plus vieux que `days` jours.
@@ -777,28 +381,13 @@ export async function annihilateOverdueOlderThan(days: number): Promise<TaskActi
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const today = await userToday(supabase, user.id);
-  const cutoff = dayKey(
-    new Date(Date.parse(`${today}T00:00:00Z`) - days * 86400000),
-    "UTC",
-  );
+  const outcome = await annihilateOverdueOlderThanForUser(supabase, user.id, days);
+  if (outcome.error !== null) {
+    return { error: "Impossible d'annihiler les vieux restes. Réessaie." };
+  }
 
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({ is_abandoned: true, abandon_reason: "annihilated" })
-    .eq("user_id", user.id)
-    .lt("day_date", cutoff)
-    .eq("is_completed", false)
-    .eq("is_abandoned", false)
-    .select("id");
-
-  if (error) return { error: "Impossible d'annihiler les vieux restes. Réessaie." };
-  // Issue #114 : tous les vieux restes annihilés perdent leur rappel.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
-  // Suppression du heal Héros : même raison que completeOverdueTask/annihilateOverdueTask.
-  const hpDamageLocked = await lockOverdueDamage(supabase, user.id, (updated ?? []).length);
   revalidatePath("/");
-  return { error: null, hpDamageLocked };
+  return { error: null, hpDamageLocked: outcome.hpDamageLocked };
 }
 
 // US-05 : fixe/modifie/efface l'heure limite d'une tâche (popover ⏰ sur
@@ -815,6 +404,13 @@ export async function setTaskDeadline(
   reminderOffsetMinutes?: number | null,
   reminderEnabled?: boolean,
 ): Promise<TaskActionResult> {
+  // Fix #95 : un id `optimistic-*` ne doit JAMAIS atteindre Supabase — cette
+  // garde doit rester AVANT createClient()/getUser(), pas seulement dans la
+  // garde interne de setTaskDeadlineForUser (défense en profondeur pour le
+  // futur serveur MCP qui appelle le domaine directement) : sinon un tap
+  // optimiste avec une session expirée renverrait "Session expirée" au lieu
+  // du message dédié, et chaque tap rejeté coûterait un aller-retour réseau
+  // vers GoTrue.
   if (!UUID_RE.test(id)) {
     return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
   }
@@ -828,37 +424,22 @@ export async function setTaskDeadline(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const updates: Record<string, unknown> = { deadline_at: deadlineAt };
-  if (reminderOffsetMinutes !== undefined) updates.reminder_offset_minutes = reminderOffsetMinutes;
-  if (reminderEnabled !== undefined) updates.reminder_enabled = reminderEnabled;
+  const outcome = await setTaskDeadlineForUser(
+    supabase,
+    user.id,
+    id,
+    deadlineAt,
+    reminderOffsetMinutes,
+    reminderEnabled,
+  );
 
-  const { error } = await supabase.from("tasks").update(updates).eq("id", id).eq("user_id", user.id);
-
-  if (error) {
-    return { error: "Impossible de fixer cette deadline. Réessaie." };
-  }
-
-  if (deadlineAt === null) {
-    await cancelDeadlineReminder(id);
-  } else {
-    const { data: resolved } = await supabase
-      .from("tasks")
-      .select("reminder_enabled, reminder_offset_minutes")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (resolved?.reminder_enabled) {
-      const { data: profileRow } = await supabase
-        .from("profiles")
-        .select("reminder_offset_minutes")
-        .eq("id", user.id)
-        .maybeSingle();
-      const offset = resolved.reminder_offset_minutes ?? profileRow?.reminder_offset_minutes ?? 30;
-      await cancelDeadlineReminder(id);
-      await scheduleDeadlineReminder({ taskId: id, userId: user.id, deadlineAt, offsetMinutes: offset });
-    } else {
-      await cancelDeadlineReminder(id);
-    }
+  if (outcome.error !== null) {
+    return {
+      error:
+        outcome.error === "invalid_task_id"
+          ? "Cette tâche n'est pas encore prête, réessaie dans un instant."
+          : "Impossible de fixer cette deadline. Réessaie.",
+    };
   }
 
   revalidatePath("/");
@@ -869,6 +450,7 @@ export async function setTaskDeadline(
 // l'Arène, visible après l'heure seuil réglable). Ne soigne jamais le Boss
 // d'aujourd'hui : calculateBossMaxHp/CurrentHp ne reçoivent que les tâches
 // filtrées day_date == aujourd'hui côté client, l'exclusion est automatique.
+// Issue #201 (lot 1) : wrapper mince autour de addTomorrowTaskForUser (lib/domain/tasks.ts).
 export async function addTomorrowTask(title: string): Promise<TaskActionResult> {
   const validation = validateTaskTitle(title);
   if ("error" in validation) {
@@ -884,30 +466,13 @@ export async function addTomorrowTask(title: string): Promise<TaskActionResult> 
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const timezone = profile?.timezone ?? "UTC";
-  const today = dayKey(new Date(), timezone);
-  const tomorrow = nextDayKey(today);
-
-  let outcome;
-  try {
-    outcome = await insertTaskForUser(supabase, {
-      userId: user.id,
-      title: validation.title,
-      timezone,
-      dayDate: tomorrow,
-    });
-  } catch {
+  const outcome = await addTomorrowTaskForUser(supabase, user.id, validation.title);
+  if (outcome.error !== null) {
     return { error: "Le monstre a résisté à l'invocation. Réessaie." };
   }
 
   revalidatePath("/");
-  return { error: null, id: outcome.taskId };
+  return { error: null, id: outcome.id };
 }
 
 // Issue #116 : reporte une tâche active du jour (+ sous-tâches actives) vers
@@ -918,6 +483,7 @@ export async function addTomorrowTask(title: string): Promise<TaskActionResult> 
 // reporté par Le Réveil plus tôt aujourd'hui, repoussé encore par cette
 // action) — sinon le malus -20 HP réapparaîtrait à tort demain matin alors que
 // la tâche ne serait plus "en retard" (son day_date == le "aujourd'hui" de demain).
+// Issue #201 (lot 1) : wrapper mince autour de reportToTomorrowForUser (lib/domain/tasks.ts).
 export async function reportToTomorrow(id: string): Promise<TaskActionResult> {
   if (!UUID_RE.test(id)) {
     return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
@@ -929,36 +495,15 @@ export async function reportToTomorrow(id: string): Promise<TaskActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const today = await userToday(supabase, user.id);
-  const tomorrow = nextDayKey(today);
+  const outcome = await reportToTomorrowForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
+    return { error: "Impossible de reporter cette tâche à demain. Réessaie." };
+  }
 
-  const { data: tomorrowRoots } = await supabase
-    .from("tasks")
-    .select("position")
-    .eq("user_id", user.id)
-    .eq("day_date", tomorrow)
-    .is("parent_id", null);
-
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({
-      day_date: tomorrow,
-      position: nextSiblingPosition(tomorrowRoots ?? []),
-      deadline_at: null,
-      deferred_at: null,
-    })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    .eq("day_date", today)
-    .eq("is_completed", false)
-    .eq("is_abandoned", false)
-    .select();
-
-  if (error) return { error: "Impossible de reporter cette tâche à demain. Réessaie." };
-  // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
-  return { error: null, reportedTasks: (updated ?? []) as Task[] };
+  // Bug #70 : voir deferOverdueTask — même besoin de renvoyer les lignes
+  // reportées pour que l'Arène les fusionne explicitement côté client.
+  return { error: null, reportedTasks: outcome.reportedTasks };
 }
 
 // Issue #116 : ramène une tâche de la section "Demain" à aujourd'hui —
@@ -966,6 +511,7 @@ export async function reportToTomorrow(id: string): Promise<TaskActionResult> {
 // seule action sert les deux usages, cf. plan d'implémentation).
 // Simplification assumée : pas de restauration exacte de la position/deadline
 // d'origine, la tâche revient en fin de fratrie du jour, deadline effacée.
+// Issue #201 (lot 1) : wrapper mince autour de bringToTodayForUser (lib/domain/tasks.ts).
 export async function bringToToday(id: string): Promise<TaskActionResult> {
   if (!UUID_RE.test(id)) {
     return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
@@ -977,31 +523,12 @@ export async function bringToToday(id: string): Promise<TaskActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const today = await userToday(supabase, user.id);
+  const outcome = await bringToTodayForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
+    return { error: "Impossible de ramener cette tâche à aujourd'hui. Réessaie." };
+  }
 
-  const { data: todayRoots } = await supabase
-    .from("tasks")
-    .select("position")
-    .eq("user_id", user.id)
-    .eq("day_date", today)
-    .is("parent_id", null);
-
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({
-      day_date: today,
-      position: nextSiblingPosition(todayRoots ?? []),
-      deadline_at: null,
-      deferred_at: null,
-    })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    .eq("is_abandoned", false)
-    .select();
-
-  if (error) return { error: "Impossible de ramener cette tâche à aujourd'hui. Réessaie." };
-  // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
-  return { error: null, broughtBackTasks: (updated ?? []) as Task[] };
+  // Bug #70 : même besoin que reportToTomorrow ci-dessus.
+  return { error: null, broughtBackTasks: outcome.broughtBackTasks };
 }
