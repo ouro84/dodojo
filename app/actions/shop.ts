@@ -6,6 +6,8 @@ import { goldBalance } from "@/lib/game-engine";
 import { getHero, isHeroOwned } from "@/lib/heroes";
 import { getSkin, isSkinOwned } from "@/lib/hero-skins";
 import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
+import { equipHeroForUser } from "@/lib/domain/shop";
+import type { DomainErrorCode } from "@/lib/domain/errors";
 
 interface ShopActionResult {
   error: string | null;
@@ -77,10 +79,7 @@ export async function purchaseHero(heroId: string): Promise<ShopActionResult> {
 // boutons "Équiper" sur le même écran, l'un pour le héros, l'autre pour la
 // tenue, cf. issue). Le CTA du carrousel de tenues est désormais le seul
 // point d'action une fois le héros possédé.
-export async function equipHeroAndSkin(
-  heroId: string,
-  skinId: string,
-): Promise<ShopActionResult> {
+export async function equipHeroAndSkin(heroId: string, skinId: string): Promise<ShopActionResult> {
   const hero = getHero(heroId);
   if (!hero) return { error: "Ce combattant n'existe pas." };
   const skin = getSkin(skinId);
@@ -92,31 +91,22 @@ export async function equipHeroAndSkin(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const [{ data: ownedHeroes }, { data: ownedSkins }] = await Promise.all([
-    supabase.from("unlocked_heroes").select("hero_id").eq("user_id", user.id),
-    supabase.from("unlocked_skins").select("skin_id").eq("user_id", user.id),
-  ]);
-  const ownedHeroIds = (ownedHeroes ?? []).map((r) => r.hero_id);
-  if (!isHeroOwned(heroId, ownedHeroIds)) {
-    return { error: "Débloque ce combattant avant de l'équiper." };
+  const outcome = await equipHeroForUser(supabase, user.id, heroId, skinId);
+  if (outcome.error !== null) {
+    return { error: equipErrorMessage(outcome.error) };
   }
-  if (!skin.isDefault) {
-    const ownedSkinIds = (ownedSkins ?? []).map((r) => r.skin_id);
-    if (!isSkinOwned(skinId, heroId, ownedSkinIds)) {
-      return { error: "Débloque cette tenue avant de l'équiper." };
-    }
-  }
-
-  const equippedSkinId = skin.isDefault ? null : skinId;
-  const { error } = await supabase
-    .from("profiles")
-    .update({ equipped_hero_id: heroId, equipped_skin_id: equippedSkinId })
-    .eq("id", user.id);
-  if (error) return { error: "Impossible d'équiper ce combattant. Réessaie." };
 
   revalidatePath("/marche-noir");
   revalidatePath("/");
   return { error: null };
+}
+
+function equipErrorMessage(code: DomainErrorCode): string {
+  if (code === "hero_not_found") return "Ce combattant n'existe pas.";
+  if (code === "skin_not_found") return "Cette tenue n'existe pas.";
+  if (code === "hero_not_owned") return "Débloque ce combattant avant de l'équiper.";
+  if (code === "skin_not_owned") return "Débloque cette tenue avant de l'équiper.";
+  return "Impossible d'équiper ce combattant. Réessaie.";
 }
 
 // US-53 : achat autoritaire côté serveur. Idempotent, refus si solde
