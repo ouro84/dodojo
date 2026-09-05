@@ -10,19 +10,17 @@ import {
   HERO_DAMAGE_PER_OVERDUE_TASK,
   hpPenaltyToLock,
   isNestableParent,
-  nextComboState,
   nextDayKey,
   nextLockedHpDamage,
   nextSiblingPosition,
   RAGE_QUIT_XP_PENALTY,
-  xpForCompletion,
-  XP_PER_TASK,
 } from "@/lib/game-engine";
 import type { CascadeTask } from "@/lib/game-engine";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
-import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
 import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
+import { completeTaskForUser } from "@/lib/domain/tasks";
+import type { DomainErrorCode } from "@/lib/domain/errors";
 import type { Task } from "@/types";
 
 // Audit #67, PR5 : `id` alimente un filtre PostgREST `.or()` construit par
@@ -206,20 +204,6 @@ export async function setTaskCompleted(
   id: string,
   isCompleted: boolean,
 ): Promise<TaskActionResult> {
-  // Fix #95 : un id `optimistic-*` arrive ici si l'utilisateur toggle une
-  // tâche dont la création n'est pas encore confirmée par le serveur (tap
-  // rapide avant résolution de `addTask`). Sans cette garde, l'id forgé
-  // remonte jusqu'à PostgREST `.eq("id", "optimistic-N")` → 0 ligne ou erreur
-  // uuid incompréhensible côté client ("Le coup n'est pas passé"). Message
-  // métier dédié plutôt que l'erreur générique UUID.
-  if (!UUID_RE.test(id)) {
-    return {
-      error: isCompleted
-        ? "La tâche n'est pas encore prête, réessaie dans un instant."
-        : "Impossible d'annuler pour l'instant, réessaie dans un instant.",
-    };
-  }
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -229,140 +213,34 @@ export async function setTaskCompleted(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: existingTask, error: fetchError } = await supabase
-    .from("tasks")
-    .select("is_completed, is_abandoned, xp_awarded, deadline_at, deferred_at")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const outcome = await completeTaskForUser(supabase, user.id, id, isCompleted);
 
-  if (fetchError || !existingTask) {
-    return {
-      error: isCompleted
-        ? "Le coup n'est pas passé. Réessaie."
-        : "Impossible d'annuler le coup. Réessaie.",
-    };
-  }
-
-  // Suppression du heal Héros : si la tâche portait déjà une pénalité active
-  // (deadline dépassée, reste reporté) au moment où elle est cochée, son
-  // poids est verrouillé sur `hp_penalty` — sinon elle sortirait des pools
-  // live (missedDeadlineTasks/deferredRestHpPenalties) et les HP remonteraient.
-  // Lu avant l'update ci-dessous, qui efface `deferred_at`.
-  const hpPenaltyLock = isCompleted
-    ? hpPenaltyToLock(existingTask, new Date())
-    : null;
-
-  const { error: updateError } = await supabase
-    .from("tasks")
-    .update({
-      is_completed: isCompleted,
-      deferred_at: null,
-      ...(hpPenaltyLock !== null ? { hp_penalty: hpPenaltyLock } : {}),
-    })
-    .eq("id", id)
-    .eq("user_id", user.id);
-
-  if (updateError) {
-    return {
-      error: isCompleted
-        ? "Le coup n'est pas passé. Réessaie."
-        : "Impossible d'annuler le coup. Réessaie.",
-    };
-  }
-
-  // Issue #114 : une tâche complétée n'a plus besoin de son rappel de
-  // deadline — un décochage ne reschedule rien (l'utilisateur peut re-cocher
-  // avant la deadline, cf. setTaskDeadline pour la logique de (re)programmation).
-  if (isCompleted) {
-    await cancelDeadlineReminder(id);
-  }
-
-  const isRealTransition = existingTask.is_completed !== isCompleted;
-  let level: number | undefined;
-  let xp: number | undefined;
-  let leveledUp = false;
-  let comboCount: number | undefined;
-  let newAchievements: string[] = [];
-
-  // Le profil n'est jamais absent en usage normal (onboarding le garantit) ;
-  // si le fetch échoue quand même, on ne bloque pas la validation de la
-  // tâche pour autant — seul le gain d'XP est perdu pour ce coup.
-  if (isRealTransition && !existingTask.is_abandoned) {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("level, xp, combo_count, last_combo_completed_at")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (!profileError && profile) {
-      if (isCompleted) {
-        // Issue #115 : combo server-authoritative — série de coups à moins de
-        // 15 min d'intervalle, module l'XP réellement accordée à ce coup.
-        const nextCombo = nextComboState(
-          {
-            comboCount: profile.combo_count,
-            lastCompletedAt: profile.last_combo_completed_at,
-          },
-          new Date(),
-        );
-        const xpDelta = xpForCompletion(nextCombo.comboCount);
-        const nextXp = applyXpDelta(profile, xpDelta);
-        leveledUp = nextXp.level > profile.level;
-        level = nextXp.level;
-        xp = nextXp.xp;
-        comboCount = nextCombo.comboCount;
-
-        await supabase
-          .from("profiles")
-          .update({
-            level: nextXp.level,
-            xp: nextXp.xp,
-            combo_count: nextCombo.comboCount,
-            last_combo_completed_at: nextCombo.lastCompletedAt,
-          })
-          .eq("id", user.id);
-
-        await supabase
-          .from("tasks")
-          .update({ xp_awarded: xpDelta })
-          .eq("id", id)
-          .eq("user_id", user.id);
-
-        const ctx = await assembleAchievementContext(supabase, user.id);
-        newAchievements = await applyNewAchievements(supabase, user.id, ctx);
-      } else {
-        // Décocher : rembourse exactement ce qui avait été accordé (fallback
-        // flat XP_PER_TASK pour une tâche complétée avant cette migration,
-        // donc sans xp_awarded stocké) et casse la série, comme un abandon.
-        const refund = existingTask.xp_awarded ?? XP_PER_TASK;
-        const nextXp = applyXpDelta(profile, -refund);
-        leveledUp = nextXp.level > profile.level;
-        level = nextXp.level;
-        xp = nextXp.xp;
-        comboCount = 0;
-
-        await supabase
-          .from("profiles")
-          .update({
-            level: nextXp.level,
-            xp: nextXp.xp,
-            combo_count: 0,
-            last_combo_completed_at: null,
-          })
-          .eq("id", user.id);
-
-        await supabase
-          .from("tasks")
-          .update({ xp_awarded: null })
-          .eq("id", id)
-          .eq("user_id", user.id);
-      }
-    }
+  if (outcome.error !== null) {
+    return { error: completionErrorMessage(outcome.error, isCompleted) };
   }
 
   revalidatePath("/");
-  return { error: null, level, xp, leveledUp, comboCount, newAchievements };
+  return {
+    error: null,
+    level: outcome.level,
+    xp: outcome.xp,
+    leveledUp: outcome.leveledUp,
+    comboCount: outcome.comboCount,
+    newAchievements: outcome.newAchievements,
+  };
+}
+
+// Traduction code → copy « voix ». Les deux variantes par code existent parce
+// que cocher et décocher n'ont jamais eu le même message (Fix #95 : ne pas
+// afficher « Le coup n'est pas passé » quand la vraie cause est un tap trop
+// rapide sur une tâche pas encore créée).
+function completionErrorMessage(code: DomainErrorCode, isCompleted: boolean): string {
+  if (code === "invalid_task_id") {
+    return isCompleted
+      ? "La tâche n'est pas encore prête, réessaie dans un instant."
+      : "Impossible d'annuler pour l'instant, réessaie dans un instant.";
+  }
+  return isCompleted ? "Le coup n'est pas passé. Réessaie." : "Impossible d'annuler le coup. Réessaie.";
 }
 
 // US-15 : Rage Quit — abandonner une tâche active du jour en cours de combat.
