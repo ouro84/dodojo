@@ -1,3 +1,5 @@
+import { ALL_SCOPES } from "./oauth-scopes";
+
 export interface AuthorizationServerMetadata {
   issuer: string;
   authorization_endpoint: string;
@@ -42,6 +44,6 @@ export function buildProtectedResourceMetadata(origin: string): ProtectedResourc
     resource: origin + "/api/mcp",
     authorization_servers: [origin],
     bearer_methods_supported: ["header"],
-    scopes_supported: ["tasks:write"],
+    scopes_supported: [...ALL_SCOPES],
   };
 }

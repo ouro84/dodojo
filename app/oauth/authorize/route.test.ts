@@ -136,7 +136,26 @@ describe("GET /oauth/authorize (US-22)", () => {
     const response = await GET(new Request(authorizeUrl()));
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain("Gemini veut ajouter des taches a ta place");
+    expect(html).toContain("Gemini veut accéder à ton compte Dodojo");
+  });
+
+  test("scope inconnu : erreur 400, jamais de redirection (Task 4, issue #201)", async () => {
+    const { GET } = await import("./route");
+    const response = await GET(new Request(authorizeUrl({ scope: "openid tasks:write" })));
+    expect(response.status).toBe(400);
+    expect(response.headers.get("location")).toBeNull();
+    const html = await response.text();
+    expect(html).toContain("Portee inconnue");
+  });
+
+  test("scope absent : DEFAULT_SCOPE accorde, jamais l'ancien fallback tasks:write seul", async () => {
+    const { GET } = await import("./route");
+    const url = new URL(authorizeUrl());
+    url.searchParams.delete("scope");
+    const response = await GET(new Request(url.toString()));
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain('name="scope" value="tasks:read tasks:write"');
   });
 });
 
@@ -186,6 +205,18 @@ describe("POST /oauth/authorize (US-22)", () => {
     );
     expect(response.status).toBe(400);
     expect(response.headers.get("location")).toBeNull();
+  });
+
+  test("scope inconnu falsifie dans le formulaire : erreur 400, aucune redirection, aucun insert (Task 4, issue #201)", async () => {
+    const form = approveForm();
+    form.set("scope", "openid tasks:write");
+    const { POST } = await import("./route");
+    const response = await POST(
+      new Request("https://dodojo.vercel.app/oauth/authorize", { method: "POST", body: form }),
+    );
+    expect(response.status).toBe(400);
+    expect(response.headers.get("location")).toBeNull();
+    expect(dbTables.oauth_authorization_codes).toHaveLength(0);
   });
 
   test("decision approuve : code d'autorisation cree (hashe) et redirection avec code+state", async () => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient as createSessionClient } from "../../../lib/supabase/server";
 import { renderConsentPage, renderErrorPage } from "../../../lib/oauth-consent-page";
+import { DEFAULT_SCOPE, parseScopeString } from "../../../lib/oauth-scopes";
 import {
   AUTHORIZATION_CODE_TTL_MS,
   expiresAtFromNow,
@@ -33,7 +34,7 @@ function parseAuthorizeParams(searchParams: URLSearchParams): AuthorizeParams {
     redirectUri: searchParams.get("redirect_uri") ?? "",
     codeChallenge: searchParams.get("code_challenge") ?? "",
     codeChallengeMethod: searchParams.get("code_challenge_method") ?? "",
-    scope: searchParams.get("scope") ?? "tasks:write",
+    scope: searchParams.get("scope") ?? DEFAULT_SCOPE,
     state: searchParams.get("state"),
   };
 }
@@ -65,6 +66,17 @@ async function validateAuthorizeRequest(
   if (params.codeChallengeMethod !== "S256" || !params.codeChallenge) {
     return { error: "code_challenge_method doit etre S256 avec un code_challenge." };
   }
+  // Task 4 (issue #201) : un scope inconnu doit etre rejete ICI, jamais
+  // stocke tel quel sur le code d'autorisation puis le token - sinon
+  // hasScope() (Task 1) rejette l'integralite du scope au premier appel de
+  // tool MCP, en echec silencieux et differe. Valide en un seul endroit,
+  // partage par GET (avant le rendu du consentement) et POST (avant
+  // l'insertion en base) - jamais de redirection vers redirect_uri sur ce
+  // cas, meme discipline anti-open-redirect que les gardes ci-dessus.
+  const scopeResult = parseScopeString(params.scope);
+  if ("error" in scopeResult) {
+    return { error: scopeResult.error };
+  }
   return { client };
 }
 
@@ -75,9 +87,10 @@ function errorPageResponse(message: string): Response {
   });
 }
 
-// US-22 : GET affiche l'ecran de consentement ("Gemini veut ajouter des
-// taches a ta place - Autoriser ?", design) - necessite une session Dodojo
-// active, sinon redirection vers /login d'abord.
+// US-22 : GET affiche l'ecran de consentement ("Gemini veut acceder a ton
+// compte Dodojo - Autoriser ?", design pilote par le scope demande depuis
+// Task 4/issue #201) - necessite une session Dodojo active, sinon
+// redirection vers /login d'abord.
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const params = parseAuthorizeParams(url.searchParams);
@@ -122,7 +135,7 @@ export async function POST(request: Request): Promise<Response> {
     redirectUri: String(form.get("redirect_uri") ?? ""),
     codeChallenge: String(form.get("code_challenge") ?? ""),
     codeChallengeMethod: String(form.get("code_challenge_method") ?? ""),
-    scope: String(form.get("scope") ?? "tasks:write"),
+    scope: String(form.get("scope") ?? DEFAULT_SCOPE),
     state: form.get("state") ? String(form.get("state")) : null,
   };
   const decision = String(form.get("decision") ?? "");

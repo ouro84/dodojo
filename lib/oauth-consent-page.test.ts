@@ -12,15 +12,27 @@ describe("renderConsentPage (US-22)", () => {
     state: "xyz",
   };
 
-  test("affiche le nom du client et la portee demandee", () => {
+  test("affiche le nom du client et le droit derive du scope demande", () => {
     const html = renderConsentPage(baseParams);
-    expect(html).toContain("Gemini veut ajouter des taches a ta place");
-    expect(html).toContain("tasks:write");
+    expect(html).toContain("Gemini veut accéder à ton compte Dodojo");
+    expect(html).toContain("Créer et cocher des tâches");
+  });
+
+  test("affiche une ligne de liste par scope accorde (Task 4, issue #201)", () => {
+    const html = renderConsentPage(Object.assign({}, baseParams, { scope: "tasks:read tasks:write" }));
+    expect(html).toContain("<li>Lire tes tâches, ton Boss et ta série</li>");
+    expect(html).toContain("<li>Créer et cocher des tâches</li>");
+    expect(html).not.toContain("Changer ton combattant équipé");
+  });
+
+  test("scope invalide : repli defensif sur la portee brute plutot que de planter", () => {
+    const html = renderConsentPage(Object.assign({}, baseParams, { scope: "openid tasks:write" }));
+    expect(html).toContain("Portée demandée : openid tasks:write");
   });
 
   test("avertit que l'identite du client n'est pas verifiee (audit #67, PR5)", () => {
     const html = renderConsentPage(baseParams);
-    expect(html).toContain("n'est pas verifiee par Dodojo");
+    expect(html).toContain("n'est pas vérifiée par Dodojo");
   });
 
   test("porte les champs caches necessaires a la reconstruction de la requete", () => {
