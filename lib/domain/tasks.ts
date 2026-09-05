@@ -2,12 +2,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   applyXpDelta,
   hpPenaltyToLock,
+  isNestableParent,
   nextComboState,
+  nextSiblingPosition,
   xpForCompletion,
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import { assembleAchievementContext, applyNewAchievements } from "@/app/actions/achievements";
 import { cancelDeadlineReminder } from "@/lib/inngest/deadline-reminder";
+import { insertTaskForUser } from "@/lib/task-insertion";
+import { validateTaskTitle } from "@/lib/task-title";
 import type { DomainErrorCode } from "./errors";
 
 // Audit #67, PR5 : `id` alimente un filtre PostgREST construit par
@@ -166,4 +170,108 @@ export async function completeTaskForUser(
   }
 
   return { error: null, level, xp, leveledUp, comboCount, newAchievements };
+}
+
+export interface AddTaskOutcome {
+  error: DomainErrorCode | null;
+  id?: string;
+}
+
+// US-03 : délègue à insertTaskForUser (lib/task-insertion.ts), PARTAGÉE avec
+// la route webhook Siri (app/api/webhook/add-task) et le futur serveur MCP —
+// un seul endroit calcule position/day_date/HP (RG-01/RG-02), jamais deux fois.
+// Issue #201 (lot 4) : `dayDate` optionnel prépare le tool `add_task` avec
+// `day: "tomorrow"` — passé tel quel à insertTaskForUser, qui l'accepte déjà.
+export async function addTaskForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  title: string,
+  dayDate?: string,
+): Promise<AddTaskOutcome> {
+  const validation = validateTaskTitle(title);
+  if ("error" in validation) {
+    return { error: "invalid_title" };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .maybeSingle();
+
+  let outcome;
+  try {
+    outcome = await insertTaskForUser(supabase, {
+      userId,
+      title: validation.title,
+      timezone: profile?.timezone ?? "UTC",
+      dayDate,
+    });
+  } catch {
+    return { error: "insert_failed" };
+  }
+
+  return { error: null, id: outcome.taskId };
+}
+
+export async function addSubtaskForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  parentId: string,
+  title: string,
+): Promise<AddTaskOutcome> {
+  const validation = validateTaskTitle(title);
+  if ("error" in validation) {
+    return { error: "invalid_title" };
+  }
+  const trimmed = validation.title;
+
+  const { data: parent, error: parentError } = await supabase
+    .from("tasks")
+    // Issue #116 : `day_date` du parent lu ici pour que la sous-tâche hérite
+    // du bon jour (une sous-tâche de la section "Demain" doit rester "demain",
+    // pas retomber sur "aujourd'hui" comme avant ce correctif).
+    .select("id, parent_id, is_abandoned, day_date")
+    .eq("id", parentId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (parentError || !parent) {
+    return { error: "task_not_found" };
+  }
+
+  if (parent.is_abandoned) {
+    return { error: "task_abandoned" };
+  }
+
+  if (!isNestableParent(parent)) {
+    return { error: "depth_limit" };
+  }
+
+  const { data: siblings, error: siblingsError } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("parent_id", parentId);
+
+  if (siblingsError) {
+    return { error: "insert_failed" };
+  }
+
+  const { data: inserted, error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: userId,
+      parent_id: parentId,
+      title: trimmed,
+      day_date: parent.day_date,
+      position: nextSiblingPosition(siblings ?? []),
+    })
+    .select("id")
+    .single();
+
+  if (error || !inserted) {
+    return { error: "insert_failed" };
+  }
+
+  return { error: null, id: inserted.id };
 }

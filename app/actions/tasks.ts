@@ -19,7 +19,7 @@ import type { CascadeTask } from "@/lib/game-engine";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
 import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
-import { completeTaskForUser } from "@/lib/domain/tasks";
+import { addSubtaskForUser, addTaskForUser, completeTaskForUser } from "@/lib/domain/tasks";
 import type { DomainErrorCode } from "@/lib/domain/errors";
 import type { Task } from "@/types";
 
@@ -94,6 +94,10 @@ async function lockOverdueDamage(
 // US-03 : addTask délègue désormais à insertTaskForUser (lib/task-insertion.ts),
 // PARTAGÉE avec la route webhook Siri (app/api/webhook/add-task) — un seul
 // endroit calcule position/day_date/HP (RG-01/RG-02), jamais deux fois.
+// Issue #201 (lot 1) : wrapper mince autour de addTaskForUser (lib/domain/tasks.ts).
+// `validateTaskTitle` est rappelée ici (double validation volontaire, sans coût
+// car pure) pour restituer le message précis (titre vide vs trop long) que le
+// domaine ne porte pas — celui-ci ne renvoie qu'un code générique `invalid_title`.
 export async function addTask(title: string): Promise<TaskActionResult> {
   const validation = validateTaskTitle(title);
   if ("error" in validation) {
@@ -109,36 +113,20 @@ export async function addTask(title: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  let outcome;
-  try {
-    outcome = await insertTaskForUser(supabase, {
-      userId: user.id,
-      title: validation.title,
-      timezone: profile?.timezone ?? "UTC",
-    });
-  } catch {
+  const outcome = await addTaskForUser(supabase, user.id, validation.title);
+  if (outcome.error !== null) {
     return { error: "Le monstre a résisté à l'invocation. Réessaie." };
   }
 
   revalidatePath("/");
-  return { error: null, id: outcome.taskId };
+  return { error: null, id: outcome.id };
 }
 
-export async function addSubtask(
-  parentId: string,
-  title: string,
-): Promise<TaskActionResult> {
+export async function addSubtask(parentId: string, title: string): Promise<TaskActionResult> {
   const validation = validateTaskTitle(title);
   if ("error" in validation) {
     return { error: validation.error };
   }
-  const trimmed = validation.title;
 
   const supabase = await createClient();
   const {
@@ -149,55 +137,20 @@ export async function addSubtask(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: parent, error: parentError } = await supabase
-    .from("tasks")
-    // Issue #116 : `day_date` du parent lu ici pour que la sous-tâche hérite
-    // du bon jour (une sous-tâche de la section "Demain" doit rester "demain",
-    // pas retomber sur "aujourd'hui" comme avant ce correctif).
-    .select("id, parent_id, is_abandoned, day_date")
-    .eq("id", parentId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (parentError || !parent) {
-    return { error: "Cette tâche est introuvable." };
-  }
-
-  if (parent.is_abandoned) {
-    return { error: "Cette tâche a été abandonnée, pas de sous-tâche possible." };
-  }
-
-  if (!isNestableParent(parent)) {
-    return { error: "Deux niveaux, pas plus — cette tâche est déjà une sous-tâche." };
-  }
-
-  const { data: siblings, error: siblingsError } = await supabase
-    .from("tasks")
-    .select("position")
-    .eq("parent_id", parentId);
-
-  if (siblingsError) {
-    return { error: "La sous-tâche a résisté à l'invocation. Réessaie." };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from("tasks")
-    .insert({
-      user_id: user.id,
-      parent_id: parentId,
-      title: trimmed,
-      day_date: parent.day_date,
-      position: nextSiblingPosition(siblings ?? []),
-    })
-    .select("id")
-    .single();
-
-  if (error || !inserted) {
-    return { error: "La sous-tâche a résisté à l'invocation. Réessaie." };
+  const outcome = await addSubtaskForUser(supabase, user.id, parentId, validation.title);
+  if (outcome.error !== null) {
+    return { error: subtaskErrorMessage(outcome.error) };
   }
 
   revalidatePath("/");
-  return { error: null, id: inserted.id };
+  return { error: null, id: outcome.id };
+}
+
+function subtaskErrorMessage(code: DomainErrorCode): string {
+  if (code === "task_not_found") return "Cette tâche est introuvable.";
+  if (code === "task_abandoned") return "Cette tâche a été abandonnée, pas de sous-tâche possible.";
+  if (code === "depth_limit") return "Deux niveaux, pas plus — cette tâche est déjà une sous-tâche.";
+  return "La sous-tâche a résisté à l'invocation. Réessaie.";
 }
 
 export async function setTaskCompleted(
