@@ -4,10 +4,13 @@ import { FakeSupabaseClient } from "./fake-supabase";
 import {
   addSubtaskForUser,
   addTaskForUser,
+  addTomorrowTaskForUser,
+  bringToTodayForUser,
   completeTaskForUser,
   deferOverdueTaskForUser,
   rageQuitTaskForUser,
   reorderSiblingsForUser,
+  reportToTomorrowForUser,
   setTaskDeadlineForUser,
   undoRageQuitForUser,
   userToday,
@@ -297,5 +300,44 @@ describe("reorderSiblingsForUser", () => {
       ["33333333-3333-3333-3333-333333333333"],
     );
     expect(res.error).toBe("depth_limit");
+  });
+});
+
+describe("famille Demain", () => {
+  test("addTomorrowTask cree une tache et refuse un titre vide", async () => {
+    const c = client([]);
+    const empty = await addTomorrowTaskForUser(c as unknown as SupabaseClient, "u1", "   ");
+    expect(empty.error).toBe("invalid_title");
+    expect(c.calls).toBe(0);
+
+    const res = await addTomorrowTaskForUser(c as unknown as SupabaseClient, "u1", "Preparer le sac");
+    expect(res.error).toBeNull();
+    expect(res.id).toBeTruthy();
+  });
+
+  test("reportToTomorrow efface toujours deferred_at", async () => {
+    const c = client([
+      { id: "99999999-9999-9999-9999-999999999999", is_completed: false, is_abandoned: false, deferred_at: "2026-09-05T08:00:00.000Z", deadline_at: null, day_date: "2026-09-05" },
+    ]);
+    const res = await reportToTomorrowForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "99999999-9999-9999-9999-999999999999",
+    );
+    expect(res.error).toBeNull();
+    expect(res.reportedTasks?.[0]?.deferred_at).toBeNull();
+  });
+
+  test("bringToToday efface aussi deferred_at", async () => {
+    const c = client([
+      { id: "aaaaaaaa-9999-9999-9999-999999999999", is_completed: false, is_abandoned: false, deferred_at: "2026-09-05T08:00:00.000Z", deadline_at: null, day_date: "2026-09-06" },
+    ]);
+    const res = await bringToTodayForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "aaaaaaaa-9999-9999-9999-999999999999",
+    );
+    expect(res.error).toBeNull();
+    expect(res.broughtBackTasks?.[0]?.deferred_at).toBeNull();
   });
 });

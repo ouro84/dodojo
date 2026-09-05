@@ -8,6 +8,7 @@ import {
   hpPenaltyToLock,
   isNestableParent,
   nextComboState,
+  nextDayKey,
   nextLockedHpDamage,
   nextSiblingPosition,
   RAGE_QUIT_XP_PENALTY,
@@ -779,4 +780,142 @@ export async function annihilateOverdueOlderThanForUser(
   // Suppression du heal Héros : même raison que completeOverdueTaskForUser/annihilateOverdueTaskForUser.
   const hpDamageLocked = await lockOverdueDamage(supabase, userId, (updated ?? []).length);
   return { error: null, hpDamageLocked };
+}
+
+// Issue #116 : crée une tâche directement pour demain (section "Demain" de
+// l'Arène, visible après l'heure seuil réglable). Ne soigne jamais le Boss
+// d'aujourd'hui : calculateBossMaxHp/CurrentHp ne reçoivent que les tâches
+// filtrées day_date == aujourd'hui côté client, l'exclusion est automatique.
+// Issue #201 (lot 1) : extrait de app/actions/tasks.ts (addTomorrowTask).
+export async function addTomorrowTaskForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  title: string,
+): Promise<AddTaskOutcome> {
+  const validation = validateTaskTitle(title);
+  if ("error" in validation) {
+    return { error: "invalid_title" };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const timezone = profile?.timezone ?? "UTC";
+  const today = dayKey(new Date(), timezone);
+  const tomorrow = nextDayKey(today);
+
+  let outcome;
+  try {
+    outcome = await insertTaskForUser(supabase, {
+      userId,
+      title: validation.title,
+      timezone,
+      dayDate: tomorrow,
+    });
+  } catch {
+    return { error: "insert_failed" };
+  }
+
+  return { error: null, id: outcome.taskId };
+}
+
+export interface MoveTaskOutcome {
+  error: DomainErrorCode | null;
+  reportedTasks?: Task[];
+  broughtBackTasks?: Task[];
+}
+
+// Issue #116 : reporte une tâche active du jour (+ sous-tâches actives) vers
+// demain — sens inverse de deferOverdueTaskForUser (US-08). Jamais de malus Hero HP :
+// contrairement à un reste (procrastination avérée), c'est une planification
+// proactive avant la fin du jour courant. `deferred_at` est explicitement remis
+// à null (jamais posé), y compris si la tâche le portait déjà (ex. reste
+// reporté par Le Réveil plus tôt aujourd'hui, repoussé encore par cette
+// action) — sinon le malus -20 HP réapparaîtrait à tort demain matin alors que
+// la tâche ne serait plus "en retard" (son day_date == le "aujourd'hui" de demain).
+// Issue #201 (lot 1) : extrait de app/actions/tasks.ts (reportToTomorrow).
+export async function reportToTomorrowForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<MoveTaskOutcome> {
+  if (!UUID_RE.test(taskId)) {
+    return { error: "invalid_task_id" };
+  }
+
+  const today = await userToday(supabase, userId);
+  const tomorrow = nextDayKey(today);
+
+  const { data: tomorrowRoots } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("user_id", userId)
+    .eq("day_date", tomorrow)
+    .is("parent_id", null);
+
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({
+      day_date: tomorrow,
+      position: nextSiblingPosition(tomorrowRoots ?? []),
+      deadline_at: null,
+      deferred_at: null,
+    })
+    .or(`id.eq.${taskId},parent_id.eq.${taskId}`)
+    .eq("user_id", userId)
+    .eq("day_date", today)
+    .eq("is_completed", false)
+    .eq("is_abandoned", false)
+    .select();
+
+  if (error) return { error: "update_failed" };
+  // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  return { error: null, reportedTasks: (updated ?? []) as Task[] };
+}
+
+// Issue #116 : ramène une tâche de la section "Demain" à aujourd'hui —
+// changement d'avis, OU annulation (~5s) juste après un reportToTomorrowForUser
+// (une seule action sert les deux usages, cf. plan d'implémentation).
+// Simplification assumée : pas de restauration exacte de la position/deadline
+// d'origine, la tâche revient en fin de fratrie du jour, deadline effacée.
+// Issue #201 (lot 1) : extrait de app/actions/tasks.ts (bringToToday).
+export async function bringToTodayForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<MoveTaskOutcome> {
+  if (!UUID_RE.test(taskId)) {
+    return { error: "invalid_task_id" };
+  }
+
+  const today = await userToday(supabase, userId);
+
+  const { data: todayRoots } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("user_id", userId)
+    .eq("day_date", today)
+    .is("parent_id", null);
+
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({
+      day_date: today,
+      position: nextSiblingPosition(todayRoots ?? []),
+      deadline_at: null,
+      deferred_at: null,
+    })
+    .or(`id.eq.${taskId},parent_id.eq.${taskId}`)
+    .eq("user_id", userId)
+    .eq("is_abandoned", false)
+    .select();
+
+  if (error) return { error: "update_failed" };
+  // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  return { error: null, broughtBackTasks: (updated ?? []) as Task[] };
 }

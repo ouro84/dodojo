@@ -2,25 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import {
-  dayKey,
-  nextDayKey,
-  nextSiblingPosition,
-} from "@/lib/game-engine";
-import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
-import { cancelDeadlineReminder } from "@/lib/inngest/deadline-reminder";
 import {
   addSubtaskForUser,
   addTaskForUser,
+  addTomorrowTaskForUser,
   annihilateOverdueOlderThanForUser,
   annihilateOverdueTaskForUser,
+  bringToTodayForUser,
   completeOverdueTaskForUser,
   completeTaskForUser,
   deferAllOverdueForUser,
   deferOverdueTaskForUser,
   rageQuitTaskForUser,
   reorderSiblingsForUser,
+  reportToTomorrowForUser,
   setTaskDeadlineForUser,
   undoRageQuitForUser,
   userToday,
@@ -455,6 +451,7 @@ export async function setTaskDeadline(
 // l'Arène, visible après l'heure seuil réglable). Ne soigne jamais le Boss
 // d'aujourd'hui : calculateBossMaxHp/CurrentHp ne reçoivent que les tâches
 // filtrées day_date == aujourd'hui côté client, l'exclusion est automatique.
+// Issue #201 (lot 1) : wrapper mince autour de addTomorrowTaskForUser (lib/domain/tasks.ts).
 export async function addTomorrowTask(title: string): Promise<TaskActionResult> {
   const validation = validateTaskTitle(title);
   if ("error" in validation) {
@@ -470,30 +467,13 @@ export async function addTomorrowTask(title: string): Promise<TaskActionResult> 
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const timezone = profile?.timezone ?? "UTC";
-  const today = dayKey(new Date(), timezone);
-  const tomorrow = nextDayKey(today);
-
-  let outcome;
-  try {
-    outcome = await insertTaskForUser(supabase, {
-      userId: user.id,
-      title: validation.title,
-      timezone,
-      dayDate: tomorrow,
-    });
-  } catch {
+  const outcome = await addTomorrowTaskForUser(supabase, user.id, validation.title);
+  if (outcome.error !== null) {
     return { error: "Le monstre a résisté à l'invocation. Réessaie." };
   }
 
   revalidatePath("/");
-  return { error: null, id: outcome.taskId };
+  return { error: null, id: outcome.id };
 }
 
 // Issue #116 : reporte une tâche active du jour (+ sous-tâches actives) vers
@@ -504,6 +484,7 @@ export async function addTomorrowTask(title: string): Promise<TaskActionResult> 
 // reporté par Le Réveil plus tôt aujourd'hui, repoussé encore par cette
 // action) — sinon le malus -20 HP réapparaîtrait à tort demain matin alors que
 // la tâche ne serait plus "en retard" (son day_date == le "aujourd'hui" de demain).
+// Issue #201 (lot 1) : wrapper mince autour de reportToTomorrowForUser (lib/domain/tasks.ts).
 export async function reportToTomorrow(id: string): Promise<TaskActionResult> {
   if (!UUID_RE.test(id)) {
     return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
@@ -515,36 +496,15 @@ export async function reportToTomorrow(id: string): Promise<TaskActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const today = await userToday(supabase, user.id);
-  const tomorrow = nextDayKey(today);
+  const outcome = await reportToTomorrowForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
+    return { error: "Impossible de reporter cette tâche à demain. Réessaie." };
+  }
 
-  const { data: tomorrowRoots } = await supabase
-    .from("tasks")
-    .select("position")
-    .eq("user_id", user.id)
-    .eq("day_date", tomorrow)
-    .is("parent_id", null);
-
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({
-      day_date: tomorrow,
-      position: nextSiblingPosition(tomorrowRoots ?? []),
-      deadline_at: null,
-      deferred_at: null,
-    })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    .eq("day_date", today)
-    .eq("is_completed", false)
-    .eq("is_abandoned", false)
-    .select();
-
-  if (error) return { error: "Impossible de reporter cette tâche à demain. Réessaie." };
-  // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
-  return { error: null, reportedTasks: (updated ?? []) as Task[] };
+  // Bug #70 : voir deferOverdueTask — même besoin de renvoyer les lignes
+  // reportées pour que l'Arène les fusionne explicitement côté client.
+  return { error: null, reportedTasks: outcome.reportedTasks };
 }
 
 // Issue #116 : ramène une tâche de la section "Demain" à aujourd'hui —
@@ -552,6 +512,7 @@ export async function reportToTomorrow(id: string): Promise<TaskActionResult> {
 // seule action sert les deux usages, cf. plan d'implémentation).
 // Simplification assumée : pas de restauration exacte de la position/deadline
 // d'origine, la tâche revient en fin de fratrie du jour, deadline effacée.
+// Issue #201 (lot 1) : wrapper mince autour de bringToTodayForUser (lib/domain/tasks.ts).
 export async function bringToToday(id: string): Promise<TaskActionResult> {
   if (!UUID_RE.test(id)) {
     return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
@@ -563,31 +524,12 @@ export async function bringToToday(id: string): Promise<TaskActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Session expirée. Reconnecte-toi." };
 
-  const today = await userToday(supabase, user.id);
+  const outcome = await bringToTodayForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
+    return { error: "Impossible de ramener cette tâche à aujourd'hui. Réessaie." };
+  }
 
-  const { data: todayRoots } = await supabase
-    .from("tasks")
-    .select("position")
-    .eq("user_id", user.id)
-    .eq("day_date", today)
-    .is("parent_id", null);
-
-  const { data: updated, error } = await supabase
-    .from("tasks")
-    .update({
-      day_date: today,
-      position: nextSiblingPosition(todayRoots ?? []),
-      deadline_at: null,
-      deferred_at: null,
-    })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    .eq("is_abandoned", false)
-    .select();
-
-  if (error) return { error: "Impossible de ramener cette tâche à aujourd'hui. Réessaie." };
-  // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   revalidatePath("/");
-  return { error: null, broughtBackTasks: (updated ?? []) as Task[] };
+  // Bug #70 : même besoin que reportToTomorrow ci-dessus.
+  return { error: null, broughtBackTasks: outcome.broughtBackTasks };
 }
