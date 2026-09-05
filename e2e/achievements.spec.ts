@@ -14,21 +14,17 @@ function expectedTotals(): Record<AchievementRarity, number> {
   return totals;
 }
 
-// Cible le compteur d'une rareté dans le KPI. Le rendu est :
-//   <span>
-//     <span aria-hidden="true">🥉</span> 1/11
-//   </span>
-// Plutôt que de filtrer par l'icone (qui matcherait le span enfant), on
-// cible directement le texte "<unlocked>/<total>" : les totaux par rareté
-// étant distincts (bronze=11, argent=6, or=8, platine=1 dans le catalogue
-// courant), ce texte est unique dans la section KPI. La fonction reçoit
-// la valeur attendue complète "X/Y" pour ancrer l'assertion.
-function kpiCount(page: Page, value: string) {
-  // `exact: false` (défaut) : matche le nœud texte " 1/11" à l'intérieur du
-  // <span> parent, peu importe l'icone. Les totaux par rareté étant disjoints
-  // (11/6/8/1 dans le catalogue courant), la valeur "X/Y" est unique dans la
-  // section KPI.
-  return page.getByLabel("Avancée par rareté").getByText(value, { exact: false });
+// Cible le compteur d'une rareté dans le KPI par son data-testid.
+//
+// Issue #199 : la version précédente cherchait le TEXTE "X/Y" en sous-chaîne
+// dans la section KPI, en s'appuyant sur le fait que les totaux par rareté
+// étaient disjoints (11/6/8/1 à l'époque). Ce lot les a rendus préfixes les uns
+// des autres (bronze=20, argent=10, or=11, platine=1) : chercher "0/1" matchait
+// alors aussi "0/10" et "0/11" — strict mode violation, sur une assertion qui
+// n'avait pourtant rien de faux. Un ancrage structurel ne peut pas repartir en
+// vrille au prochain succès ajouté.
+function kpiCount(page: Page, rarity: AchievementRarity) {
+  return page.getByTestId(`rarity-${rarity}`);
 }
 
 test.describe("Issue #72 Succès & Titres", () => {
@@ -80,10 +76,10 @@ test.describe("Issue #142 — KPI par rareté", () => {
 
     const totals = expectedTotals();
     // HERO_FIRE_KNIGHT (bronze) est débloqué d'office via resetShopState.
-    await expect(kpiCount(page, `1/${totals.bronze}`)).toBeVisible();
-    await expect(kpiCount(page, `0/${totals.argent}`)).toBeVisible();
-    await expect(kpiCount(page, `0/${totals.or}`)).toBeVisible();
-    await expect(kpiCount(page, `0/${totals.platine}`)).toBeVisible();
+    await expect(kpiCount(page, "bronze")).toHaveText(`1/${totals.bronze}`);
+    await expect(kpiCount(page, "argent")).toHaveText(`0/${totals.argent}`);
+    await expect(kpiCount(page, "or")).toHaveText(`0/${totals.or}`);
+    await expect(kpiCount(page, "platine")).toHaveText(`0/${totals.platine}`);
   });
 
   test("après une victoire, FIRST_VICTORY (bronze) incrémente le compteur bronze", async ({ page }) => {
@@ -100,10 +96,13 @@ test.describe("Issue #142 — KPI par rareté", () => {
     await page.goto("/tableau-de-chasse/succes");
 
     const totals = expectedTotals();
-    // HERO_FIRE_KNIGHT + FIRST_VICTORY → 2 succès bronze.
-    await expect(kpiCount(page, `2/${totals.bronze}`)).toBeVisible();
-    await expect(kpiCount(page, `0/${totals.argent}`)).toBeVisible();
-    await expect(kpiCount(page, `0/${totals.or}`)).toBeVisible();
-    await expect(kpiCount(page, `0/${totals.platine}`)).toBeVisible();
+    // HERO_FIRE_KNIGHT + FIRST_VICTORY + NO_ABANDON_VICTORY → 3 succès bronze.
+    // Issue #199 : la victoire semée porte `tasks_abandoned: 0`, elle débloque
+    // donc aussi « Sans Bavure ». Attendu, pas une fuite d'état : le succès
+    // décrit exactement la journée que ce test met en base.
+    await expect(kpiCount(page, "bronze")).toHaveText(`3/${totals.bronze}`);
+    await expect(kpiCount(page, "argent")).toHaveText(`0/${totals.argent}`);
+    await expect(kpiCount(page, "or")).toHaveText(`0/${totals.or}`);
+    await expect(kpiCount(page, "platine")).toHaveText(`0/${totals.platine}`);
   });
 });

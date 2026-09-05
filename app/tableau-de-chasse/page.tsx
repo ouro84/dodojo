@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { goldBalance, tableauChasseStats, xpThresholdForLevel } from "@/lib/game-engine";
-import { getAchievement } from "@/lib/achievements";
+import { getAchievement, TOTAL_ACHIEVEMENTS_COUNT } from "@/lib/achievements";
 import DamageSparkline from "@/components/pantheon/DamageSparkline";
 import WinRateRing from "@/components/pantheon/WinRateRing";
 import CombatJournal from "@/components/pantheon/CombatJournal";
@@ -182,7 +182,9 @@ export default async function PantheonPage() {
       {/* Bloc Titres & Succès */}
       <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
         <p className="font-display text-xs uppercase tracking-wide text-muted">Titres & Succès</p>
-        <p className="text-xs text-muted">{unlockedAchievementCount} / 26 succès débloqués.</p>
+        <p className="text-xs text-muted">
+          {unlockedAchievementCount} / {TOTAL_ACHIEVEMENTS_COUNT} succès débloqués.
+        </p>
         <Link
           href="/tableau-de-chasse/succes"
           className="text-xs text-xp-text underline underline-offset-4"

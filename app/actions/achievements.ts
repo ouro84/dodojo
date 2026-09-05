@@ -21,28 +21,59 @@ export async function assembleAchievementContext(
   const [
     { data: prof },
     { data: unlockedHeroes },
+    { data: unlockedSkins },
     { data: dailyBoss },
-    { data: victoryRow },
+    { data: dayResults },
+    { count: rageQuitCount },
+    { count: routineCount },
+    { count: shareSuccessCount },
   ] = await Promise.all([
-    supabase.from("profiles").select("level, best_streak").eq("id", userId).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("level, best_streak, aggressivity_level")
+      .eq("id", userId)
+      .maybeSingle(),
     supabase.from("unlocked_heroes").select("hero_id").eq("user_id", userId),
+    supabase.from("unlocked_skins").select("skin_id").eq("user_id", userId),
     supabase.from("daily_boss").select("boss_id, background_id").eq("user_id", userId),
+    // Issue #199 : fetch complet (~1 ligne par jour de jeu, sans trous grâce à
+    // backfillMissedDays) au lieu de l'ancien `limit(1)` qui ne servait qu'à
+    // répondre « a-t-il gagné une fois ? ». Même nombre de requêtes, tous les
+    // compteurs cumulés du catalogue deviennent calculables.
     supabase
       .from("day_results")
-      .select("id")
+      .select("outcome, tasks_completed, tasks_abandoned, gold_earned, boss_max_hp")
+      .eq("user_id", userId),
+    // `head: true` : le serveur renvoie le compte, jamais les lignes — la table
+    // `tasks` ne se purge jamais (RG-04), on ne la transfère pas.
+    supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
-      .eq("outcome", "victory")
-      .limit(1)
-      .maybeSingle(),
+      .eq("abandon_reason", "rage_quit"),
+    supabase
+      .from("recurring_templates")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    supabase
+      .from("share_events")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("event", "share_succeeded"),
   ]);
 
   return {
     level: prof?.level ?? 1,
     bestStreak: prof?.best_streak ?? 0,
-    hasVictory: victoryRow !== null,
+    aggressivityLevel: prof?.aggressivity_level ?? "direct",
     unlockedHeroIds: (unlockedHeroes ?? []).map((r) => r.hero_id),
+    unlockedSkinIds: (unlockedSkins ?? []).map((r) => r.skin_id),
     seenBossIds: [...new Set((dailyBoss ?? []).map((r) => r.boss_id))],
     seenBackgroundIds: [...new Set((dailyBoss ?? []).map((r) => r.background_id))],
+    dayResults: dayResults ?? [],
+    rageQuitCount: rageQuitCount ?? 0,
+    routineCount: routineCount ?? 0,
+    shareSuccessCount: shareSuccessCount ?? 0,
   };
 }
 

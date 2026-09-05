@@ -9,6 +9,7 @@ let currentUser: { id: string } | null = { id: "u1" };
 let tables: Record<string, Row[]> = {};
 let inserted: Record<string, Row[]> = {};
 let updated: Row[] = [];
+let newAchievements: string[] = [];
 
 function tableStub(name: string) {
   const result = { data: tables[name] ?? [], error: null };
@@ -40,7 +41,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 vi.mock("@/app/actions/achievements", () => ({
   assembleAchievementContext: async () => ({}),
-  applyNewAchievements: async () => [],
+  applyNewAchievements: async () => newAchievements,
 }));
 
 const { purchaseHero, purchaseSkin } = await import("@/app/actions/shop");
@@ -49,6 +50,7 @@ beforeEach(() => {
   currentUser = { id: "u1" };
   inserted = {};
   updated = [];
+  newAchievements = [];
   tables = {
     // 5000 or gagné, rien de dépensé : de quoi acheter n'importe quoi.
     day_results: [{ gold_earned: 5000 }],
@@ -109,6 +111,18 @@ describe("purchaseSkin", () => {
       ]);
     },
   );
+
+  // Issue #199 : purchaseSkin n'était pas un checkpoint de succès. Sans ce
+  // retour, Fashion Week & co ne se débloqueraient qu'au prochain chargement
+  // de l'Arène, sans jamais afficher leur toast.
+  it("remonte les succès débloqués par l'achat", async () => {
+    tables.unlocked_heroes = [{ hero_id: "fire_knight", price_paid: 500 }];
+    newAchievements = ["FIRST_SKIN"];
+
+    const res = await purchaseSkin("fire_knight", "fire_knight_shadow_purple");
+
+    expect(res.newAchievements).toEqual(["FIRST_SKIN"]);
+  });
 
   it("no-op sur la tenue par défaut (gratuite, jamais de ligne en base)", async () => {
     tables.unlocked_heroes = [{ hero_id: "fire_knight", price_paid: 500 }];

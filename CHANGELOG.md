@@ -9,6 +9,9 @@ nouvelle section versionnée et datée.
 
 ## [Unreleased]
 
+### Produit
+- Issue #199 : 16 nouveaux succès à débloquer, dont « Fashion Week » (toutes les tenues de tous les héros), « Centurion » et « Millénaire » (100 et 1000 tâches terminées), « Habitué » et « Vétéran » (10 et 50 journées gagnées), « Coffre-fort » (10 000 or gagnés), « Journée Pleine », « Sans Bavure », « Titan », « Lucidité » (ton premier Rage Quit assumé) ou encore « Volume Max ». Une nouvelle section « Combat » apparaît dans le catalogue des succès, et acheter une tenue débloque désormais ses succès sur-le-champ au lieu d'attendre le prochain passage par l'Arène.
+
 ### Corrections
 - Issue #196 : sur la carte du Vestiaire, tous les cercles du chemin ont désormais la même bordure dorée — seuls ceux de droite l'avaient, ce qui donnait l'impression d'une colonne active et d'une colonne éteinte. La taille des cercles continue de signaler les deux sections principales.
 - Issue #195 : valider une tâche la fait de nouveau descendre en bas de liste, et une tâche créée s'affiche au-dessus des tâches déjà validées. L'ordre partait avec un temps de retard sur ce que tu venais de faire : cocher deux tâches d'affilée pouvait renvoyer la seconde tout en haut, et une tâche ajoutée rester coincée sous les validées — très visible en 4G, quasi jamais sur une connexion rapide. Les tâches dictées à Siri ou créées par Gemini arrivaient elles aussi sous les validées : corrigé également. Et taper une tâche puis Entrée pendant que la précédente s'enregistre fonctionne enfin (l'Entrée était purement ignoré, sans le moindre message).

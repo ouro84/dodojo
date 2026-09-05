@@ -82,6 +82,10 @@ export function CharacterSelect({
     startTransition(async () => {
       const res = await purchaseSkin(target.heroId, target.skinId);
       if (res.error) setError(res.error);
+      const newAchievements = res.newAchievements;
+      if (newAchievements?.length) {
+        setAchievementQueue((prev) => [...prev, ...newAchievements]);
+      }
     });
   }
 
