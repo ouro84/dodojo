@@ -660,6 +660,17 @@ export async function setTaskDeadline(
   reminderOffsetMinutes?: number | null,
   reminderEnabled?: boolean,
 ): Promise<TaskActionResult> {
+  // Fix #95 : un id `optimistic-*` ne doit JAMAIS atteindre Supabase — cette
+  // garde doit rester AVANT createClient()/getUser(), pas seulement dans la
+  // garde interne de setTaskDeadlineForUser (défense en profondeur pour le
+  // futur serveur MCP qui appelle le domaine directement) : sinon un tap
+  // optimiste avec une session expirée renverrait "Session expirée" au lieu
+  // du message dédié, et chaque tap rejeté coûterait un aller-retour réseau
+  // vers GoTrue.
+  if (!UUID_RE.test(id)) {
+    return { error: "Cette tâche n'est pas encore prête, réessaie dans un instant." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
