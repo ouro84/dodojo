@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FakeSupabaseClient } from "./fake-supabase";
-import { addSubtaskForUser, addTaskForUser, completeTaskForUser, setTaskDeadlineForUser } from "./tasks";
+import { addSubtaskForUser, addTaskForUser, completeTaskForUser, deferOverdueTaskForUser, setTaskDeadlineForUser, userToday } from "./tasks";
 
 const cancelCalls: string[] = [];
 const scheduleCalls: Array<{ taskId: string; offsetMinutes: number }> = [];
@@ -124,5 +124,34 @@ describe("setTaskDeadlineForUser", () => {
     );
     expect(res.error).toBe("invalid_task_id");
     expect(c.calls).toBe(0);
+  });
+});
+
+describe("userToday", () => {
+  test("derive le jour local depuis le fuseau du profil", async () => {
+    const c = new FakeSupabaseClient({ profiles: [{ id: "u1", timezone: "Europe/Paris" }] });
+    const day = await userToday(c as unknown as SupabaseClient, "u1");
+    expect(day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test("retombe sur UTC quand le profil n'a pas de fuseau", async () => {
+    const c = new FakeSupabaseClient({ profiles: [{ id: "u1", timezone: null }] });
+    const day = await userToday(c as unknown as SupabaseClient, "u1");
+    expect(day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("deferOverdueTaskForUser", () => {
+  test("efface deadline_at en meme temps qu'il reporte", async () => {
+    const c = client([
+      { id: "55555555-5555-5555-5555-555555555555", is_completed: false, is_abandoned: false, deadline_at: "2026-09-04T10:00:00.000Z", deferred_at: null, day_date: "2026-09-04" },
+    ]);
+    const res = await deferOverdueTaskForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "55555555-5555-5555-5555-555555555555",
+    );
+    expect(res.error).toBeNull();
+    expect(res.deferredTasks?.[0]?.deadline_at).toBeNull();
   });
 });

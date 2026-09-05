@@ -1,9 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   applyXpDelta,
+  dayKey,
+  HERO_DAMAGE_PER_OVERDUE_TASK,
   hpPenaltyToLock,
   isNestableParent,
   nextComboState,
+  nextLockedHpDamage,
   nextSiblingPosition,
   xpForCompletion,
   XP_PER_TASK,
@@ -12,6 +15,7 @@ import { assembleAchievementContext, applyNewAchievements } from "@/app/actions/
 import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
+import type { Task } from "@/types";
 import type { DomainErrorCode, DomainResult } from "./errors";
 
 // Audit #67, PR5 : `id` alimente un filtre PostgREST construit par
@@ -330,4 +334,221 @@ export async function setTaskDeadlineForUser(
   }
 
   return { error: null };
+}
+
+// Le "jour" du jeu est le jour local de l'utilisateur (RG-03), pas l'UTC.
+// On lit le fuseau stocké sur le profil (renseigné à l'onboarding).
+export async function userToday(supabase: SupabaseClient, userId: string): Promise<string> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .maybeSingle();
+  return dayKey(new Date(), data?.timezone ?? "UTC");
+}
+
+// Suppression du heal Héros : verrouille `count` pénalités -20 (poids fixe du
+// pool "overdue", cf. HERO_DAMAGE_PER_OVERDUE_TASK) sur le profil pour le
+// jour local courant. Utilisé par completeOverdueTaskForUser / annihilateOverdueTaskForUser
+// / annihilateOverdueOlderThanForUser — ces actions résolvent des tâches dont le
+// day_date reste dans le passé (ou sortent de toute requête "aujourd'hui"),
+// leur dégât ne peut donc pas être porté par une ligne de tâche comme le fait
+// `tasks.hp_penalty` pour le reste du jour courant (completeTaskForUser/rageQuitTask).
+// Reste PRIVÉE au module : aucun appelant hors de cette famille.
+async function lockOverdueDamage(
+  supabase: SupabaseClient,
+  userId: string,
+  count: number,
+): Promise<{ hp_damage_locked: number; hp_damage_locked_day: string } | undefined> {
+  if (count <= 0) return undefined;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone, hp_damage_locked, hp_damage_locked_day")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile) return undefined;
+  const today = dayKey(new Date(), profile.timezone ?? "UTC");
+  const next = nextLockedHpDamage(profile, today, count * HERO_DAMAGE_PER_OVERDUE_TASK);
+  await supabase.from("profiles").update(next).eq("id", userId);
+  return next;
+}
+
+export interface OverdueOutcome {
+  error: DomainErrorCode | null;
+  deferredTasks?: Task[];
+  hpDamageLocked?: { hp_damage_locked: number; hp_damage_locked_day: string };
+}
+
+// US-08 (A1) : la tâche a été faite hors app — on la valide rétroactivement
+// sur son jour d'origine (elle inflige ses dégâts au Boss de ce jour-là).
+// Cascade sur les sous-tâches restes.
+export async function completeOverdueTaskForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<OverdueOutcome> {
+  if (!UUID_RE.test(taskId)) {
+    return { error: "invalid_task_id" };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({ is_completed: true, deferred_at: null })
+    .or(`id.eq.${taskId},parent_id.eq.${taskId}`)
+    .eq("user_id", userId)
+    .eq("is_abandoned", false)
+    .select("id");
+
+  if (error) return { error: "update_failed" };
+  // Issue #114 : la tâche (et sa cascade) validées n'ont plus besoin de leur
+  // rappel de deadline.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  // Suppression du heal Héros : chaque tâche validée ici portait -20 HP
+  // (pool "overdue") — le dégât est verrouillé sur le profil, sinon la
+  // tâche validée sortirait de `overdueTasks` au prochain chargement et les
+  // HP remonteraient tout seuls.
+  const hpDamageLocked = await lockOverdueDamage(supabase, userId, (updated ?? []).length);
+  return { error: null, hpDamageLocked };
+}
+
+// US-08 (D5) : reporte au jour local courant — la tâche revient dans la liste
+// du jour et re-soigne le Boss (RG-02). La tâche et ses sous-tâches restes
+// changent de day_date ; position recalculée en tête de la fratrie du jour.
+export async function deferOverdueTaskForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<OverdueOutcome> {
+  if (!UUID_RE.test(taskId)) {
+    return { error: "invalid_task_id" };
+  }
+
+  const today = await userToday(supabase, userId);
+
+  const { data: roots } = await supabase
+    .from("tasks")
+    .select("position")
+    .eq("user_id", userId)
+    .eq("day_date", today)
+    .is("parent_id", null);
+
+  // US-05 : la deadline (déjà passée la veille) est effacée au report pour ne
+  // pas cumuler le malus "deadline ratée" (-10) avec le malus "retard reporté"
+  // (-20) déjà appliqué par le mécanisme existant sur la même tâche.
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({
+      day_date: today,
+      position: nextSiblingPosition(roots ?? []),
+      deadline_at: null,
+      // Issue #101 (Axe A, by-pass A4-overdue) : le flag `deferred_at` persiste
+      // jusqu'à résolution (coche/rage quit). La pénalité -20 "reste reporté"
+      // reste active sur la HeroBar après Report, jusqu'à ce que l'utilisateur
+      // résolve la tâche.
+      deferred_at: new Date().toISOString(),
+    })
+    .or(`id.eq.${taskId},parent_id.eq.${taskId}`)
+    .eq("user_id", userId)
+    .eq("is_abandoned", false)
+    .select();
+
+  if (error) return { error: "update_failed" };
+  // Issue #114 : la deadline vient d'être effacée (deadline_at: null
+  // ci-dessus) — le rappel programmé n'a plus de raison d'exister.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  // Bug #70 : les lignes mises à jour sont renvoyées explicitement — Le
+  // Réveil est un overlay client qui ne re-fetch jamais l'Arène en se
+  // fermant, donc sans ça la tâche reportée reste invisible côté client
+  // (day_date correct en base, mais jamais montrée) jusqu'au prochain rechargement.
+  return { error: null, deferredTasks: (updated ?? []) as Task[] };
+}
+
+// US-08 (D6) : annihiler = is_abandoned (RG-04, jamais DELETE). Ton non-punitif
+// côté UI ("on tourne la page").
+export async function annihilateOverdueTaskForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<OverdueOutcome> {
+  if (!UUID_RE.test(taskId)) {
+    return { error: "invalid_task_id" };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({ is_abandoned: true, abandon_reason: "annihilated" })
+    .or(`id.eq.${taskId},parent_id.eq.${taskId}`)
+    .eq("user_id", userId)
+    // Suppression du heal Héros : sans ce garde, ré-annihiler une tâche déjà
+    // annihilée (clic redondant) reverrouillerait -20 une 2e fois pour rien —
+    // idempotence déjà assurée pour completeOverdueTaskForUser (eq is_abandoned false).
+    .eq("is_abandoned", false)
+    .select("id");
+
+  if (error) return { error: "update_failed" };
+  // Issue #114 : reste annihilé (et sa cascade) — plus de rappel à envoyer.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  // Suppression du heal Héros : même raison que completeOverdueTaskForUser.
+  const hpDamageLocked = await lockOverdueDamage(supabase, userId, (updated ?? []).length);
+  return { error: null, hpDamageLocked };
+}
+
+// US-08 (A4) : action groupée anti "mur de la honte" — reporte tous les restes
+// au jour local courant.
+export async function deferAllOverdueForUser(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<OverdueOutcome> {
+  const today = await userToday(supabase, userId);
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({
+      day_date: today,
+      deadline_at: null,
+      // Issue #101 (Axe A, by-pass A4-overdue) : même logique que
+      // deferOverdueTaskForUser — `deferred_at` persiste jusqu'à résolution.
+      deferred_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .lt("day_date", today)
+    .eq("is_completed", false)
+    .eq("is_abandoned", false)
+    .select();
+
+  if (error) return { error: "update_failed" };
+  // Issue #114 : même raison que deferOverdueTaskForUser — deadline effacée,
+  // rappel programmé obsolète.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  // Bug #70 : voir deferOverdueTaskForUser ci-dessus — même besoin de renvoyer
+  // les lignes reportées pour que le Réveil les remonte à l'Arène.
+  return { error: null, deferredTasks: (updated ?? []) as Task[] };
+}
+
+// US-08 (A4) : action groupée — annihile les restes plus vieux que `days` jours.
+export async function annihilateOverdueOlderThanForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  days: number,
+): Promise<OverdueOutcome> {
+  const today = await userToday(supabase, userId);
+  const cutoff = dayKey(
+    new Date(Date.parse(`${today}T00:00:00Z`) - days * 86400000),
+    "UTC",
+  );
+
+  const { data: updated, error } = await supabase
+    .from("tasks")
+    .update({ is_abandoned: true, abandon_reason: "annihilated" })
+    .eq("user_id", userId)
+    .lt("day_date", cutoff)
+    .eq("is_completed", false)
+    .eq("is_abandoned", false)
+    .select("id");
+
+  if (error) return { error: "update_failed" };
+  // Issue #114 : tous les vieux restes annihilés perdent leur rappel.
+  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
+  // Suppression du heal Héros : même raison que completeOverdueTaskForUser/annihilateOverdueTaskForUser.
+  const hpDamageLocked = await lockOverdueDamage(supabase, userId, (updated ?? []).length);
+  return { error: null, hpDamageLocked };
 }
