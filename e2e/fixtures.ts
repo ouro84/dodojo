@@ -158,6 +158,10 @@ export async function purgeE2eAccountState(admin: SupabaseClient, uid: string): 
       equipped_skin_id: null,
       equipped_title_code: null,
       title_manually_set: false,
+      // Issue #199 : même raison que dans resetProfileForKpi — le niveau
+      // « brut » laissé par volume-interieur.spec.ts débloque BRUT_VOLUME et
+      // survit à toute purge de tables. Reset ici pour l'hygiène entre runs.
+      aggressivity_level: "direct",
     })
     .eq("id", uid);
 }
@@ -310,7 +314,13 @@ export async function resetProfileForKpi(): Promise<void> {
   const { admin, uid } = await getE2eAdmin();
   const { error } = await admin
     .from("profiles")
-    .update({ level: 1, best_streak: 0, streak_days: 0 })
+    // Issue #199 : `aggressivity_level` fait partie du reset — le succès
+    // BRUT_VOLUME (bronze) se débloque sur le niveau « brut » que
+    // volume-interieur.spec.ts laisse sur le compte partagé (ADR-04) et qu'aucun
+    // test ne remettait à sa valeur d'origine. Même classe de fuite que level /
+    // best_streak ci-dessus : un champ de `profiles` qui survit à toute purge de
+    // tables et fausse silencieusement les compteurs par rareté.
+    .update({ level: 1, best_streak: 0, streak_days: 0, aggressivity_level: "direct" })
     .eq("id", uid);
   if (error) throw new Error(`resetProfileForKpi a échoué : ${error.message}`);
 }

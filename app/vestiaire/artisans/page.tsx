@@ -11,8 +11,8 @@ export const metadata: Metadata = { title: "Les Artisans — Dodojo" };
 // Issue #134 : crédite les créateurs des assets réellement livrés. Réutilise
 // assembleAchievementContext (déjà appelée par 4 autres checkpoints) plutôt
 // que d'écrire une requête dédiée — seuls unlockedHeroIds/seenBossIds/
-// seenBackgroundIds sont consommés ici, level/bestStreak/hasVictory sont
-// ignorés sans risque.
+// seenBackgroundIds sont consommés ici, le reste du contexte est ignoré sans
+// risque.
 export default async function ArtisansPage() {
   const supabase = await createClient();
   const {

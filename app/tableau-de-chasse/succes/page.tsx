@@ -7,24 +7,15 @@ import {
   RARITY_ICON_NAME,
   achievementProgressFor,
   rarityCounts,
-  type AchievementContext,
+  CATEGORY_LABELS,
 } from "@/lib/achievements";
+import { assembleAchievementContext } from "@/app/actions/achievements";
 import BottomNav from "@/components/ui/BottomNav";
 import BackLink from "@/components/ui/BackLink";
 import GameIcon from "@/components/ui/GameIcon";
 import TitleSelector from "@/components/pantheon/TitleSelector";
 
 export const metadata: Metadata = { title: "Succès — Dodojo" };
-
-const CATEGORY_LABELS: Record<string, string> = {
-  hero: "Héros",
-  collection: "Collection",
-  progression: "Progression",
-  streak: "Séries",
-  exploration: "Exploration",
-  level: "Niveau",
-  meta: "Méta",
-};
 
 // Issue #72 : catalogue lecture seule + sélecteur de titre. Succès "mystère"
 // masqués (titre/description) tant que non débloqués ; succès à compteur
@@ -36,29 +27,16 @@ export default async function AchievementsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [
-    { data: profile, error: profileError },
-    { data: unlockedRows, error: unlockedError },
-    { data: unlockedHeroes },
-    { data: dailyBoss },
-    { data: victoryRow },
-  ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("level, best_streak, equipped_title_code")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase.from("unlocked_achievements").select("code, unlocked_at").eq("user_id", user.id),
-    supabase.from("unlocked_heroes").select("hero_id").eq("user_id", user.id),
-    supabase.from("daily_boss").select("boss_id, background_id").eq("user_id", user.id),
-    supabase
-      .from("day_results")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("outcome", "victory")
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  // Issue #199 : le contexte vient de assembleAchievementContext, jamais d'une
+  // seconde construction locale. La version dupliquée ici avait déjà sa propre
+  // liste de champs à maintenir — elle aurait silencieusement affiché des
+  // barres de progression fausses au premier succès ajouté ailleurs.
+  const [{ data: profile, error: profileError }, { data: unlockedRows, error: unlockedError }, ctx] =
+    await Promise.all([
+      supabase.from("profiles").select("equipped_title_code").eq("id", user.id).maybeSingle(),
+      supabase.from("unlocked_achievements").select("code, unlocked_at").eq("user_id", user.id),
+      assembleAchievementContext(supabase, user.id),
+    ]);
 
   // État Error (règle projet n°3).
   if (profileError || unlockedError || !profile) {
@@ -76,14 +54,6 @@ export default async function AchievementsPage() {
   }
 
   const unlockedCodes = new Set((unlockedRows ?? []).map((r) => r.code));
-  const ctx: AchievementContext = {
-    level: profile.level,
-    bestStreak: profile.best_streak,
-    hasVictory: victoryRow !== null,
-    unlockedHeroIds: (unlockedHeroes ?? []).map((r) => r.hero_id),
-    seenBossIds: [...new Set((dailyBoss ?? []).map((r) => r.boss_id))],
-    seenBackgroundIds: [...new Set((dailyBoss ?? []).map((r) => r.background_id))],
-  };
 
   // État Empty (règle projet n°3) : 0 succès débloqué — le catalogue reste
   // affiché, entièrement grisé (pas un état séparé, cf. spec §7).
@@ -107,21 +77,21 @@ export default async function AchievementsPage() {
         className="flex flex-col gap-1 text-center text-xs text-muted"
       >
         <div className="flex justify-center gap-4">
-          <span className="inline-flex items-center gap-1">
+          <span data-testid="rarity-bronze" className="inline-flex items-center gap-1">
             <GameIcon name={RARITY_ICON_NAME.bronze} className="h-4 w-4" /> {counts.bronze.unlocked}/
             {counts.bronze.total}
           </span>
-          <span className="inline-flex items-center gap-1">
+          <span data-testid="rarity-argent" className="inline-flex items-center gap-1">
             <GameIcon name={RARITY_ICON_NAME.argent} className="h-4 w-4" /> {counts.argent.unlocked}/
             {counts.argent.total}
           </span>
-          <span className="inline-flex items-center gap-1">
+          <span data-testid="rarity-or" className="inline-flex items-center gap-1">
             <GameIcon name={RARITY_ICON_NAME.or} className="h-4 w-4" /> {counts.or.unlocked}/
             {counts.or.total}
           </span>
         </div>
         <div>
-          <span className="inline-flex items-center gap-1">
+          <span data-testid="rarity-platine" className="inline-flex items-center gap-1">
             <GameIcon name={RARITY_ICON_NAME.platine} className="h-4 w-4" /> {counts.platine.unlocked}/
             {counts.platine.total}
           </span>

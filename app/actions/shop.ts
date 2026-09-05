@@ -172,7 +172,14 @@ export async function purchaseSkin(
     .update({ gold: balance - skin.price })
     .eq("id", user.id);
 
+  // Issue #199 : l'achat de tenue devient un checkpoint de succès, comme
+  // l'achat de héros. Sans ça, les succès de collection de tenues (Première
+  // Mue / Garde-robe / Fashion Week) n'apparaîtraient qu'au prochain
+  // chargement de l'Arène — et jamais avec leur toast.
+  const ctx = await assembleAchievementContext(supabase, user.id);
+  const newAchievements = await applyNewAchievements(supabase, user.id, ctx);
+
   revalidatePath("/marche-noir");
   revalidatePath("/");
-  return { error: null };
+  return { error: null, newAchievements };
 }
