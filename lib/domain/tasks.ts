@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  applyRageQuitPenalty,
   applyXpDelta,
+  collectAbandonCascade,
   dayKey,
   HERO_DAMAGE_PER_OVERDUE_TASK,
   hpPenaltyToLock,
@@ -8,9 +10,11 @@ import {
   nextComboState,
   nextLockedHpDamage,
   nextSiblingPosition,
+  RAGE_QUIT_XP_PENALTY,
   xpForCompletion,
   XP_PER_TASK,
 } from "@/lib/game-engine";
+import type { CascadeTask } from "@/lib/game-engine";
 import { assembleAchievementContext, applyNewAchievements } from "@/app/actions/achievements";
 import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
 import { insertTaskForUser } from "@/lib/task-insertion";
@@ -174,6 +178,230 @@ export async function completeTaskForUser(
   }
 
   return { error: null, level, xp, leveledUp, comboCount, newAchievements };
+}
+
+// US-15 : Rage Quit — abandonner une tâche active du jour en cours de combat.
+// Punitif (≠ « Annihiler » serein du Réveil) : malus −5 XP clampé sans de-level,
+// Boss rétréci (la tâche sort du calcul HP), cascade sur les sous-tâches actives.
+// RG-04 : jamais de DELETE, on pose is_abandoned=true + abandon_reason='rage_quit'.
+// Le malus est appliqué UNE fois par action (pas par tâche cascadée).
+export async function rageQuitTaskForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<CompleteTaskOutcome> {
+  // Fix #95 : id `optimistic-*` envoyable si l'utilisateur déclenche un Rage
+  // Quit (clic sur × puis confirm) sur une tâche fraîchement créée avant la
+  // résolution de `addTask`. La cascade `collectAbandonCascade` trouverait 0
+  // id renvoyant un no-op idempotent, mais on court-circuite plutôt ici pour
+  // ne même pas requêter la base.
+  if (!UUID_RE.test(taskId)) {
+    return { error: "invalid_task_id" };
+  }
+
+  // Charge la tâche + sa fratrie potentielle (mêmes racine/enfants) pour la cascade pure.
+  const { data: siblings, error: fetchError } = await supabase
+    .from("tasks")
+    .select("id, parent_id, is_completed, is_abandoned, deadline_at, deferred_at")
+    .eq("user_id", userId);
+
+  if (fetchError || !siblings) {
+    return { error: "update_failed" };
+  }
+
+  const cascadeIds = collectAbandonCascade(taskId, siblings as CascadeTask[]);
+  if (cascadeIds.length === 0) {
+    // Déjà abandonnée / complétée / introuvable → no-op idempotent (B2).
+    return { error: null };
+  }
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      is_abandoned: true,
+      abandon_reason: "rage_quit",
+      deferred_at: null,
+    })
+    .in("id", cascadeIds)
+    .eq("user_id", userId);
+
+  if (error) {
+    return { error: "update_failed" };
+  }
+
+  // Suppression du heal Héros : verrouille le poids de chaque tâche cascadée
+  // qui portait déjà une pénalité active (lu depuis `siblings`, capturé avant
+  // l'update ci-dessus qui efface `deferred_at`). Groupé par montant (10 ou
+  // 20) pour éviter un update par tâche.
+  const now = new Date();
+  const idsByLockAmount = new Map<number, string[]>();
+  for (const cascadeId of cascadeIds) {
+    const row = siblings.find((s) => s.id === cascadeId);
+    const amount = row ? hpPenaltyToLock(row, now) : null;
+    if (amount !== null) {
+      idsByLockAmount.set(amount, [...(idsByLockAmount.get(amount) ?? []), cascadeId]);
+    }
+  }
+  for (const [amount, ids] of idsByLockAmount) {
+    await supabase
+      .from("tasks")
+      .update({ hp_penalty: amount })
+      .in("id", ids)
+      .eq("user_id", userId);
+  }
+
+  // Issue #114 : la cascade entière (racine + sous-tâches actives) n'a plus
+  // besoin de son rappel de deadline une fois abandonnée.
+  await Promise.allSettled(cascadeIds.map((cascadeId) => cancelDeadlineReminder(cascadeId)));
+
+  // Malus XP unique, clampé, sans de-level (D3).
+  let level: number | undefined;
+  let xp: number | undefined;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("level, xp")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profile) {
+    const next = applyRageQuitPenalty(profile);
+    level = next.level;
+    xp = next.xp;
+    // Issue #115 : abandonner brise la série, comme décocher — le combo n'a
+    // plus de raison d'être client-only "purement visuel" une fois qu'il
+    // module l'XP réelle, il doit rester cohérent avec le serveur en toutes
+    // circonstances.
+    await supabase
+      .from("profiles")
+      .update({
+        level: next.level,
+        xp: next.xp,
+        combo_count: 0,
+        last_combo_completed_at: null,
+      })
+      .eq("id", userId);
+  }
+
+  return { error: null, level, xp };
+}
+
+// US-15 : annuler un Rage Quit (même jour). Restaure is_abandoned=false, efface
+// abandon_reason, rembourse +5 XP (clampé). Ne remonte que les tâches réellement
+// rage-quit (garde par abandon_reason) — un « Annihiler » n'est pas annulable ici.
+export async function undoRageQuitForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<CompleteTaskOutcome> {
+  if (!UUID_RE.test(taskId)) {
+    return { error: "invalid_task_id" };
+  }
+
+  const { data: restored, error } = await supabase
+    .from("tasks")
+    .update({ is_abandoned: false, abandon_reason: null })
+    .or(`id.eq.${taskId},parent_id.eq.${taskId}`)
+    .eq("user_id", userId)
+    .eq("abandon_reason", "rage_quit")
+    .select("id");
+
+  if (error) {
+    return { error: "update_failed" };
+  }
+  if (!restored || restored.length === 0) {
+    return { error: null }; // rien à restaurer (déjà annulé / pas un rage quit)
+  }
+
+  // Remboursement +5 XP (clampé via applyXpDelta pour garder un profil valide).
+  let level: number | undefined;
+  let xp: number | undefined;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("level, xp")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profile) {
+    const next = applyXpDelta(profile, RAGE_QUIT_XP_PENALTY);
+    level = next.level;
+    xp = next.xp;
+    await supabase
+      .from("profiles")
+      .update({ level: next.level, xp: next.xp })
+      .eq("id", userId);
+  }
+
+  return { error: null, level, xp };
+}
+
+// US-19 : reparente et/ou réordonne un groupe de tâches (drag & drop). Le
+// client a déjà décidé le plan (lib/game-engine.ts, planReorder) ; le
+// serveur revalide juste les invariants (RG-01) avant de persister position
+// et parent_id pour chaque id de la liste, dans l'ordre donné.
+export async function reorderSiblingsForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  parentId: string | null,
+  orderedTaskIds: string[],
+): Promise<DomainResult> {
+  // Fix #96 : un drag & drop enchaîné pendant que `addTask` n'est pas encore
+  // résolu peut passer des ids `optimistic-*` (la tâche fraîchement créée, ou
+  // sa voisine lors d'un réordonnancement). Le serveur ne persiste que des
+  // UUID valides ; rejeter tôt plutôt que de "réussir" partiellement (certaines
+  // lignes à jour, d'autres inexistantes) → liste désynchronisée côté base.
+  if (parentId !== null && !UUID_RE.test(parentId)) {
+    return { error: "invalid_task_id" };
+  }
+  for (const id of orderedTaskIds) {
+    if (!UUID_RE.test(id)) {
+      return { error: "invalid_task_id" };
+    }
+  }
+
+  const { data: allTasks, error: fetchError } = await supabase
+    .from("tasks")
+    .select("id, parent_id, is_abandoned")
+    .eq("user_id", userId);
+
+  if (fetchError || !allTasks) {
+    return { error: "update_failed" };
+  }
+
+  const byId = new Map(allTasks.map((task) => [task.id, task]));
+
+  if (parentId !== null) {
+    const targetParent = byId.get(parentId);
+    if (!targetParent || targetParent.is_abandoned || !isNestableParent(targetParent)) {
+      return { error: "task_not_found" };
+    }
+  }
+
+  for (const id of orderedTaskIds) {
+    const task = byId.get(id);
+    if (!task || task.is_abandoned) {
+      return { error: "task_not_found" };
+    }
+
+    const isChangingParent = task.parent_id !== parentId;
+    if (isChangingParent && parentId !== null) {
+      const hasChildren = allTasks.some((other) => other.parent_id === id);
+      if (hasChildren) {
+        return { error: "depth_limit" };
+      }
+    }
+  }
+
+  for (let i = 0; i < orderedTaskIds.length; i += 1) {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ parent_id: parentId, position: i })
+      .eq("id", orderedTaskIds[i])
+      .eq("user_id", userId);
+
+    if (error) {
+      return { error: "update_failed" };
+    }
+  }
+
+  return { error: null };
 }
 
 export interface AddTaskOutcome {

@@ -1,7 +1,17 @@
 import { describe, expect, test, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FakeSupabaseClient } from "./fake-supabase";
-import { addSubtaskForUser, addTaskForUser, completeTaskForUser, deferOverdueTaskForUser, setTaskDeadlineForUser, userToday } from "./tasks";
+import {
+  addSubtaskForUser,
+  addTaskForUser,
+  completeTaskForUser,
+  deferOverdueTaskForUser,
+  rageQuitTaskForUser,
+  reorderSiblingsForUser,
+  setTaskDeadlineForUser,
+  undoRageQuitForUser,
+  userToday,
+} from "./tasks";
 
 const cancelCalls: string[] = [];
 const scheduleCalls: Array<{ taskId: string; offsetMinutes: number }> = [];
@@ -153,5 +163,139 @@ describe("deferOverdueTaskForUser", () => {
     );
     expect(res.error).toBeNull();
     expect(res.deferredTasks?.[0]?.deadline_at).toBeNull();
+  });
+});
+
+describe("rageQuitTaskForUser", () => {
+  test("refuse un id non-UUID sans emettre de requete", async () => {
+    const c = client([]);
+    const res = await rageQuitTaskForUser(c as unknown as SupabaseClient, "u1", "optimistic-2");
+    expect(res.error).toBe("invalid_task_id");
+    expect(c.calls).toBe(0);
+  });
+
+  test("applique le malus XP une seule fois, pas une par sous-tache cascadee", async () => {
+    const c = client([
+      { id: "66666666-6666-6666-6666-666666666666", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
+      { id: "77777777-7777-7777-7777-777777777777", parent_id: "66666666-6666-6666-6666-666666666666", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
+      { id: "88888888-8888-8888-8888-888888888888", parent_id: "66666666-6666-6666-6666-666666666666", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
+    ]);
+    const res = await rageQuitTaskForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "66666666-6666-6666-6666-666666666666",
+    );
+    expect(res.error).toBeNull();
+    // RAGE_QUIT_XP_PENALTY vaut 5 : une racine à 2 enfants coûte 5 XP, jamais 15.
+    expect(res.xp).toBe(0); // profil de départ à 0 XP, clampé sans de-level
+  });
+
+  test("no-op idempotent quand la cascade est vide (deja abandonnee/completee/introuvable)", async () => {
+    const c = client([
+      { id: "66666666-6666-6666-6666-666666666666", parent_id: null, is_completed: false, is_abandoned: true, deadline_at: null, deferred_at: null },
+    ]);
+    const res = await rageQuitTaskForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "66666666-6666-6666-6666-666666666666",
+    );
+    expect(res.error).toBeNull();
+    expect(res.xp).toBeUndefined();
+  });
+});
+
+describe("undoRageQuitForUser", () => {
+  test("refuse un id non-UUID sans emettre de requete", async () => {
+    const c = client([]);
+    const res = await undoRageQuitForUser(c as unknown as SupabaseClient, "u1", "optimistic-6");
+    expect(res.error).toBe("invalid_task_id");
+    expect(c.calls).toBe(0);
+  });
+
+  test("restaure la tache et rembourse l'XP", async () => {
+    const c = client([
+      {
+        id: "99999999-9999-9999-9999-999999999999",
+        parent_id: null,
+        is_completed: false,
+        is_abandoned: true,
+        abandon_reason: "rage_quit",
+        deadline_at: null,
+        deferred_at: null,
+      },
+    ]);
+    const res = await undoRageQuitForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "99999999-9999-9999-9999-999999999999",
+    );
+    expect(res.error).toBeNull();
+    expect(res.xp).toBe(5); // RAGE_QUIT_XP_PENALTY remboursé sur un profil à 0 XP
+  });
+
+  test("no-op idempotent quand rien n'est a restaurer", async () => {
+    const c = client([]);
+    const res = await undoRageQuitForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    );
+    expect(res.error).toBeNull();
+    expect(res.xp).toBeUndefined();
+  });
+});
+
+describe("reorderSiblingsForUser", () => {
+  test("refuse un parentId non-UUID sans emettre de requete", async () => {
+    const c = client([]);
+    const res = await reorderSiblingsForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "optimistic-parent",
+      ["11111111-1111-1111-1111-111111111111"],
+    );
+    expect(res.error).toBe("invalid_task_id");
+    expect(c.calls).toBe(0);
+  });
+
+  test("refuse un id non-UUID dans la liste ordonnee sans emettre de requete", async () => {
+    const c = client([]);
+    const res = await reorderSiblingsForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      null,
+      ["optimistic-5", "11111111-1111-1111-1111-111111111111"],
+    );
+    expect(res.error).toBe("invalid_task_id");
+    expect(c.calls).toBe(0);
+  });
+
+  test("reordonne une fratrie racine valide", async () => {
+    const c = client([
+      { id: "11111111-1111-1111-1111-111111111111", parent_id: null, is_abandoned: false },
+      { id: "22222222-2222-2222-2222-222222222222", parent_id: null, is_abandoned: false },
+    ]);
+    const res = await reorderSiblingsForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      null,
+      ["22222222-2222-2222-2222-222222222222", "11111111-1111-1111-1111-111111111111"],
+    );
+    expect(res.error).toBeNull();
+  });
+
+  test("refuse de reparenter une tache qui a deja des sous-taches", async () => {
+    const c = client([
+      { id: "11111111-1111-1111-1111-111111111111", parent_id: null, is_abandoned: false },
+      { id: "33333333-3333-3333-3333-333333333333", parent_id: null, is_abandoned: false },
+      { id: "44444444-4444-4444-4444-444444444444", parent_id: "33333333-3333-3333-3333-333333333333", is_abandoned: false },
+    ]);
+    const res = await reorderSiblingsForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "11111111-1111-1111-1111-111111111111",
+      ["33333333-3333-3333-3333-333333333333"],
+    );
+    expect(res.error).toBe("depth_limit");
   });
 });

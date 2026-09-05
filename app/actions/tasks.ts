@@ -3,17 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
-  applyRageQuitPenalty,
-  applyXpDelta,
-  collectAbandonCascade,
   dayKey,
-  hpPenaltyToLock,
-  isNestableParent,
   nextDayKey,
   nextSiblingPosition,
-  RAGE_QUIT_XP_PENALTY,
 } from "@/lib/game-engine";
-import type { CascadeTask } from "@/lib/game-engine";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
 import { cancelDeadlineReminder } from "@/lib/inngest/deadline-reminder";
@@ -26,7 +19,10 @@ import {
   completeTaskForUser,
   deferAllOverdueForUser,
   deferOverdueTaskForUser,
+  rageQuitTaskForUser,
+  reorderSiblingsForUser,
   setTaskDeadlineForUser,
+  undoRageQuitForUser,
   userToday,
 } from "@/lib/domain/tasks";
 import type { DomainErrorCode } from "@/lib/domain/errors";
@@ -185,6 +181,7 @@ function completionErrorMessage(code: DomainErrorCode, isCompleted: boolean): st
 // Boss rétréci (la tâche sort du calcul HP), cascade sur les sous-tâches actives.
 // RG-04 : jamais de DELETE, on pose is_abandoned=true + abandon_reason='rage_quit'.
 // Le malus est appliqué UNE fois par action (pas par tâche cascadée).
+// Issue #201 (lot 1) : wrapper mince autour de rageQuitTaskForUser (lib/domain/tasks.ts).
 export async function rageQuitTask(id: string): Promise<TaskActionResult> {
   // Fix #95 : id `optimistic-*` envoyable si l'utilisateur déclenche un Rage
   // Quit (clic sur × puis confirm) sur une tâche fraîchement créée avant la
@@ -204,95 +201,19 @@ export async function rageQuitTask(id: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  // Charge la tâche + sa fratrie potentielle (mêmes racine/enfants) pour la cascade pure.
-  const { data: siblings, error: fetchError } = await supabase
-    .from("tasks")
-    .select("id, parent_id, is_completed, is_abandoned, deadline_at, deferred_at")
-    .eq("user_id", user.id);
-
-  if (fetchError || !siblings) {
+  const outcome = await rageQuitTaskForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
     return { error: "Impossible d'abandonner cette tâche. Réessaie." };
-  }
-
-  const cascadeIds = collectAbandonCascade(id, siblings as CascadeTask[]);
-  if (cascadeIds.length === 0) {
-    // Déjà abandonnée / complétée / introuvable → no-op idempotent (B2).
-    return { error: null };
-  }
-
-  const { error } = await supabase
-    .from("tasks")
-    .update({
-      is_abandoned: true,
-      abandon_reason: "rage_quit",
-      deferred_at: null,
-    })
-    .in("id", cascadeIds)
-    .eq("user_id", user.id);
-
-  if (error) {
-    return { error: "Impossible d'abandonner cette tâche. Réessaie." };
-  }
-
-  // Suppression du heal Héros : verrouille le poids de chaque tâche cascadée
-  // qui portait déjà une pénalité active (lu depuis `siblings`, capturé avant
-  // l'update ci-dessus qui efface `deferred_at`). Groupé par montant (10 ou
-  // 20) pour éviter un update par tâche.
-  const now = new Date();
-  const idsByLockAmount = new Map<number, string[]>();
-  for (const taskId of cascadeIds) {
-    const row = siblings.find((s) => s.id === taskId);
-    const amount = row ? hpPenaltyToLock(row, now) : null;
-    if (amount !== null) {
-      idsByLockAmount.set(amount, [...(idsByLockAmount.get(amount) ?? []), taskId]);
-    }
-  }
-  for (const [amount, ids] of idsByLockAmount) {
-    await supabase
-      .from("tasks")
-      .update({ hp_penalty: amount })
-      .in("id", ids)
-      .eq("user_id", user.id);
-  }
-
-  // Issue #114 : la cascade entière (racine + sous-tâches actives) n'a plus
-  // besoin de son rappel de deadline une fois abandonnée.
-  await Promise.allSettled(cascadeIds.map((cascadeId) => cancelDeadlineReminder(cascadeId)));
-
-  // Malus XP unique, clampé, sans de-level (D3).
-  let level: number | undefined;
-  let xp: number | undefined;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("level, xp")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile) {
-    const next = applyRageQuitPenalty(profile);
-    level = next.level;
-    xp = next.xp;
-    // Issue #115 : abandonner brise la série, comme décocher — le combo n'a
-    // plus de raison d'être client-only "purement visuel" une fois qu'il
-    // module l'XP réelle, il doit rester cohérent avec le serveur en toutes
-    // circonstances.
-    await supabase
-      .from("profiles")
-      .update({
-        level: next.level,
-        xp: next.xp,
-        combo_count: 0,
-        last_combo_completed_at: null,
-      })
-      .eq("id", user.id);
   }
 
   revalidatePath("/");
-  return { error: null, level, xp };
+  return { error: null, level: outcome.level, xp: outcome.xp };
 }
 
 // US-15 : annuler un Rage Quit (même jour). Restaure is_abandoned=false, efface
 // abandon_reason, rembourse +5 XP (clampé). Ne remonte que les tâches réellement
 // rage-quit (garde par abandon_reason) — un « Annihiler » n'est pas annulable ici.
+// Issue #201 (lot 1) : wrapper mince autour de undoRageQuitForUser (lib/domain/tasks.ts).
 export async function undoRageQuit(id: string): Promise<TaskActionResult> {
   if (!UUID_RE.test(id)) {
     return { error: "Identifiant de tâche invalide." };
@@ -307,47 +228,20 @@ export async function undoRageQuit(id: string): Promise<TaskActionResult> {
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: restored, error } = await supabase
-    .from("tasks")
-    .update({ is_abandoned: false, abandon_reason: null })
-    .or(`id.eq.${id},parent_id.eq.${id}`)
-    .eq("user_id", user.id)
-    .eq("abandon_reason", "rage_quit")
-    .select("id");
-
-  if (error) {
+  const outcome = await undoRageQuitForUser(supabase, user.id, id);
+  if (outcome.error !== null) {
     return { error: "Impossible d'annuler l'abandon. Réessaie." };
-  }
-  if (!restored || restored.length === 0) {
-    return { error: null }; // rien à restaurer (déjà annulé / pas un rage quit)
-  }
-
-  // Remboursement +5 XP (clampé via applyXpDelta pour garder un profil valide).
-  let level: number | undefined;
-  let xp: number | undefined;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("level, xp")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile) {
-    const next = applyXpDelta(profile, RAGE_QUIT_XP_PENALTY);
-    level = next.level;
-    xp = next.xp;
-    await supabase
-      .from("profiles")
-      .update({ level: next.level, xp: next.xp })
-      .eq("id", user.id);
   }
 
   revalidatePath("/");
-  return { error: null, level, xp };
+  return { error: null, level: outcome.level, xp: outcome.xp };
 }
 
 // US-19 : reparente et/ou réordonne un groupe de tâches (drag & drop). Le
 // client a déjà décidé le plan (lib/game-engine.ts, planReorder) ; le
 // serveur revalide juste les invariants (RG-01) avant de persister position
 // et parent_id pour chaque id de la liste, dans l'ordre donné.
+// Issue #201 (lot 1) : wrapper mince autour de reorderSiblingsForUser (lib/domain/tasks.ts).
 export async function reorderSiblings(
   parentId: string | null,
   orderedTaskIds: string[],
@@ -375,55 +269,21 @@ export async function reorderSiblings(
     return { error: "Session expirée. Reconnecte-toi." };
   }
 
-  const { data: allTasks, error: fetchError } = await supabase
-    .from("tasks")
-    .select("id, parent_id, is_abandoned")
-    .eq("user_id", user.id);
-
-  if (fetchError || !allTasks) {
-    return { error: "Impossible de réorganiser ces tâches. Réessaie." };
-  }
-
-  const byId = new Map(allTasks.map((task) => [task.id, task]));
-
-  if (parentId !== null) {
-    const targetParent = byId.get(parentId);
-    if (!targetParent || targetParent.is_abandoned || !isNestableParent(targetParent)) {
-      return { error: "Cette tâche est introuvable." };
-    }
-  }
-
-  for (const id of orderedTaskIds) {
-    const task = byId.get(id);
-    if (!task || task.is_abandoned) {
-      return { error: "Cette tâche est introuvable." };
-    }
-
-    const isChangingParent = task.parent_id !== parentId;
-    if (isChangingParent && parentId !== null) {
-      const hasChildren = allTasks.some((other) => other.parent_id === id);
-      if (hasChildren) {
-        return {
-          error: "Cette tâche a déjà des sous-tâches, elle ne peut pas devenir une sous-tâche.",
-        };
-      }
-    }
-  }
-
-  for (let i = 0; i < orderedTaskIds.length; i += 1) {
-    const { error } = await supabase
-      .from("tasks")
-      .update({ parent_id: parentId, position: i })
-      .eq("id", orderedTaskIds[i])
-      .eq("user_id", user.id);
-
-    if (error) {
-      return { error: "Impossible de réorganiser ces tâches. Réessaie." };
-    }
+  const outcome = await reorderSiblingsForUser(supabase, user.id, parentId, orderedTaskIds);
+  if (outcome.error !== null) {
+    return { error: reorderErrorMessage(outcome.error) };
   }
 
   revalidatePath("/");
   return { error: null };
+}
+
+function reorderErrorMessage(code: DomainErrorCode): string {
+  if (code === "task_not_found") return "Cette tâche est introuvable.";
+  if (code === "depth_limit") {
+    return "Cette tâche a déjà des sous-tâches, elle ne peut pas devenir une sous-tâche.";
+  }
+  return "Impossible de réorganiser ces tâches. Réessaie.";
 }
 
 // US-08 (A1) : la tâche a été faite hors app — on la valide rétroactivement
