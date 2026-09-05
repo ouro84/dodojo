@@ -19,7 +19,6 @@ import {
   reportToTomorrowForUser,
   setTaskDeadlineForUser,
   undoRageQuitForUser,
-  userToday,
 } from "@/lib/domain/tasks";
 import type { DomainErrorCode } from "@/lib/domain/errors";
 import type { Task } from "@/types";

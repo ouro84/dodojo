@@ -25,8 +25,8 @@ import type { DomainErrorCode, DomainResult } from "./errors";
 
 // Audit #67, PR5 : `id` alimente un filtre PostgREST construit par
 // interpolation de chaine. Valider le format avant construction. La garde vit
-// ici (et non plus seulement dans la server action) parce que le serveur MCP
-// appelle le domaine directement, sans passer par app/actions/.
+// ici EN PLUS de la server action (jamais à la place) — le futur serveur MCP
+// appellera le domaine directement, sans passer par app/actions/.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface CompleteTaskOutcome {
