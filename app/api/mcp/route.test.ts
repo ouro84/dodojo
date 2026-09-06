@@ -1,77 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ACCESS_TOKEN_TTL_MS, expiresAtFromNow, generateOpaqueToken, hashOpaqueToken } from "../../../lib/oauth-tokens";
+import { FakeSupabaseClient } from "../../../lib/domain/fake-supabase";
 
 type Row = Record<string, unknown>;
-
-class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
-  private filters: Array<(row: Row) => boolean> = [];
-  private mode: "select" | "insert" = "select";
-  private insertedRow: Row | null = null;
-
-  constructor(private readonly rows: Row[]) {}
-
-  select(): this {
-    return this;
-  }
-
-  insert(row: Row): this {
-    this.mode = "insert";
-    this.insertedRow = Object.assign(
-      { id: "task-" + String(this.rows.length + 1), parent_id: null, is_abandoned: false, is_completed: false },
-      row,
-    );
-    return this;
-  }
-
-  eq(column: string, value: unknown): this {
-    this.filters.push((row) => row[column] === value);
-    return this;
-  }
-
-  private matched(): Row[] {
-    return this.rows.filter((row) => this.filters.every((f) => f(row)));
-  }
-
-  async maybeSingle(): Promise<{ data: Row | null; error: null }> {
-    return { data: this.matched()[0] ?? null, error: null };
-  }
-
-  async single(): Promise<{ data: Row | null; error: null }> {
-    if (this.mode === "insert" && this.insertedRow) {
-      this.rows.push(this.insertedRow);
-      return { data: this.insertedRow, error: null };
-    }
-    return { data: this.matched()[0] ?? null, error: null };
-  }
-
-  then<TResult1 = { data: Row[]; error: null }, TResult2 = never>(
-    onfulfilled?: ((value: { data: Row[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
-  ): PromiseLike<TResult1 | TResult2> {
-    return Promise.resolve({ data: this.matched(), error: null as null }).then(
-      onfulfilled ?? undefined,
-    ) as PromiseLike<TResult1 | TResult2>;
-  }
-}
-
-class FakeSupabaseClient {
-  constructor(private readonly tables: Record<string, Row[]>) {}
-  from(table: string): FakeQueryBuilder {
-    if (!this.tables[table]) this.tables[table] = [];
-    return new FakeQueryBuilder(this.tables[table]);
-  }
-  // consumeMcpQuota (lib/mcp-rate-limit.ts) appelle supabase.rpc(...) - par
-  // defaut ca autorise (data: true), sauf override explicite par un test qui
-  // teste specifiquement le rate limit.
-  async rpc(): Promise<{ data: boolean; error: null }> {
-    return { data: rpcQuotaResult, error: null };
-  }
-}
 
 let dbTables: Record<string, Row[]>;
 let rpcQuotaResult: boolean;
 
 vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => new FakeSupabaseClient(dbTables),
+  createClient: () => {
+    const client = new FakeSupabaseClient(dbTables);
+    client.rpcResult = rpcQuotaResult;
+    return client;
+  },
 }));
 
 const NOW = "2026-07-22T12:00:00.000Z";
@@ -141,12 +82,12 @@ describe("POST /api/mcp - protocole JSON-RPC (US-22)", () => {
     expect(body.result.capabilities).toEqual({ tools: {} });
   });
 
-  test("tools/list retourne le tool add_task", async () => {
+  test("tools/list retourne les tools couverts par le scope tasks:read tasks:write (issue #201, lot 3)", async () => {
     const { POST } = await import("./route");
     const response = await POST(mcpRequest({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
     const body = await response.json();
-    expect(body.result.tools).toHaveLength(1);
-    expect(body.result.tools[0].name).toBe("add_task");
+    const names = body.result.tools.map((t: { name: string }) => t.name).sort();
+    expect(names).toEqual(["add_task", "get_boss_status", "get_streak", "list_tasks"]);
   });
 
   test("notifications/initialized repond 202 sans corps", async () => {
@@ -216,7 +157,8 @@ describe("POST /api/mcp - scopes (issue #201)", () => {
     const { POST } = await import("./route");
     const response = await POST(mcpRequest({ jsonrpc: "2.0", id: 7, method: "tools/list" }));
     const body = await response.json();
-    expect(body.result.tools).toEqual([]);
+    const names = body.result.tools.map((t: { name: string }) => t.name).sort();
+    expect(names).toEqual(["get_boss_status", "get_streak", "list_tasks"]);
   });
 
   test("tools/call sur add_task avec un token scope tasks:read seul -> isError avec message de scope, pas -32601", async () => {

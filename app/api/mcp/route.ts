@@ -159,9 +159,9 @@ async function handleToolsCall(
     );
   }
 
-  const parsedArgs = def.parseArgs(args);
-  if ("error" in parsedArgs && typeof parsedArgs.error === "string") {
-    return NextResponse.json(successResponse(rpcRequest.id, buildToolErrorResult(parsedArgs.error)));
+  const parsed = def.parseArgs(args);
+  if (!parsed.ok) {
+    return NextResponse.json(successResponse(rpcRequest.id, buildToolErrorResult(parsed.error)));
   }
 
   const { data: profile } = await supabase
@@ -172,6 +172,6 @@ async function handleToolsCall(
   const timezone = (profile as ProfileTimezoneRow | null)?.timezone ?? "UTC";
 
   const ctx: McpContext = { supabase, userId, timezone };
-  const result = await def.handler(ctx, parsedArgs);
+  const result = await def.handler(ctx, parsed.args);
   return NextResponse.json(successResponse(rpcRequest.id, result));
 }

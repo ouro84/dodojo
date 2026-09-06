@@ -1,6 +1,8 @@
 // Faux client Supabase — TEST ONLY, jamais importé par du code de production.
-// Source unique partagée par lib/domain/*.test.ts et app/actions/tasks.test.ts
-// (la copie locale de ce dernier a été fusionnée ici, issue #201 lot 3).
+// Source unique partagée par lib/domain/*.test.ts, app/actions/tasks.test.ts
+// (la copie locale de ce dernier a été fusionnée ici, issue #201 lot 3) et
+// app/api/mcp/route.test.ts (fusionnée à son tour, issue #201 lot 3 tache 4 —
+// `.rpc()` ci-dessous vient de cette copie, seul consommateur à ce jour).
 // `eq`/`in`/`lt`/`is` filtrent réellement les lignes (this.filters, consulté
 // par apply() en lecture comme en update) — seul `or()` reste un no-op,
 // choix documenté juste au-dessus de sa définition, pas un oubli.
@@ -125,12 +127,22 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
 
 export class FakeSupabaseClient {
   public calls = 0;
+  // consumeMcpQuota (lib/mcp-rate-limit.ts) appelle supabase.rpc(...) — par
+  // defaut ca autorise (data: true), sauf override explicite via
+  // `rpcResult` (utilise par app/api/mcp/route.test.ts pour tester le rate
+  // limit). Aucun consommateur de ce fake n'appelle un autre RPC a ce jour.
+  public rpcResult = true;
+
   constructor(private readonly tables: Record<string, Row[]>) {}
 
   from(table: string): FakeQueryBuilder {
     this.calls += 1;
     if (!this.tables[table]) this.tables[table] = [];
     return new FakeQueryBuilder(this.tables[table]);
+  }
+
+  async rpc(): Promise<{ data: boolean; error: null }> {
+    return { data: this.rpcResult, error: null };
   }
 
   auth = {
