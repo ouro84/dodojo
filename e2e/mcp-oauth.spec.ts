@@ -50,7 +50,12 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     // 4. Consentement affiche les scopes par defaut (tasks:read + tasks:write)
     await expect(page.getByText(/Lire tes tâches/)).toBeVisible();
     await expect(page.getByText(/Créer et cocher des tâches/)).toBeVisible();
-    await expect(page.getByText(/Changer ton combattant équipé/)).not.toBeVisible();
+    // .toHaveCount(0) plutot que .not.toBeVisible() : un locator a zero
+    // element matche vacuously .not.toBeVisible() (rien n'est visible car
+    // rien n'existe) - ca ne prouve pas que le scope profile:write a bien
+    // ete exclu, seulement que la chaine ne serait pas visible si elle
+    // existait. toHaveCount(0) affirme l'absence reelle du noeud.
+    await expect(page.getByText(/Changer ton combattant équipé/)).toHaveCount(0);
 
     // 5. Autoriser -> le formulaire POST sur /oauth/authorize repond par une
     // redirection 302 vers redirect_uri?code=... . redirect_uri pointe un
@@ -123,5 +128,91 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     expect(unknownRes.status()).toBe(200);
     const unknownBody = await unknownRes.json();
     expect(unknownBody.error).toBeTruthy();
+  });
+
+  // Le test precedent autorise sans parametre scope -> DEFAULT_SCOPE
+  // ("tasks:read tasks:write") inclut deja tasks:write, le scope requis par
+  // add_task : verifier que add_task est present ne prouve donc rien sur le
+  // filtrage par scope lui-meme (une regression qui renverrait le registre
+  // entier sans filtrer passerait cette assertion a l'identique). Ce
+  // deuxieme round demande explicitement scope=tasks:read SEUL et verifie
+  // le negatif sur les trois surfaces pilotees par le scope : consentement,
+  // tools/list, tools/call.
+  test("scope=tasks:read seul : consentement, tools/list et tools/call excluent add_task", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const clientName = `e2e-mcp-scope-${Date.now()}`;
+    const redirectUri = "http://127.0.0.1:9999/callback";
+
+    const registerRes = await request.post(`${baseURL}/oauth/register`, {
+      data: { client_name: clientName, redirect_uris: [redirectUri] },
+    });
+    expect(registerRes.status()).toBe(201);
+    const { client_id: clientId } = await registerRes.json();
+    expect(clientId).toBeTruthy();
+
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = deriveCodeChallenge(codeVerifier);
+
+    await login(page);
+    const authorizeUrl = new URL("/oauth/authorize", baseURL!);
+    authorizeUrl.searchParams.set("client_id", clientId);
+    authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+    authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+    authorizeUrl.searchParams.set("code_challenge_method", "S256");
+    authorizeUrl.searchParams.set("scope", "tasks:read");
+    await page.goto(authorizeUrl.toString());
+
+    // Consentement : seule la description tasks:read doit apparaitre.
+    await expect(page.getByText(/Lire tes tâches/)).toBeVisible();
+    await expect(page.getByText(/Créer et cocher des tâches/)).toHaveCount(0);
+
+    const [redirectRequest] = await Promise.all([
+      page.waitForRequest((req) => req.url().startsWith(redirectUri)),
+      page.getByRole("button", { name: "Autoriser" }).click(),
+    ]);
+    const code = new URL(redirectRequest.url()).searchParams.get("code");
+    expect(code).toBeTruthy();
+
+    const tokenRes = await request.post(`${baseURL}/oauth/token`, {
+      form: {
+        grant_type: "authorization_code",
+        code: code!,
+        code_verifier: codeVerifier,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+      },
+    });
+    expect(tokenRes.status()).toBe(200);
+    const { access_token: accessToken } = await tokenRes.json();
+    expect(accessToken).toBeTruthy();
+
+    // tools/list : add_task requiert tasks:write, non accorde -> registre vide.
+    const listRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: { jsonrpc: "2.0", id: 1, method: "tools/list" },
+    });
+    expect(listRes.status()).toBe(200);
+    const listBody = await listRes.json();
+    expect(listBody.result.tools).toEqual([]);
+
+    // tools/call sur add_task quand meme : erreur metier dans l'enveloppe
+    // JSON-RPC de succes (isError: true), jamais une erreur de transport
+    // JSON-RPC (-326xx) ni un 500 - cf. handleToolsCall (app/api/mcp/route.ts).
+    const callRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "add_task", arguments: { title: `Tache MCP e2e scope refuse ${Date.now()}` } },
+      },
+    });
+    expect(callRes.status()).toBe(200);
+    const callBody = await callRes.json();
+    expect(callBody.error).toBeUndefined();
+    expect(callBody.result.isError).toBe(true);
   });
 });

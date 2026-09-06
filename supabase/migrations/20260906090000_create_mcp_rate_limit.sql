@@ -22,7 +22,6 @@ create or replace function public.consume_mcp_quota(
   p_window_seconds int
 ) returns boolean
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare
@@ -62,5 +61,16 @@ begin
 end;
 $$;
 
-revoke execute on function public.consume_mcp_quota(uuid, int, int) from public;
+-- IMPORTANT : nommer explicitement anon/authenticated ci-dessous, pas
+-- seulement "from public". Sur un projet Supabase-hoste, les privileges par
+-- defaut du bootstrap ("alter default privileges for role postgres in
+-- schema public grant all on functions to postgres, anon, authenticated,
+-- service_role") accordent a anon/authenticated un GRANT EXECUTE EXPLICITE
+-- au moment du CREATE FUNCTION (les migrations s'appliquent en tant que
+-- postgres, dans le schema public) - un simple "revoke ... from public" ne
+-- touche que le GRANT PUBLIC implicite et laisse ces grants explicites
+-- intacts, donc n'importe qui muni de la cle anon pourrait toujours appeler
+-- ce RPC via PostgREST. Toute future fonction security definer (PR3/PR4) qui
+-- copie ce bloc doit garder cette liste de roles explicite.
+revoke execute on function public.consume_mcp_quota(uuid, int, int) from public, anon, authenticated;
 grant execute on function public.consume_mcp_quota(uuid, int, int) to service_role;

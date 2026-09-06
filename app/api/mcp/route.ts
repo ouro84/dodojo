@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { hashOpaqueToken, isExpired } from "../../../lib/oauth-tokens";
 import { consumeMcpQuota } from "../../../lib/mcp-rate-limit";
+import { createRateLimiter, extractClientIp } from "../../../lib/rate-limit";
 import { findTool, toolsForScope, type McpContext } from "../../../lib/mcp-tools";
 import { hasScope } from "../../../lib/oauth-scopes";
 import {
@@ -28,6 +29,15 @@ interface OAuthTokenRow {
 interface ProfileTimezoneRow {
   timezone: string;
 }
+
+// Defense en profondeur, couche 1 : garde IP en memoire (best-effort, cf.
+// lib/rate-limit.ts), avant meme de savoir si le Bearer token est valide -
+// symetrique a /oauth/register (5/min/IP) et /oauth/token (10/min/IP). Sans
+// elle, un attaquant envoyant des tokens invalides declenche un SELECT
+// Supabase indexe par requete a n'importe quel debit, sans jamais atteindre
+// le quota autoritaire par utilisateur (consumeMcpQuota), qui par
+// construction ne peut s'appliquer qu'une fois l'utilisateur identifie.
+const mcpRateLimiter = createRateLimiter(60, 60_000);
 
 function extractBearerToken(header: string | null): string | null {
   if (!header) return null;
@@ -59,6 +69,10 @@ function serviceClient(): SupabaseClient | null {
 // autoritaire par utilisateur, puis route via le registry de tools
 // (lib/mcp-tools.ts) filtre par le scope du token.
 export async function POST(request: Request): Promise<Response> {
+  if (!mcpRateLimiter.consume(extractClientIp(request)).allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": "60" } });
+  }
+
   const token = extractBearerToken(request.headers.get("authorization"));
   if (!token) return unauthorized(request);
 
@@ -80,7 +94,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const allowed = await consumeMcpQuota(supabase, resolvedToken.user_id);
   if (!allowed) {
-    return NextResponse.json(errorResponse(null, JSON_RPC_ERROR_INVALID_PARAMS, "rate_limited"), { status: 429 });
+    // `id` est force a null : le corps de la requete n'a volontairement pas
+    // encore ete parse a ce stade (le parser plus bas), donc aucun id
+    // JSON-RPC n'est disponible - le parser APRES ce guard reviendrait a
+    // laisser un appelant contourner le quota en forcant un corps invalide.
+    return NextResponse.json(errorResponse(null, JSON_RPC_ERROR_INVALID_PARAMS, "rate_limited"), {
+      status: 429,
+      headers: { "Retry-After": "60" },
+    });
   }
 
   let body: unknown;

@@ -73,10 +73,6 @@ export function buildInitializeResult(): Record<string, unknown> {
   };
 }
 
-export function buildToolsListResult(): { tools: McpTool[] } {
-  return { tools: [ADD_TASK_TOOL] };
-}
-
 export interface McpToolResult {
   content: Array<{ type: "text"; text: string }>;
   isError: boolean;
