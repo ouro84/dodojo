@@ -1,124 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { FakeSupabaseClient } from "@/lib/domain/fake-supabase";
 
 type Row = Record<string, unknown>;
-
-// Fake Supabase minimal — un seul query builder type couvre select/insert/
-// update/eq/maybeSingle. Les guards UUID des server actions court-circuitent
-// AVANT tout appel Supabase, donc le fake n'est jamais sollicité pour les cas
-// testés ici ; on le garde quand même monté pour valider qu'aucune requête
-// part effectivement (assertions `dbCalls === 0`).
-class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
-  private filters: Array<(row: Row) => boolean> = [];
-  private mode: "select" | "insert" | "update" = "select";
-  private patch: Row = {};
-  private insertedRow: Row | null = null;
-
-  constructor(private readonly rows: Row[]) {}
-
-  select(): this {
-    return this;
-  }
-
-  insert(row: Row): this {
-    this.mode = "insert";
-    this.insertedRow = { id: `task-${this.rows.length + 1}`, ...row };
-    return this;
-  }
-
-  update(patch: Row): this {
-    this.mode = "update";
-    this.patch = patch;
-    return this;
-  }
-
-  eq(): this {
-    this.filters.push(() => true);
-    return this;
-  }
-
-  or(): this {
-    this.filters.push(() => true);
-    return this;
-  }
-
-  lt(): this {
-    this.filters.push(() => true);
-    return this;
-  }
-
-  is(): this {
-    this.filters.push(() => true);
-    return this;
-  }
-
-  in(): this {
-    this.filters.push(() => true);
-    return this;
-  }
-
-  limit(): this {
-    return this;
-  }
-
-  private apply(): Row[] {
-    if (this.mode === "insert" && this.insertedRow) {
-      this.rows.push(this.insertedRow);
-      return [this.insertedRow];
-    }
-    if (this.mode === "update") {
-      const matched = this.rows.filter(() => true);
-      for (const row of matched) Object.assign(row, this.patch);
-      return matched;
-    }
-    // Clone en lecture : un `select` renvoie un instantané détaché, comme le
-    // vrai Supabase (les lignes désérialisées ne sont pas des références
-    // vivantes vers l'état serveur) — sans ça, un `update` déclenché APRÈS un
-    // `select` mutait rétroactivement les objets déjà lus par un appelant qui
-    // avait fetché sa propre copie avant de faire son propre update ailleurs
-    // (rageQuitTask lit deadline_at/deferred_at avant d'effacer ce dernier).
-    // Découvert en l'ajoutant : sans lui, `existingTask` (setTaskCompleted)
-    // était mutée en place par l'update qui le précède, donc `isRealTransition`
-    // valait toujours `false` — la branche XP/achievements n'était jamais
-    // réellement exercée par ces tests malgré l'apparence de passer.
-    return this.rows.map((row) => ({ ...row }));
-  }
-
-  async maybeSingle(): Promise<{ data: Row | null; error: null }> {
-    const rows = this.apply();
-    return { data: rows[0] ?? null, error: null };
-  }
-
-  async single(): Promise<{ data: Row | null; error: null }> {
-    const rows = this.apply();
-    return { data: rows[0] ?? null, error: null };
-  }
-
-  then<TResult1 = { data: Row[]; error: null }, TResult2 = never>(
-    onfulfilled?: ((value: { data: Row[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
-  ): PromiseLike<TResult1 | TResult2> {
-    const data = this.apply();
-    return Promise.resolve({ data, error: null as null }).then(
-      onfulfilled ?? undefined,
-    ) as PromiseLike<TResult1 | TResult2>;
-  }
-}
-
-class FakeSupabaseClient {
-  public calls = 0;
-  constructor(private readonly tables: Record<string, Row[]>) {}
-
-  from(table: string): FakeQueryBuilder {
-    this.calls += 1;
-    if (!this.tables[table]) this.tables[table] = [];
-    return new FakeQueryBuilder(this.tables[table]);
-  }
-
-  auth = {
-    getUser: vi.fn(async () => ({
-      data: { user: { id: "u1" } },
-    })),
-  };
-}
 
 let fakeClient: FakeSupabaseClient;
 let revalidateCalls = 0;
@@ -338,7 +221,7 @@ describe("Annulation du rappel deadline — actions du Réveil (#114)", () => {
   test("annihilateOverdueTask annule le rappel de la tâche", async () => {
     fakeClient = new FakeSupabaseClient({
       profiles: [{ id: "u1", level: 1, xp: 0 }],
-      tasks: [{ id: "aaaaaaaa-0000-0000-0000-000000000002", user_id: "u1" }],
+      tasks: [{ id: "aaaaaaaa-0000-0000-0000-000000000002", user_id: "u1", is_abandoned: false }],
     });
     const { annihilateOverdueTask } = await import("./tasks");
     await annihilateOverdueTask("aaaaaaaa-0000-0000-0000-000000000002");
@@ -400,7 +283,7 @@ describe("Annulation du rappel deadline — report/retour (#114)", () => {
         {
           id: "bbbbbbbb-0000-0000-0000-000000000003",
           user_id: "u1",
-          day_date: "2026-08-01",
+          day_date: dayKeyToday(),
           is_completed: false,
           is_abandoned: false,
         },
@@ -663,7 +546,7 @@ describe("Suppression du heal Héros — verrouillage à la résolution", () => 
       profiles: [
         { id: "u1", level: 1, xp: 0, timezone: "UTC", hp_damage_locked: 20, hp_damage_locked_day: dayKeyToday() },
       ],
-      tasks: [{ id: "99999999-0000-0000-0000-00000000000a", user_id: "u1" }],
+      tasks: [{ id: "99999999-0000-0000-0000-00000000000a", user_id: "u1", is_abandoned: false }],
     });
     const { annihilateOverdueTask } = await import("./tasks");
     const result = await annihilateOverdueTask("99999999-0000-0000-0000-00000000000a");
@@ -675,7 +558,7 @@ describe("Suppression du heal Héros — verrouillage à la résolution", () => 
       profiles: [
         { id: "u1", level: 1, xp: 0, timezone: "UTC", hp_damage_locked: 60, hp_damage_locked_day: "2000-01-01" },
       ],
-      tasks: [{ id: "99999999-0000-0000-0000-00000000000b", user_id: "u1" }],
+      tasks: [{ id: "99999999-0000-0000-0000-00000000000b", user_id: "u1", is_abandoned: false }],
     });
     const { annihilateOverdueTask } = await import("./tasks");
     const result = await annihilateOverdueTask("99999999-0000-0000-0000-00000000000b");
@@ -686,8 +569,8 @@ describe("Suppression du heal Héros — verrouillage à la résolution", () => 
     fakeClient = new FakeSupabaseClient({
       profiles: [{ id: "u1", level: 1, xp: 0, timezone: "UTC", hp_damage_locked: 0, hp_damage_locked_day: null }],
       tasks: [
-        { id: "99999999-0000-0000-0000-00000000000c", user_id: "u1", is_completed: false, is_abandoned: false },
-        { id: "99999999-0000-0000-0000-00000000000d", user_id: "u1", is_completed: false, is_abandoned: false },
+        { id: "99999999-0000-0000-0000-00000000000c", user_id: "u1", day_date: "2000-01-01", is_completed: false, is_abandoned: false },
+        { id: "99999999-0000-0000-0000-00000000000d", user_id: "u1", day_date: "2000-01-01", is_completed: false, is_abandoned: false },
       ],
     });
     const { annihilateOverdueOlderThan } = await import("./tasks");

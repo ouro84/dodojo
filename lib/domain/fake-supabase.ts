@@ -1,8 +1,9 @@
 // Faux client Supabase — TEST ONLY, jamais importé par du code de production.
-// Copie délibérée de app/actions/tasks.test.ts (lot 1, issue #201) : ce
-// fichier de test est sous contrainte « aucune modification » pendant la
-// refacto, on ne peut donc pas l'y remplacer par un import. Les deux copies
-// seront fusionnées dans un PR ultérieur.
+// Source unique partagée par lib/domain/*.test.ts et app/actions/tasks.test.ts
+// (la copie locale de ce dernier a été fusionnée ici, issue #201 lot 3).
+// `eq`/`in`/`lt`/`is` filtrent réellement les lignes (this.filters, consulté
+// par apply() en lecture comme en update) — seul `or()` reste un no-op,
+// choix documenté juste au-dessus de sa définition, pas un oubli.
 
 import { vi } from "vitest";
 
@@ -32,33 +33,40 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     return this;
   }
 
-  eq(): this {
-    this.filters.push(() => true);
+  eq(column: string, value: unknown): this {
+    this.filters.push((row) => row[column] === value);
     return this;
   }
 
+  // `or` reste volontairement permissif : les vraies clauses `.or()` de ce
+  // repo sont des chaines PostgREST (`id.eq.X,parent_id.eq.X`) dont le
+  // parsing complet n'apporterait rien ici — mais contrairement aux autres,
+  // ce no-op est desormais EXPLICITE et documente, plus un oubli silencieux.
   or(): this {
-    this.filters.push(() => true);
     return this;
   }
 
-  lt(): this {
-    this.filters.push(() => true);
+  lt(column: string, value: unknown): this {
+    this.filters.push((row) => (row[column] as string | number) < (value as string | number));
     return this;
   }
 
-  is(): this {
-    this.filters.push(() => true);
+  is(column: string, value: unknown): this {
+    this.filters.push((row) => row[column] === value);
     return this;
   }
 
-  in(): this {
-    this.filters.push(() => true);
+  in(column: string, values: unknown[]): this {
+    this.filters.push((row) => values.includes(row[column]));
     return this;
   }
 
   limit(): this {
     return this;
+  }
+
+  private matches(row: Row): boolean {
+    return this.filters.every((f) => f(row));
   }
 
   private apply(): Row[] {
@@ -67,7 +75,7 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
       return [this.insertedRow];
     }
     if (this.mode === "update") {
-      const matched = this.rows.filter(() => true);
+      const matched = this.rows.filter((row) => this.matches(row));
       for (const row of matched) Object.assign(row, this.patch);
       return matched;
     }
@@ -81,7 +89,7 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     // était mutée en place par l'update qui le précède, donc `isRealTransition`
     // valait toujours `false` — la branche XP/achievements n'était jamais
     // réellement exercée par ces tests malgré l'apparence de passer.
-    return this.rows.map((row) => ({ ...row }));
+    return this.rows.filter((row) => this.matches(row)).map((row) => ({ ...row }));
   }
 
   async maybeSingle(): Promise<{ data: Row | null; error: null }> {
