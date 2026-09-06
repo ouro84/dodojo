@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { insertTaskForUser } from "../../../lib/task-insertion";
-import { validateTaskTitle } from "../../../lib/task-title";
 import { hashOpaqueToken, isExpired } from "../../../lib/oauth-tokens";
+import { consumeMcpQuota } from "../../../lib/mcp-rate-limit";
+import { createRateLimiter, extractClientIp } from "../../../lib/rate-limit";
+import { findTool, toolsForScope, type McpContext } from "../../../lib/mcp-tools";
+import { hasScope } from "../../../lib/oauth-scopes";
 import {
-  ADD_TASK_TOOL,
-  buildAddTaskToolResult,
   buildInitializeResult,
   buildToolErrorResult,
-  buildToolsListResult,
   errorResponse,
   parseJsonRpcRequest,
   successResponse,
@@ -24,11 +23,21 @@ export const dynamic = "force-dynamic";
 interface OAuthTokenRow {
   user_id: string;
   expires_at: string;
+  scope: string;
 }
 
 interface ProfileTimezoneRow {
   timezone: string;
 }
+
+// Defense en profondeur, couche 1 : garde IP en memoire (best-effort, cf.
+// lib/rate-limit.ts), avant meme de savoir si le Bearer token est valide -
+// symetrique a /oauth/register (5/min/IP) et /oauth/token (10/min/IP). Sans
+// elle, un attaquant envoyant des tokens invalides declenche un SELECT
+// Supabase indexe par requete a n'importe quel debit, sans jamais atteindre
+// le quota autoritaire par utilisateur (consumeMcpQuota), qui par
+// construction ne peut s'appliquer qu'une fois l'utilisateur identifie.
+const mcpRateLimiter = createRateLimiter(60, 60_000);
 
 function extractBearerToken(header: string | null): string | null {
   if (!header) return null;
@@ -55,13 +64,15 @@ function serviceClient(): SupabaseClient | null {
   return createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 }
 
-// US-22 : serveur MCP (Resource Server), transport Streamable HTTP - un
-// seul tool expose, add_task. Verifie le Bearer token contre oauth_tokens
-// (hash + expiration) puis delegue STRICTEMENT a insertTaskForUser
-// (lib/task-insertion.ts, US-03) : meme logique d'insertion + recalcul HP
-// (RG-01/RG-02) que le formulaire in-app et le webhook Siri, jamais
-// dupliquee.
+// US-22/issue #201 : serveur MCP (Resource Server), transport Streamable
+// HTTP. Verifie le Bearer token (hash + expiration), applique un rate limit
+// autoritaire par utilisateur, puis route via le registry de tools
+// (lib/mcp-tools.ts) filtre par le scope du token.
 export async function POST(request: Request): Promise<Response> {
+  if (!mcpRateLimiter.consume(extractClientIp(request)).allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": "60" } });
+  }
+
   const token = extractBearerToken(request.headers.get("authorization"));
   if (!token) return unauthorized(request);
 
@@ -72,13 +83,25 @@ export async function POST(request: Request): Promise<Response> {
 
   const { data: tokenRow } = await supabase
     .from("oauth_tokens")
-    .select("user_id, expires_at")
+    .select("user_id, expires_at, scope")
     .eq("access_token_hash", hashOpaqueToken(token))
     .maybeSingle();
 
   const resolvedToken = tokenRow as OAuthTokenRow | null;
   if (!resolvedToken || isExpired(resolvedToken.expires_at)) {
     return unauthorized(request);
+  }
+
+  const allowed = await consumeMcpQuota(supabase, resolvedToken.user_id);
+  if (!allowed) {
+    // `id` est force a null : le corps de la requete n'a volontairement pas
+    // encore ete parse a ce stade (le parser plus bas), donc aucun id
+    // JSON-RPC n'est disponible - le parser APRES ce guard reviendrait a
+    // laisser un appelant contourner le quota en forcant un corps invalide.
+    return NextResponse.json(errorResponse(null, JSON_RPC_ERROR_INVALID_PARAMS, "rate_limited"), {
+      status: 429,
+      headers: { "Retry-After": "60" },
+    });
   }
 
   let body: unknown;
@@ -103,10 +126,10 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json(successResponse(rpcRequest.id, buildInitializeResult()));
   }
   if (rpcRequest.method === "tools/list") {
-    return NextResponse.json(successResponse(rpcRequest.id, buildToolsListResult()));
+    return NextResponse.json(successResponse(rpcRequest.id, { tools: toolsForScope(resolvedToken.scope) }));
   }
   if (rpcRequest.method === "tools/call") {
-    return handleToolsCall(supabase, resolvedToken.user_id, rpcRequest);
+    return handleToolsCall(supabase, resolvedToken.user_id, resolvedToken.scope, rpcRequest);
   }
 
   return NextResponse.json(
@@ -117,25 +140,28 @@ export async function POST(request: Request): Promise<Response> {
 async function handleToolsCall(
   supabase: SupabaseClient,
   userId: string,
+  grantedScope: string,
   rpcRequest: JsonRpcRequest,
 ): Promise<Response> {
   const toolName = rpcRequest.params?.name;
   const args = (rpcRequest.params?.arguments as Record<string, unknown> | undefined) ?? {};
 
-  if (toolName !== ADD_TASK_TOOL.name) {
+  const def = findTool(String(toolName));
+  if (!def) {
     return NextResponse.json(
       errorResponse(rpcRequest.id, JSON_RPC_ERROR_METHOD_NOT_FOUND, "Tool inconnu : " + String(toolName)),
     );
   }
 
-  const rawTitle = args.title;
-  if (typeof rawTitle !== "string") {
-    return NextResponse.json(successResponse(rpcRequest.id, buildToolErrorResult("title est requis (string).")));
+  if (!hasScope(grantedScope, def.requiredScope)) {
+    return NextResponse.json(
+      successResponse(rpcRequest.id, buildToolErrorResult(`Ce tool necessite le scope ${def.requiredScope}.`)),
+    );
   }
 
-  const validation = validateTaskTitle(rawTitle);
-  if ("error" in validation) {
-    return NextResponse.json(successResponse(rpcRequest.id, buildToolErrorResult(validation.error)));
+  const parsedArgs = def.parseArgs(args);
+  if ("error" in parsedArgs && typeof parsedArgs.error === "string") {
+    return NextResponse.json(successResponse(rpcRequest.id, buildToolErrorResult(parsedArgs.error)));
   }
 
   const { data: profile } = await supabase
@@ -145,10 +171,7 @@ async function handleToolsCall(
     .maybeSingle();
   const timezone = (profile as ProfileTimezoneRow | null)?.timezone ?? "UTC";
 
-  try {
-    const outcome = await insertTaskForUser(supabase, { userId, title: validation.title, timezone });
-    return NextResponse.json(successResponse(rpcRequest.id, buildAddTaskToolResult(outcome)));
-  } catch {
-    return NextResponse.json(successResponse(rpcRequest.id, buildToolErrorResult("insert_task_failed")));
-  }
+  const ctx: McpContext = { supabase, userId, timezone };
+  const result = await def.handler(ctx, parsedArgs);
+  return NextResponse.json(successResponse(rpcRequest.id, result));
 }

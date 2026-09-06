@@ -1,10 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
-  ADD_TASK_TOOL,
   buildAddTaskToolResult,
   buildInitializeResult,
   buildToolErrorResult,
-  buildToolsListResult,
   errorResponse,
   parseJsonRpcRequest,
   successResponse,
@@ -39,18 +37,11 @@ describe("parseJsonRpcRequest (US-22)", () => {
   });
 });
 
-describe("buildInitializeResult / buildToolsListResult", () => {
+describe("buildInitializeResult", () => {
   test("initialize expose une version de protocole et les capacites tools", () => {
     const result = buildInitializeResult() as { capabilities: unknown; protocolVersion: unknown };
     expect(result.capabilities).toEqual({ tools: {} });
     expect(typeof result.protocolVersion).toBe("string");
-  });
-
-  test("tools/list expose add_task avec son schema d'entree", () => {
-    const result = buildToolsListResult();
-    expect(result.tools).toEqual([ADD_TASK_TOOL]);
-    expect(ADD_TASK_TOOL.name).toBe("add_task");
-    expect(ADD_TASK_TOOL.inputSchema.required).toEqual(["title"]);
   });
 });
 

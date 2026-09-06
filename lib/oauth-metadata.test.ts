@@ -23,7 +23,7 @@ describe("buildProtectedResourceMetadata (RFC 9728)", () => {
       resource: "https://dodojo.vercel.app/api/mcp",
       authorization_servers: ["https://dodojo.vercel.app"],
       bearer_methods_supported: ["header"],
-      scopes_supported: ["tasks:write"],
+      scopes_supported: ["tasks:read", "tasks:write", "profile:read", "profile:write"],
     });
   });
 });

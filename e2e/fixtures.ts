@@ -129,6 +129,14 @@ async function getE2eAdmin(): Promise<{ admin: SupabaseClient; uid: string }> {
 // possédé. `unlocked_skins`/`unlocked_achievements`/`day_results` n'ont pas
 // cette contrainte (skin par défaut implicite dès le héros possédé, succès et
 // titre purement additifs).
+//
+// Issue #201 (lot 2, socle MCP) : `oauth_tokens`/`oauth_authorization_codes`/
+// `mcp_rate_limit` sont purgées par `user_id` comme les tables ci-dessus —
+// sans ça, un handshake e2e laisserait un access_token/quota résiduel qui
+// fuit vers le prochain run du même compte partagé. `oauth_clients` n'a PAS de
+// colonne `user_id` (clients enregistrés dynamiquement, RFC 7591) : purgée par
+// préfixe de `client_name` à la place — toute spec e2e qui enregistre un
+// client MCP doit le nommer `e2e-...` pour être couverte par ce filtre.
 export async function purgeE2eAccountState(admin: SupabaseClient, uid: string): Promise<void> {
   await admin.from("tasks").delete().eq("user_id", uid);
   await admin.from("recurring_templates").delete().eq("user_id", uid);
@@ -137,6 +145,13 @@ export async function purgeE2eAccountState(admin: SupabaseClient, uid: string): 
   await admin.from("unlocked_achievements").delete().eq("user_id", uid);
   await admin.from("unlocked_skins").delete().eq("user_id", uid);
   await admin.from("unlocked_heroes").delete().eq("user_id", uid);
+  await admin.from("oauth_tokens").delete().eq("user_id", uid);
+  await admin.from("oauth_authorization_codes").delete().eq("user_id", uid);
+  await admin.from("mcp_rate_limit").delete().eq("user_id", uid);
+  // oauth_clients n'a pas de colonne user_id (clients enregistres
+  // dynamiquement, RFC 7591) - purge par prefixe de nom, pas par utilisateur.
+  // Les specs e2e qui enregistrent un client MCP doivent le nommer "e2e-...".
+  await admin.from("oauth_clients").delete().ilike("client_name", "e2e-%");
   await admin.from("unlocked_heroes").upsert(
     { user_id: uid, hero_id: "fire_knight", price_paid: 0 },
     { onConflict: "user_id,hero_id" },
