@@ -9,6 +9,7 @@ import {
   bringToTodayForUser,
   completeTaskForUser,
   deferOverdueTaskForUser,
+  listTasksForUser,
   rageQuitTaskForUser,
   reorderSiblingsForUser,
   reportToTomorrowForUser,
@@ -348,5 +349,52 @@ describe("famille Demain", () => {
     );
     expect(res.error).toBeNull();
     expect(res.broughtBackTasks?.[0]?.deferred_at).toBeNull();
+  });
+});
+
+describe("listTasksForUser", () => {
+  test("ne renvoie que les taches du jour demande et du bon utilisateur", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "aujourd hui", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "b", user_id: "u1", day_date: "2026-09-05", title: "hier", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "c", user_id: "autre", day_date: "2026-09-06", title: "pas a moi", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    expect(res.map((t) => t.title)).toEqual(["aujourd hui"]);
+  });
+
+  test("exclut les taches abandonnees", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "active", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "b", user_id: "u1", day_date: "2026-09-06", title: "abandonnee", parent_id: null, is_completed: false, is_abandoned: true, deadline_at: null, position: 1 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    expect(res.map((t) => t.title)).toEqual(["active"]);
+  });
+
+  test("includeCompleted=false retire les taches cochees", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "active", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "b", user_id: "u1", day_date: "2026-09-06", title: "faite", parent_id: null, is_completed: true, is_abandoned: false, deadline_at: null, position: 1 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", false);
+    expect(res.map((t) => t.title)).toEqual(["active"]);
+  });
+
+  test("marque isOverdue sur une deadline passee et non cochee", async () => {
+    const past = new Date(Date.now() - 3600_000).toISOString();
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "en retard", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: past, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    expect(res[0].isOverdue).toBe(true);
   });
 });

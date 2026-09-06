@@ -12,6 +12,7 @@ import {
   nextLockedHpDamage,
   nextSiblingPosition,
   RAGE_QUIT_XP_PENALTY,
+  sortTasksHierarchically,
   xpForCompletion,
   XP_PER_TASK,
 } from "@/lib/game-engine";
@@ -934,4 +935,54 @@ export async function bringToTodayForUser(
   // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
   await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
   return { error: null, broughtBackTasks: (updated ?? []) as Task[] };
+}
+
+export interface TaskRead {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  parentId: string | null;
+  deadlineAt: string | null;
+  isOverdue: boolean;
+}
+
+// Lecture seule (lot 3). Trie hierarchiquement (parents puis leurs enfants,
+// completees en bas) via le meme comparateur que l'UI — un agent voit la
+// liste dans l'ordre que l'utilisateur voit a l'ecran.
+export async function listTasksForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  dayDate: string,
+  includeCompleted: boolean,
+): Promise<TaskRead[]> {
+  const { data } = await supabase
+    .from("tasks")
+    .select("id, title, parent_id, is_completed, is_abandoned, deadline_at, position")
+    .eq("user_id", userId)
+    .eq("day_date", dayDate)
+    .eq("is_abandoned", false);
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    title: string;
+    parent_id: string | null;
+    is_completed: boolean;
+    is_abandoned: boolean;
+    deadline_at: string | null;
+    position: number;
+  }>;
+
+  const visible = includeCompleted ? rows : rows.filter((r) => !r.is_completed);
+  const sorted = sortTasksHierarchically(visible);
+  const now = Date.now();
+
+  return sorted.map((r) => ({
+    id: r.id,
+    title: r.title,
+    isCompleted: r.is_completed,
+    parentId: r.parent_id,
+    deadlineAt: r.deadline_at,
+    isOverdue:
+      r.deadline_at !== null && !r.is_completed && new Date(r.deadline_at).getTime() < now,
+  }));
 }
