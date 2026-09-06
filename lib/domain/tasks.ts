@@ -976,11 +976,16 @@ export async function listTasksForUser(
   const sorted = sortTasksHierarchically(visible);
   const now = Date.now();
 
+  const visibleIds = new Set(sorted.map((r) => r.id));
+  // includeCompleted=false peut exclure un parent coche tout en gardant sa
+  // sous-tache active (aucune cascade de completion n'existe, contrairement a
+  // la cascade d'abandon de rageQuitTaskForUser). Sans ca, la sous-tache
+  // ressortirait avec un parentId pointant hors du resultat renvoye.
   return sorted.map((r) => ({
     id: r.id,
     title: r.title,
     isCompleted: r.is_completed,
-    parentId: r.parent_id,
+    parentId: r.parent_id !== null && visibleIds.has(r.parent_id) ? r.parent_id : null,
     deadlineAt: r.deadline_at,
     isOverdue:
       r.deadline_at !== null && !r.is_completed && new Date(r.deadline_at).getTime() < now,

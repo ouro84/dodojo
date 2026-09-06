@@ -397,4 +397,40 @@ describe("listTasksForUser", () => {
     const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
     expect(res[0].isOverdue).toBe(true);
   });
+
+  test("n'isOverdue jamais une tache cochee, meme deadline passee", async () => {
+    const past = new Date(Date.now() - 3600_000).toISOString();
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "faite en retard", parent_id: null, is_completed: true, is_abandoned: false, deadline_at: past, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    expect(res[0].isOverdue).toBe(false);
+  });
+
+  test("includeCompleted=false : parent coche exclu, sous-tache active gardee avec parentId neutralise", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "parent", user_id: "u1", day_date: "2026-09-06", title: "parent fait", parent_id: null, is_completed: true, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "enfant", user_id: "u1", day_date: "2026-09-06", title: "sous-tache active", parent_id: "parent", is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", false);
+    expect(res.map((t) => t.title)).toEqual(["sous-tache active"]);
+    expect(res[0].parentId).toBeNull();
+  });
+
+  test("includeCompleted=true : la meme fratrie garde le parentId reel de la sous-tache", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "parent", user_id: "u1", day_date: "2026-09-06", title: "parent fait", parent_id: null, is_completed: true, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "enfant", user_id: "u1", day_date: "2026-09-06", title: "sous-tache active", parent_id: "parent", is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    const enfant = res.find((t) => t.title === "sous-tache active");
+    expect(enfant?.parentId).toBe("parent");
+    expect(res.map((t) => t.title)).toContain("parent fait");
+  });
 });
