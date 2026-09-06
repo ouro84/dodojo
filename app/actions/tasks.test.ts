@@ -50,7 +50,10 @@ afterEach(() => {
 // atteindre Supabase — les handlers UI sont censés le filtrer/désactiver,
 // mais les server actions doivent aussi se défendre en profondeur (un appel
 // direct, un bug UI non détecté, une future action Rust…). Chaque action
-// rejette tôt avec un message métier, SANS appeler Supabase.
+// rejette tôt avec un message métier, SANS appeler Supabase. Le faux client
+// (`FakeSupabaseClient`, `lib/domain/fake-supabase.ts`) reste monté pour ces
+// tests même si les guards court-circuitent AVANT tout appel Supabase — il
+// sert à prouver précisément ça, via les assertions `fakeClient.calls === 0`.
 describe("Server actions — guards UUID (issues #95/#96)", () => {
   test("setTaskCompleted rejette un id optimistic sans appeler Supabase", async () => {
     const { setTaskCompleted } = await import("./tasks");

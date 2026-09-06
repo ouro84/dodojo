@@ -122,7 +122,7 @@ describe("setTaskDeadlineForUser", () => {
     cancelCalls.length = 0;
     scheduleCalls.length = 0;
     const c = client([
-      { id: "44444444-4444-4444-4444-444444444444", reminder_enabled: true, reminder_offset_minutes: null },
+      { id: "44444444-4444-4444-4444-444444444444", user_id: "u1", reminder_enabled: true, reminder_offset_minutes: null },
     ]);
     const res = await setTaskDeadlineForUser(
       c as unknown as SupabaseClient,

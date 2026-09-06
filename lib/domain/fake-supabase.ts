@@ -9,6 +9,17 @@ import { vi } from "vitest";
 
 type Row = Record<string, unknown>;
 
+// En base, une colonne absente d'une ligne EST un NULL SQL — `.eq`/`.is`
+// comparés à `null` doivent donc matcher une colonne absente du fixture
+// (`undefined`) tout autant qu'une colonne explicitement posée à `null`.
+// Sans ça, `undefined === null` (faux en JS) ferait échouer un match que
+// Postgres accepterait, et un test qui asserte une ABSENCE (`toBeNull()`,
+// `toHaveLength(0)`, `toBeUndefined()`) passerait pour une raison de forme de
+// fixture plutôt que de comportement réel du domaine.
+function nullish(value: unknown): boolean {
+  return value === null || value === undefined;
+}
+
 export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
   private filters: Array<(row: Row) => boolean> = [];
   private mode: "select" | "insert" | "update" = "select";
@@ -34,7 +45,7 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
   }
 
   eq(column: string, value: unknown): this {
-    this.filters.push((row) => row[column] === value);
+    this.filters.push((row) => (value === null ? nullish(row[column]) : row[column] === value));
     return this;
   }
 
@@ -52,7 +63,7 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
   }
 
   is(column: string, value: unknown): this {
-    this.filters.push((row) => row[column] === value);
+    this.filters.push((row) => (value === null ? nullish(row[column]) : row[column] === value));
     return this;
   }
 

@@ -85,4 +85,16 @@ describe("FakeQueryBuilder — filtres réels (issue #201, lot 3)", () => {
     const { data } = await c.from("profiles").select().eq("id", "u2").maybeSingle();
     expect(data?.level).toBe(9);
   });
+
+  // Revue lot 3 : une colonne ABSENTE d'une ligne est un NULL SQL en base
+  // réelle — `.is("parent_id", null)" doit donc matcher une ligne qui n'a
+  // même pas la clé `parent_id`, pas seulement une ligne où elle vaut
+  // explicitement `null`.
+  test("is matche une colonne absente comme un NULL SQL", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [{ id: "t1" }, { id: "t2", parent_id: "t1" }],
+    });
+    const { data } = await c.from("tasks").select().is("parent_id", null);
+    expect(data.map((r) => r.id)).toEqual(["t1"]);
+  });
 });

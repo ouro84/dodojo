@@ -533,10 +533,25 @@ export async function setTaskDeadlineForUser(
   if (reminderOffsetMinutes !== undefined) updates.reminder_offset_minutes = reminderOffsetMinutes;
   if (reminderEnabled !== undefined) updates.reminder_enabled = reminderEnabled;
 
-  const { error } = await supabase.from("tasks").update(updates).eq("id", taskId).eq("user_id", userId);
+  // Issue #201 (lot 3, revue) : `.select("id")` pour vérifier que l'update a
+  // réellement matché une ligne appartenant à `userId` AVANT tout effet de
+  // bord (cancel/schedule) — un update PostgREST qui ne matche aucune ligne
+  // ne renvoie pas d'erreur, donc sans ce garde une tâche d'un autre
+  // utilisateur (ou inexistante) aurait quand même déclenché
+  // `cancelDeadlineReminder`/`scheduleDeadlineReminder` pour cet id, tout en
+  // renvoyant `error: null` à l'appelant.
+  const { data: updatedRows, error } = await supabase
+    .from("tasks")
+    .update(updates)
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .select("id");
 
   if (error) {
     return { error: "update_failed" };
+  }
+  if (!updatedRows || updatedRows.length === 0) {
+    return { error: "task_not_found" };
   }
 
   if (deadlineAt === null) {
@@ -546,6 +561,7 @@ export async function setTaskDeadlineForUser(
       .from("tasks")
       .select("reminder_enabled, reminder_offset_minutes")
       .eq("id", taskId)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (resolved?.reminder_enabled) {
