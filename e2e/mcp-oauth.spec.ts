@@ -102,18 +102,41 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     expect(listBody.result.tools.map((t: { name: string }) => t.name)).toContain("add_task");
 
     // 8. add_task reussit
+    const taskTitle = `Tache MCP e2e ${Date.now()}`;
     const addRes = await request.post(`${baseURL}/api/mcp`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       data: {
         jsonrpc: "2.0",
         id: 2,
         method: "tools/call",
-        params: { name: "add_task", arguments: { title: `Tache MCP e2e ${Date.now()}` } },
+        params: { name: "add_task", arguments: { title: taskTitle } },
       },
     });
     expect(addRes.status()).toBe(200);
     const addBody = await addRes.json();
     expect(addBody.result.isError).toBe(false);
+
+    // Lot 3 : les tools de lecture repondent avec le scope par defaut
+    const listTasksRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 10, method: "tools/call",
+        params: { name: "list_tasks", arguments: {} },
+      },
+    });
+    const listTasksBody = await listTasksRes.json();
+    expect(listTasksBody.result.isError).toBe(false);
+    // la tache creee juste avant par add_task doit apparaitre
+    expect(listTasksBody.result.content[0].text).toContain(taskTitle);
+
+    const bossRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 11, method: "tools/call",
+        params: { name: "get_boss_status", arguments: {} },
+      },
+    });
+    expect((await bossRes.json()).result.isError).toBe(false);
 
     // 9. Un tool hors catalogue -> erreur JSON-RPC, jamais un 500
     const unknownRes = await request.post(`${baseURL}/api/mcp`, {
@@ -189,14 +212,18 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     const { access_token: accessToken } = await tokenRes.json();
     expect(accessToken).toBeTruthy();
 
-    // tools/list : add_task requiert tasks:write, non accorde -> registre vide.
+    // tools/list : add_task requiert tasks:write, non accorde -> absent. Les 3
+    // tools de lecture qui ne requierent que tasks:read (lot 3) sont en
+    // revanche bien exposes ; get_progression/list_heroes (profile:read,
+    // non accorde) restent absents.
     const listRes = await request.post(`${baseURL}/api/mcp`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       data: { jsonrpc: "2.0", id: 1, method: "tools/list" },
     });
     expect(listRes.status()).toBe(200);
     const listBody = await listRes.json();
-    expect(listBody.result.tools).toEqual([]);
+    const toolNames = listBody.result.tools.map((t: { name: string }) => t.name);
+    expect(toolNames).toEqual(["list_tasks", "get_boss_status", "get_streak"]);
 
     // tools/call sur add_task quand meme : erreur metier dans l'enveloppe
     // JSON-RPC de succes (isError: true), jamais une erreur de transport
@@ -214,5 +241,20 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     const callBody = await callRes.json();
     expect(callBody.error).toBeUndefined();
     expect(callBody.result.isError).toBe(true);
+
+    // Premiere assertion croisee entre deux familles de scopes : tasks:read
+    // voit list_tasks mais pas get_progression (requiert profile:read, non
+    // accorde ici).
+    const progRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 12, method: "tools/call",
+        params: { name: "get_progression", arguments: {} },
+      },
+    });
+    expect(progRes.status()).toBe(200);
+    const progBody = await progRes.json();
+    expect(progBody.error).toBeUndefined();
+    expect(progBody.result.isError).toBe(true);
   });
 });
