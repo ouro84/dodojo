@@ -14,7 +14,8 @@ import { readStreak } from "./domain/streak";
 import { readBossStatus } from "./domain/boss";
 import { readHeroRoster } from "./domain/heroes";
 import { readProgression } from "./domain/progression";
-import { nextDayKey } from "./game-engine";
+import { localTimeFromIso, nextDayKey } from "./game-engine";
+import { getHero } from "./heroes";
 
 export interface McpContext {
   supabase: SupabaseClient;
@@ -115,14 +116,29 @@ function parseListTasksArgs(args: Record<string, unknown>): ParsedArgs<Record<st
 async function handleListTasks(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
   const today = await userToday(ctx.supabase, ctx.userId);
   const dayDate = args.day === "tomorrow" ? nextDayKey(today) : today;
-  const tasks = await listTasksForUser(
-    ctx.supabase,
-    ctx.userId,
-    dayDate,
-    args.includeCompleted === true,
-  );
+  const includeCompleted = args.includeCompleted === true;
+  const tasks = await listTasksForUser(ctx.supabase, ctx.userId, dayDate, includeCompleted);
 
   if (tasks.length === 0) {
+    // Revue #201 (fix round 1) : `tasks` est déjà filtré par includeCompleted
+    // (listTasksForUser filtre AVANT de renvoyer) — un tableau vide ici ne
+    // veut donc pas forcément dire "rien pour ce jour". Si le filtre est actif
+    // (includeCompleted=false), il peut aussi vouloir dire "tout est déjà
+    // fait, cf. la vraie liste sans filtre" — les deux messages sont
+    // trompeurs l'un pour l'autre, jamais interchangeables pour un agent qui
+    // relaie le texte tel quel à l'utilisateur.
+    if (!includeCompleted) {
+      const withCompleted = await listTasksForUser(ctx.supabase, ctx.userId, dayDate, true);
+      if (withCompleted.length > 0) {
+        return {
+          content: [{
+            type: "text",
+            text: `Aucune tâche active pour le ${dayDate} — tout est déjà fait !`,
+          }],
+          isError: false,
+        };
+      }
+    }
     return { content: [{ type: "text", text: `Aucune tâche pour le ${dayDate}.` }], isError: false };
   }
 
@@ -130,7 +146,10 @@ async function handleListTasks(ctx: McpContext, args: Record<string, unknown>): 
     const box = t.isCompleted ? "[x]" : "[ ]";
     const indent = t.parentId ? "  " : "";
     const flags: string[] = [];
-    if (t.deadlineAt) flags.push(`deadline ${t.deadlineAt}`);
+    // Revue #201 (fix round 1) : heure locale de l'utilisateur (ctx.timezone),
+    // jamais l'ISO UTC brut — un agent qui relaie le texte tel quel le lirait
+    // à voix haute à la mauvaise heure.
+    if (t.deadlineAt) flags.push(`deadline ${localTimeFromIso(t.deadlineAt, ctx.timezone)}`);
     if (t.isOverdue) flags.push("EN RETARD");
     const suffix = flags.length > 0 ? ` · ${flags.join(" · ")}` : "";
     return `${indent}${box} ${t.id} — ${t.title}${suffix}`;
@@ -181,7 +200,11 @@ async function handleGetProgression(ctx: McpContext): Promise<McpToolResult> {
   const prog = await readProgression(ctx.supabase, ctx.userId);
   if (!prog) return buildToolErrorResult("profile_not_found");
 
-  const hero = prog.equippedHeroId ? ` Combattant équipé : ${prog.equippedHeroId}.` : "";
+  // Revue #201 (fix round 1) : nom d'affichage (comme list_heroes), jamais le
+  // slug brut seul — mais le slug reste imprimé entre parenthèses, un agent
+  // en aura besoin pour un futur tool `equip_hero`.
+  const heroName = prog.equippedHeroId ? getHero(prog.equippedHeroId)?.name ?? prog.equippedHeroId : null;
+  const hero = prog.equippedHeroId ? ` Combattant équipé : ${heroName} (${prog.equippedHeroId}).` : "";
   return {
     content: [{
       type: "text",
