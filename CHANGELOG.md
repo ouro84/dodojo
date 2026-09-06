@@ -11,6 +11,7 @@ nouvelle section versionnée et datée.
 
 ### Technique
 - Couche domaine `lib/domain/` : toute la logique métier des tâches, de la boutique, du boss et de la progression est désormais appelable sans session cookie, préparant l'ouverture du serveur MCP (issue #201).
+- Serveur MCP : scopes OAuth (lecture/écriture tâches, lecture/écriture profil), registry de tools extensible, consentement détaillant les droits demandés, rate limit autoritaire (issue #201).
 
 ### Produit
 - Issue #199 : 16 nouveaux succès à débloquer, dont « Fashion Week » (toutes les tenues de tous les héros), « Centurion » et « Millénaire » (100 et 1000 tâches terminées), « Habitué » et « Vétéran » (10 et 50 journées gagnées), « Coffre-fort » (10 000 or gagnés), « Journée Pleine », « Sans Bavure », « Titan », « Lucidité » (ton premier Rage Quit assumé) ou encore « Volume Max ». Une nouvelle section « Combat » apparaît dans le catalogue des succès, et acheter une tenue débloque désormais ses succès sur-le-champ au lieu d'attendre le prochain passage par l'Arène.
