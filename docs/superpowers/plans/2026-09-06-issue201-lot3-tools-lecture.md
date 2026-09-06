@@ -611,7 +611,7 @@ describe("readBossStatus", () => {
 });
 ```
 
-⚠️ `maxHp`/`currentHp` : deux tâches racines non abandonnées = 2 × 20 HP = 40 max ; une cochée = 20 restants. **Vérifier la constante réelle** (`calculateBossMaxHp` dans `lib/game-engine.ts`) avant de figer ces nombres — si le barème diffère, ajuster les attentes du test sur le barème réel, jamais l'inverse.
+✅ `maxHp`/`currentHp` — **barème vérifié** dans `lib/game-engine.ts` avant écriture de ce plan : `HP_PER_TASK = 20` (tâche racine), `HP_PER_SUBTASK = 10` (sous-tâche), via `taskHpValue(task)` qui discrimine sur `parent_id === null`. Deux tâches racines non abandonnées = 40 HP max ; une cochée = 20 de dégâts, donc 20 restants. Les chiffres du test ci-dessus sont corrects, ne pas les recalculer.
 
 Créer `lib/domain/heroes.test.ts` :
 
@@ -891,7 +891,14 @@ const LIST_HEROES_TOOL: McpTool = {
 };
 ```
 
-⚠️ `McpTool.inputSchema.properties` est typé `Record<string, { type: string; description: string }>` — d'où `include_completed` déclaré en `string` plutôt qu'en `boolean`. Vérifier le type réel dans `lib/mcp-protocol.ts` : s'il accepte `boolean`, préférer `boolean` et adapter le parseur en conséquence ; sinon garder `string` et parser `"true"`/`"false"`. Ne pas élargir le type de `McpTool` pour ce lot.
+✅ **Vérifié** dans `lib/mcp-protocol.ts` avant écriture de ce plan : `inputSchema.properties` est typé `Record<string, { type: string; description: string }>`, où `type` porte le **nom** du type JSON Schema sous forme de chaîne libre. Déclarer `{ type: "boolean", … }` est donc parfaitement légal et préférable — c'est ce que le schéma doit annoncer. Corriger les deux déclarations ci-dessus en conséquence :
+
+```ts
+      day: { type: "string", description: "'today' (défaut) ou 'tomorrow'" },
+      include_completed: { type: "boolean", description: "Inclure les tâches déjà cochées (défaut : true)" },
+```
+
+Le parseur de `list_tasks` (Step 5) tolère déjà les deux formes (`rawInclude === "true" || rawInclude === true`) — le garder tel quel : un client MCP enverra un vrai booléen JSON, mais un client approximatif enverra la chaîne, et accepter les deux ne coûte rien. Ne pas élargir le type de `McpTool` pour ce lot.
 
 - [ ] **Step 5 : Écrire les parseurs et les handlers**
 
