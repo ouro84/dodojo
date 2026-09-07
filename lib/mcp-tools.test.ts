@@ -41,16 +41,73 @@ describe("toolsForScope", () => {
 });
 
 describe("add_task parseArgs", () => {
+  // Revue #201 (lot 4, tache 3 - fixes) finding 6 : ce site emettait un
+  // message d'erreur nu, sans le prefixe "invalid_args : " que portent deja
+  // tous les parseurs issus de ce lot - la convention n'etait donc pas
+  // vraiment unifiee malgre le commentaire au sommet du fichier.
   test("refuse un titre absent", () => {
     const def = findTool("add_task")!;
     const res = def.parseArgs({});
-    expect(res).toEqual({ ok: false, error: "title est requis (string)." });
+    expect(res).toEqual({ ok: false, error: "invalid_args : title est requis (string)." });
   });
 
   test("refuse un titre non-string", () => {
     const def = findTool("add_task")!;
     const res = def.parseArgs({ title: 42 });
-    expect(res).toEqual({ ok: false, error: "title est requis (string)." });
+    expect(res).toEqual({ ok: false, error: "invalid_args : title est requis (string)." });
+  });
+});
+
+// Revue #201 (lot 4, tache 3 - fixes) finding 5 : insertTaskForUser
+// (lib/task-insertion.ts) leve deux erreurs distinctes -
+// "insert_task_fetch_failed" (lecture des taches du jour) et
+// "insert_task_failed" (l'insertion elle-meme) - toutes deux surfacaient
+// identiquement en "insert_failed : echec de creation en base", ce qui cache
+// a l'agent qu'une simple LECTURE a echoue avant meme la tentative
+// d'ecriture. FakeSupabaseClient (lib/domain/fake-supabase.ts) ne peut pas
+// injecter d'erreur (son `.then()` renvoie toujours `error: null`) - des
+// mini-clients dedies, tailles sur la forme exacte des deux appels
+// `.from("tasks")` d'insertTaskForUser, remplacent le fake standard ici.
+function fetchFailingSupabase(): SupabaseClient {
+  const secondEq = () => Promise.resolve({ data: null, error: { message: "boom" } });
+  const firstEq = () => ({ eq: secondEq });
+  const select = () => ({ eq: firstEq });
+  return { from: () => ({ select }) } as unknown as SupabaseClient;
+}
+
+function insertFailingSupabase(): SupabaseClient {
+  const secondEq = () => Promise.resolve({ data: [], error: null });
+  const firstEq = () => ({ eq: secondEq });
+  const select = () => ({ eq: firstEq });
+  const single = () => Promise.resolve({ data: null, error: { message: "boom" } });
+  const insertSelect = () => ({ single });
+  const insert = () => ({ select: insertSelect });
+  return { from: () => ({ select, insert }) } as unknown as SupabaseClient;
+}
+
+describe("add_task handler (lot 4, tache 3 - fixes) finding 5", () => {
+  test("une lecture qui echoue renvoie fetch_failed, jamais insert_failed", async () => {
+    const def = findTool("add_task")!;
+    const parsed = def.parseArgs({ title: "Rappeler le client" });
+    if (!parsed.ok) throw new Error(parsed.error);
+    const res = await def.handler(
+      { supabase: fetchFailingSupabase(), userId: "u1", timezone: "UTC" },
+      parsed.args,
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toBe("fetch_failed : échec de lecture en base");
+  });
+
+  test("une ecriture qui echoue (lecture ok) renvoie insert_failed", async () => {
+    const def = findTool("add_task")!;
+    const parsed = def.parseArgs({ title: "Rappeler le client" });
+    if (!parsed.ok) throw new Error(parsed.error);
+    const res = await def.handler(
+      { supabase: insertFailingSupabase(), userId: "u1", timezone: "UTC" },
+      parsed.args,
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toBe("insert_failed : échec de création en base");
   });
 });
 
@@ -92,9 +149,14 @@ describe("catalogue (lot 3 lecture + lot 4 tache 3 ecriture)", () => {
     expect(names).toEqual(["get_progression", "list_heroes"]);
   });
 
+  // Revue #201 (lot 4, tache 3 - fixes) finding 6 : meme prefixe manquant
+  // que add_task, sur ce site-ci antérieur au lot.
   test("list_tasks refuse un argument day invalide", () => {
     const parsed = findTool("list_tasks")!.parseArgs({ day: "hier" });
     expect(parsed.ok).toBe(false);
+    expect(parsed.ok === false && parsed.error).toBe(
+      "invalid_args : day doit valoir 'today' ou 'tomorrow'.",
+    );
   });
 
   test("list_tasks accepte l'absence d'arguments", () => {
@@ -381,6 +443,29 @@ describe("complete_task (lot 4, tache 3)", () => {
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toBe("invalid_task_id : identifiant de tâche invalide");
   });
+
+  // Revue #201 (lot 4, tache 3 - fixes) finding 4 : `raw === true || raw ===
+  // "true"` est un test d'EGALITE, jamais une coercition — donc tout ce qui
+  // n'est ni `true` ni `"true"` (y compris `1`, `"yes"`, `"TRUE"`) devenait
+  // silencieusement `false` = "decocher", la branche qui rembourse l'XP et
+  // remet le combo a zero. Doit desormais etre refuse, jamais reinterprete.
+  test("completed refuse un type incorrect (nombre) plutot que de decocher silencieusement", () => {
+    const parsed = findTool("complete_task")!.parseArgs({ task_id: OWN_TASK_ID, completed: 1 });
+    expect(parsed).toEqual({
+      ok: false,
+      error: "invalid_args : completed doit etre un booleen.",
+    });
+  });
+
+  test("completed refuse une chaine non-booleenne ('yes')", () => {
+    const parsed = findTool("complete_task")!.parseArgs({ task_id: OWN_TASK_ID, completed: "yes" });
+    expect(parsed.ok).toBe(false);
+  });
+
+  test("completed accepte toujours false (booleen) - decoche reellement", () => {
+    const parsed = findTool("complete_task")!.parseArgs({ task_id: OWN_TASK_ID, completed: false });
+    expect(parsed).toEqual({ ok: true, args: { taskId: OWN_TASK_ID, completed: false } });
+  });
 });
 
 describe("set_deadline (lot 4, tache 3)", () => {
@@ -452,5 +537,82 @@ describe("set_deadline (lot 4, tache 3)", () => {
     const row = tasksTable.find((t) => t.id === OWN_TASK_ID);
     expect(row?.reminder_enabled).toBe(true);
     expect(row?.reminder_offset_minutes).toBe(45);
+  });
+
+  // Revue #201 (lot 4, tache 3 - fixes) finding 2 : un client MCP qui valide
+  // les arguments contre inputSchema AVANT l'appel rejetterait
+  // `deadline_at: null` si le schema n'annonce que `type: "string"` — "effacer
+  // la deadline" deviendrait inatteignable via ce tool alors meme que le
+  // parseur l'accepte.
+  test("le schema de set_deadline annonce deadline_at comme string OU null", () => {
+    const schema = findTool("set_deadline")!.tool.inputSchema.properties.deadline_at;
+    expect(schema.type).toEqual(["string", "null"]);
+  });
+
+  // Revue #201 (lot 4, tache 3 - fixes) finding 1 : le parametre domaine est
+  // `number | null`, et `null` signifie "herite du reglage du profil" —
+  // distinct de l'absence d'argument (`undefined`, "ne touche pas la
+  // colonne"). `Number(null)` vaut 0 ("notifier a la deadline elle-meme", un
+  // reglage DIFFERENT), et `Number("soon")` vaut NaN (serialise en `null` par
+  // supabase-js, donc un reset silencieux vers l'heritage profil).
+  test("reminder_offset_minutes: null explicite atteint le domaine en tant que null, jamais 0", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      { id: OWN_TASK_ID, user_id: "u1", reminder_enabled: true, reminder_offset_minutes: 45 },
+    ];
+    const supabase = new FakeSupabaseClient({
+      profiles: [{ id: "u1", timezone: "UTC", reminder_offset_minutes: 30 }],
+      tasks: tasksTable,
+    });
+    const res = await callTool(
+      "set_deadline",
+      { task_id: OWN_TASK_ID, deadline_at: "2026-01-16T09:00:00.000Z", reminder_offset_minutes: null },
+      makeCtx(supabase),
+    );
+    expect(res.isError).toBe(false);
+    const row = tasksTable.find((t) => t.id === OWN_TASK_ID);
+    expect(row?.reminder_offset_minutes).toBeNull();
+    expect(row?.reminder_offset_minutes).not.toBe(0);
+  });
+
+  test("reminder_offset_minutes non-numerique est refuse, jamais reinterprete en NaN/null", () => {
+    const parsed = findTool("set_deadline")!.parseArgs({
+      task_id: OWN_TASK_ID,
+      deadline_at: "2026-01-16T09:00:00.000Z",
+      reminder_offset_minutes: "soon",
+    });
+    expect(parsed).toEqual({
+      ok: false,
+      error: "invalid_args : reminder_offset_minutes doit etre un nombre ou null.",
+    });
+  });
+
+  // Revue #201 (lot 4, tache 3 - fixes) finding 3 : le code produit
+  // `args.reminder_enabled === true` qui vaut bien `false` pour un `false`
+  // explicite — mais aucun test ne verrouillait cette direction avant ce
+  // correctif. L'erreur symetrique (collapse `false` -> `undefined`, "ne
+  // touche pas la colonne") echouerait silencieusement : un agent ne pourrait
+  // jamais desactiver un rappel, et le texte de retour dirait quand meme
+  // "Deadline fixee a...". Assertion sur la LIGNE (jamais la valeur de
+  // retour), meme raison que le test finding-1 undefined-propagation.
+  test("reminder_enabled: false explicite desactive reellement le rappel (assertion sur la ligne)", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      { id: OWN_TASK_ID, user_id: "u1", reminder_enabled: true, reminder_offset_minutes: null },
+    ];
+    const supabase = new FakeSupabaseClient({
+      profiles: [{ id: "u1", timezone: "UTC" }],
+      tasks: tasksTable,
+    });
+    const res = await callTool(
+      "set_deadline",
+      {
+        task_id: OWN_TASK_ID,
+        deadline_at: "2026-01-16T09:00:00.000Z",
+        reminder_enabled: false,
+      },
+      makeCtx(supabase),
+    );
+    expect(res.isError).toBe(false);
+    const row = tasksTable.find((t) => t.id === OWN_TASK_ID);
+    expect(row?.reminder_enabled).toBe(false);
   });
 });

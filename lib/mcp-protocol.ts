@@ -14,7 +14,13 @@ export interface McpTool {
   description: string;
   inputSchema: {
     type: "object";
-    properties: Record<string, { type: string; description: string }>;
+    // `string | string[]` (issue #201, lot 4 tache 3 - revue finding 2) :
+    // JSON Schema autorise un tableau de types pour "l'un ou l'autre" (ex.
+    // set_deadline.deadline_at : "string" OU "null" pour effacer). Un simple
+    // `type: string` empechait toute propriete d'annoncer ce cas — un client
+    // MCP qui valide les arguments contre ce schema avant l'appel rejetterait
+    // alors une valeur que le parseur accepte reellement.
+    properties: Record<string, { type: string | string[]; description: string }>;
     required: string[];
   };
 }

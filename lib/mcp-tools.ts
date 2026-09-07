@@ -74,7 +74,10 @@ function domainErrorMessage(code: DomainErrorCode): string {
 function parseAddTaskArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
   const rawTitle = args.title;
   if (typeof rawTitle !== "string") {
-    return { ok: false, error: "title est requis (string)." };
+    // Fix (lot 4, tache 3 - revue finding 6) : ce site (pre-lot) emettait un
+    // code nu, contrairement aux parseurs ajoutes par ce lot - la convention
+    // "invalid_args : <phrase>" n'etait donc pas vraiment unifiee.
+    return { ok: false, error: "invalid_args : title est requis (string)." };
   }
   return { ok: true, args: { title: rawTitle } };
 }
@@ -95,11 +98,19 @@ async function handleAddTask(ctx: McpContext, args: Record<string, unknown>): Pr
       timezone: ctx.timezone,
     });
     return buildAddTaskToolResult(outcome);
-  } catch {
+  } catch (err) {
     // Retrofit (lot 4, tache 3) : ce site emettait la chaine litterale
     // "insert_task_failed", qui n'est meme pas un membre de DomainErrorCode
     // (le plus proche est "insert_failed") - corrige au passage.
-    return buildToolErrorResult(domainErrorMessage("insert_failed"));
+    // Fix (lot 4, tache 3 - revue finding 5) : insertTaskForUser
+    // (lib/task-insertion.ts) leve deux erreurs distinctes -
+    // "insert_task_fetch_failed" (lecture des taches du jour echouee) et
+    // "insert_task_failed" (l'insertion elle-meme) - les conflater en
+    // "insert_failed" cache a l'agent qu'une simple LECTURE a echoue avant
+    // meme la tentative d'ecriture.
+    const code =
+      err instanceof Error && err.message.endsWith("fetch_failed") ? "fetch_failed" : "insert_failed";
+    return buildToolErrorResult(domainErrorMessage(code));
   }
 }
 
@@ -163,7 +174,14 @@ const SET_DEADLINE_TOOL: McpTool = {
     type: "object",
     properties: {
       task_id: { type: "string", description: "Identifiant de la tâche (UUID)" },
-      deadline_at: { type: "string", description: "Instant ISO 8601 (UTC), ou null pour effacer" },
+      // Fix (lot 4, tache 3 - revue finding 2) : `type: "string"` seul
+      // interdisait `null` a un client qui valide ses arguments contre ce
+      // schema avant d'appeler le tool - "effacer la deadline" devenait alors
+      // inatteignable malgre un parseur qui l'accepte deja.
+      deadline_at: {
+        type: ["string", "null"],
+        description: "Instant ISO 8601 (UTC), ou null pour effacer",
+      },
       reminder_enabled: { type: "boolean", description: "Activer/désactiver le rappel push pour cette tâche (omis = inchangé)" },
       reminder_offset_minutes: { type: "number", description: "Minutes avant la deadline pour le rappel (omis = inchangé)" },
     },
@@ -174,7 +192,9 @@ const SET_DEADLINE_TOOL: McpTool = {
 function parseListTasksArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
   const day = args.day ?? "today";
   if (day !== "today" && day !== "tomorrow") {
-    return { ok: false, error: "day doit valoir 'today' ou 'tomorrow'." };
+    // Fix (lot 4, tache 3 - revue finding 6) : meme retrofit que
+    // parseAddTaskArgs ci-dessus - site pre-lot, code nu jusqu'ici.
+    return { ok: false, error: "invalid_args : day doit valoir 'today' ou 'tomorrow'." };
   }
   const rawInclude = args.include_completed;
   const includeCompleted = rawInclude === undefined ? true : rawInclude === "true" || rawInclude === true;
@@ -303,8 +323,19 @@ function parseCompleteTaskArgs(args: Record<string, unknown>): ParsedArgs<Record
   if (typeof taskId !== "string") {
     return { ok: false, error: "invalid_args : task_id est requis (string)." };
   }
+  // Fix (lot 4, tache 3 - revue finding 4) : l'ancienne forme
+  // (`raw === true || raw === "true"`) est un test d'EGALITE, pas une
+  // coercition — tout ce qui n'est ni `true`/`"true"` ni `false`/`"false"`
+  // (ex. `1`, `"yes"`, `"TRUE"`) retombait silencieusement sur `false`, la
+  // branche DESTRUCTRICE (decocher rembourse xp_awarded et remet le combo a
+  // zero cote domaine). Un type incorrect doit etre refuse, jamais
+  // reinterprete en decochage.
   const raw = args.completed;
-  const completed = raw === undefined ? true : raw === true || raw === "true";
+  let completed: boolean;
+  if (raw === undefined) completed = true;
+  else if (raw === true || raw === "true") completed = true;
+  else if (raw === false || raw === "false") completed = false;
+  else return { ok: false, error: "invalid_args : completed doit etre un booleen." };
   return { ok: true, args: { taskId, completed } };
 }
 
@@ -356,8 +387,23 @@ function parseSetDeadlineArgs(args: Record<string, unknown>): ParsedArgs<Record<
   // On propage donc `undefined` tel quel plutot que de le collapser.
   const reminderEnabled =
     args.reminder_enabled === undefined ? undefined : args.reminder_enabled === true;
-  const reminderOffsetMinutes =
-    args.reminder_offset_minutes === undefined ? undefined : Number(args.reminder_offset_minutes);
+
+  // Fix (lot 4, tache 3 - revue finding 1) : le parametre domaine est
+  // `number | null` (lib/domain/tasks.ts:526), et `null` signifie "herite le
+  // reglage du profil" - distinct de l'absence d'argument (`undefined`, "ne
+  // touche pas la colonne"). `Number(null)` valait 0 ("notifier a la
+  // deadline elle-meme", un reglage DIFFERENT ecrit silencieusement), et
+  // `Number("soon")` valait NaN (serialise en `null` par supabase-js, donc un
+  // reset silencieux vers l'heritage profil). Trois cas distincts, et on
+  // refuse le reste plutot que de le reinterpreter - meme discipline que les
+  // autres parseurs de ce fichier.
+  const rawOffset = args.reminder_offset_minutes;
+  let reminderOffsetMinutes: number | null | undefined;
+  if (rawOffset === undefined) reminderOffsetMinutes = undefined;
+  else if (rawOffset === null) reminderOffsetMinutes = null;
+  else if (typeof rawOffset !== "number" || !Number.isFinite(rawOffset)) {
+    return { ok: false, error: "invalid_args : reminder_offset_minutes doit etre un nombre ou null." };
+  } else reminderOffsetMinutes = rawOffset;
 
   return {
     ok: true,
@@ -368,7 +414,7 @@ function parseSetDeadlineArgs(args: Record<string, unknown>): ParsedArgs<Record<
 async function handleSetDeadline(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
   const taskId = args.taskId as string;
   const deadlineAt = args.deadlineAt as string | null;
-  const reminderOffsetMinutes = args.reminderOffsetMinutes as number | undefined;
+  const reminderOffsetMinutes = args.reminderOffsetMinutes as number | null | undefined;
   const reminderEnabled = args.reminderEnabled as boolean | undefined;
 
   // Ordre de setTaskDeadlineForUser : (…, deadlineAt, reminderOffsetMinutes,
