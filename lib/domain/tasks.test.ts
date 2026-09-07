@@ -338,6 +338,31 @@ describe("famille Demain", () => {
     expect(res.reportedTasks?.[0]?.deferred_at).toBeNull();
   });
 
+  // Issue #201 (lot 4) : verrouille la portee de l'ecriture en cascade
+  // maintenant que le faux client parse reellement `.or()` — une regression
+  // qui ferait `.or()` matcher a nouveau toute ligne ferait echouer cette
+  // assertion en incluant "voisine" dans `moved`.
+  test("reportToTomorrowForUser ne deplace que la tache visee et ses enfants", async () => {
+    const c = client([
+      { id: "11111111-1111-1111-1111-111111111111", user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      { id: "22222222-2222-2222-2222-222222222222", user_id: "u1", parent_id: "11111111-1111-1111-1111-111111111111", day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      { id: "33333333-3333-3333-3333-333333333333", user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 1 },
+    ]);
+
+    const res = await reportToTomorrowForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "11111111-1111-1111-1111-111111111111",
+    );
+
+    expect(res.error).toBeNull();
+    const moved = (res.reportedTasks ?? []).map((t) => t.id).sort();
+    expect(moved).toEqual([
+      "11111111-1111-1111-1111-111111111111",
+      "22222222-2222-2222-2222-222222222222",
+    ]);
+  });
+
   test("bringToToday efface aussi deferred_at", async () => {
     const c = client([
       { id: "aaaaaaaa-9999-9999-9999-999999999999", user_id: "u1", is_completed: false, is_abandoned: false, deferred_at: "2026-09-05T08:00:00.000Z", deadline_at: null, day_date: "2026-09-06" },

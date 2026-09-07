@@ -3,9 +3,11 @@
 // (la copie locale de ce dernier a été fusionnée ici, issue #201 lot 3) et
 // app/api/mcp/route.test.ts (fusionnée à son tour, issue #201 lot 3 tache 4 —
 // `.rpc()` ci-dessous vient de cette copie, seul consommateur à ce jour).
-// `eq`/`in`/`lt`/`is` filtrent réellement les lignes (this.filters, consulté
-// par apply() en lecture comme en update) — seul `or()` reste un no-op,
-// choix documenté juste au-dessus de sa définition, pas un oubli.
+// `eq`/`in`/`lt`/`is`/`or` filtrent réellement les lignes (this.filters,
+// consulté par apply() en lecture comme en update). `or()` parse uniquement
+// la forme étroite "colonne.eq.valeur[,...]" (cf. sa définition) et LÈVE sur
+// toute autre forme plutôt que de retomber en no-op silencieux — aucun no-op
+// filtre ne reste dans ce fichier (issue #201, lot 4).
 
 import { vi } from "vitest";
 
@@ -51,11 +53,28 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     return this;
   }
 
-  // `or` reste volontairement permissif : les vraies clauses `.or()` de ce
-  // repo sont des chaines PostgREST (`id.eq.X,parent_id.eq.X`) dont le
-  // parsing complet n'apporterait rien ici — mais contrairement aux autres,
-  // ce no-op est desormais EXPLICITE et documente, plus un oubli silencieux.
-  or(): this {
+  // Parse la forme etroite que ce repo emet reellement :
+  // `col.eq.valeur,col.eq.valeur` (cf. les six ecritures de
+  // lib/domain/tasks.ts, toutes identiques). Les conditions sont OR entre
+  // elles, et l'ensemble est AND avec les autres filtres — comme PostgREST.
+  //
+  // Toute autre forme LEVE, volontairement : un parseur qui retomberait sur
+  // un no-op face a une syntaxe inconnue recreerait le faux-vert que ce
+  // correctif supprime (issue #201, lot 4), en pire — il aurait l'air de
+  // filtrer. Ajouter une forme ici est un geste conscient.
+  or(filters: string): this {
+    const conditions = filters.split(",").map((raw) => {
+      const parts = raw.split(".");
+      if (parts.length !== 3 || parts[1] !== "eq") {
+        throw new Error(
+          `FakeQueryBuilder.or : forme non supportee "${raw}". ` +
+            `Seul "colonne.eq.valeur" est parse (cf. commentaire). Etendre le parseur si besoin.`,
+        );
+      }
+      const [column, , value] = parts;
+      return (row: Row) => String(row[column]) === value;
+    });
+    this.filters.push((row) => conditions.some((c) => c(row)));
     return this;
   }
 
