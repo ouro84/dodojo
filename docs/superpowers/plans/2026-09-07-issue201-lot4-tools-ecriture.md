@@ -324,7 +324,11 @@ La revue finale du lot 3 a relevé que D6.3 est appliqué de trois façons diff�
 
 Convention retenue pour **tout** nouveau message d'erreur de tool dans ce lot : `<code_machine> : <phrase courte en français>`. Exemple : `task_not_found : Cette tâche est introuvable.` L'agent a un code stable à brancher, l'humain qui lit la trace a une phrase.
 
-Ne **pas** réécrire les messages existants des lots 2/3 dans cette tâche — les toucher élargirait le diff sans nécessité. Noter la divergence dans le rapport ; l'uniformisation rétroactive est un candidat de suite.
+~~Ne **pas** réécrire les messages existants des lots 2/3 dans cette tâche — les toucher élargirait le diff sans nécessité.~~
+
+⚠️ **Révisé au moment du brief de la Task 3 : les trois sites existants SONT à aligner dans le même commit.** L'argument « ça élargit le diff » ne tenait pas à l'inspection : il s'agit de trois lignes (`lib/mcp-tools.ts:51`, `:62`, `:201`), pas d'un chantier. Et laisser deux conventions coexister dans un fichier de 250 lignes garantit que la suivante sera recopiée par qui écrira le prochain tool — le coût différé dépasse largement les trois lignes économisées.
+
+Justifié après coup : l'un des trois, `"insert_task_failed"`, **n'était même pas un membre de `DomainErrorCode`**. Une chaîne qui ressemblait à un code sans en être un, invisible tant que rien ne contraignait ces valeurs. Le `Record<DomainErrorCode, string>` exhaustif l'a fait tomber à la compilation. Sans le retrofit, ce faux code serait resté en production indéfiniment.
 
 - [ ] **Step 2 : Écrire les tests (RED)**
 
