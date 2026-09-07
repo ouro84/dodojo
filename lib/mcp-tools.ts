@@ -62,6 +62,7 @@ const DOMAIN_ERROR_PHRASES: Record<DomainErrorCode, string> = {
   invalid_title: "titre de tâche invalide",
   task_not_found: "tâche introuvable",
   task_abandoned: "tâche abandonnée",
+  task_completed: "tâche déjà terminée",
   depth_limit: "une sous-tâche ne peut pas avoir de sous-tâches",
   fetch_failed: "échec de lecture en base",
   insert_failed: "échec de création en base",
@@ -574,16 +575,18 @@ async function handleMoveTask(ctx: McpContext, args: Record<string, unknown>): P
     return buildToolErrorResult(domainErrorMessage(outcome.error));
   }
 
-  // reportToTomorrowForUser/bringToTodayForUser scopent leur UPDATE par
-  // .eq("user_id", userId) — une tache d'un autre utilisateur (ou un id qui
-  // n'existe pas) ne matche donc aucune ligne, et l'update PostgREST renvoie
-  // `error: null` avec un tableau vide plutot qu'une erreur (meme classe de
-  // piege que setTaskDeadlineForUser avant son fix du lot 3). 0 ligne
-  // deplacee est traite ici comme task_not_found — jamais un succes muet a
-  // "0 tâche(s)" qui laisserait l'agent croire que l'action a eu lieu.
+  // Revue #201 (lot 4, fix) : reportToTomorrowForUser/bringToTodayForUser
+  // distinguent desormais elles-memes task_not_found/task_abandoned/
+  // task_completed d'un vrai 0-ligne (cf. leur diagnostic fin sur relecture
+  // ciblee) — un `error: null` qui arrive ici avec un tableau vide ne peut
+  // donc plus signifier "introuvable" : il signifie que la tache existe,
+  // appartient bien a l'appelant, et est deja exactement ou l'agent voulait
+  // l'envoyer. Le signaler comme un succes no-op, jamais comme un echec que
+  // l'agent devrait diagnostiquer lui-meme.
   const moved = (to === "tomorrow" ? outcome.reportedTasks : outcome.broughtBackTasks) ?? [];
   if (moved.length === 0) {
-    return buildToolErrorResult(domainErrorMessage("task_not_found"));
+    const already = to === "tomorrow" ? "Cette tâche est déjà sur demain." : "Cette tâche est déjà sur aujourd'hui.";
+    return { content: [{ type: "text", text: already }], isError: false };
   }
 
   // Compte annonce explicitement (pas seulement "OK") : rend visible a

@@ -900,6 +900,58 @@ describe("move_task handler (lot 4, tache 4)", () => {
     const movedIds = tasksTable.filter((t) => t.day_date === TOMORROW).map((t) => t.id).sort();
     expect(movedIds).toEqual([MOVE_ROOT_ID, MOVE_CHILD_ID].sort());
   });
+
+  // Revue #201 (lot 4, fix) : la 2e requete sur 0 ligne mise a jour n'est PAS
+  // forcement "introuvable" — reportToTomorrowForUser/bringToTodayForUser
+  // distinguent desormais ce cas au niveau domaine (relecture ciblee).
+  test("deplacer deux fois vers demain : la 2e fois est un succes 'deja la-bas', jamais task_not_found", async () => {
+    const tables = {
+      tasks: [
+        { id: OWN_TASK_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      ],
+      profiles: [{ id: "u1", timezone: "UTC" }],
+    };
+
+    const first = await runTool("move_task", { task_id: OWN_TASK_ID, to: "tomorrow" }, tables);
+    expect(first.isError).toBe(false);
+
+    const second = await runTool("move_task", { task_id: OWN_TASK_ID, to: "tomorrow" }, tables);
+    expect(second.isError).toBe(false);
+    expect(second.content[0].text).not.toContain("task_not_found");
+    expect(second.content[0].text).toContain("déjà sur demain");
+  });
+
+  test("deplacer une tache deja terminee : task_completed, jamais task_not_found", async () => {
+    const res = await runTool(
+      "move_task",
+      { task_id: OWN_TASK_ID, to: "tomorrow" },
+      {
+        tasks: [
+          { id: OWN_TASK_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: true, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+        ],
+        profiles: [{ id: "u1", timezone: "UTC" }],
+      },
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("task_completed");
+    expect(res.content[0].text).not.toContain("task_not_found");
+  });
+
+  test("deplacer une tache abandonnee : task_abandoned, jamais task_not_found", async () => {
+    const res = await runTool(
+      "move_task",
+      { task_id: OWN_TASK_ID, to: "tomorrow" },
+      {
+        tasks: [
+          { id: OWN_TASK_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: true, deadline_at: null, deferred_at: null, position: 0 },
+        ],
+        profiles: [{ id: "u1", timezone: "UTC" }],
+      },
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("task_abandoned");
+    expect(res.content[0].text).not.toContain("task_not_found");
+  });
 });
 
 describe("equip_hero parseArgs (lot 4, tache 4)", () => {

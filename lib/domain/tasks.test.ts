@@ -375,6 +375,96 @@ describe("famille Demain", () => {
     expect(res.error).toBeNull();
     expect(res.broughtBackTasks?.[0]?.deferred_at).toBeNull();
   });
+
+  // Issue #201 (lot 4, fix revue) : l'UPDATE de reportToTomorrowForUser/
+  // bringToTodayForUser scope sur 5 (resp. 3) filtres conjonctifs, mais
+  // seuls `id`/`user_id` signifient vraiment "etrangere ou inexistante" — les
+  // autres (day_date/is_completed/is_abandoned) sont des filtres METIER, pas
+  // des filtres de tenant. Zero ligne mise a jour ne veut donc pas
+  // automatiquement dire "introuvable" : ce bloc verrouille le diagnostic
+  // fin, calcule par une relecture ciblee sur la seule ligne visee.
+  describe("reportToTomorrowForUser — diagnostic fin sur 0 ligne (issue #201, fix revue)", () => {
+    const ROOT_ID = "55555555-5555-5555-5555-555555555555";
+
+    test("appelee deux fois sur la meme tache : la 2e est un succes no-op, jamais task_not_found", async () => {
+      const c = client([
+        { id: ROOT_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      ]);
+
+      const first = await reportToTomorrowForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(first.error).toBeNull();
+      expect(first.reportedTasks?.length).toBe(1);
+
+      const second = await reportToTomorrowForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(second.error).toBeNull();
+      expect(second.reportedTasks).toEqual([]);
+    });
+
+    test("tache deja terminee aujourd'hui : task_completed, jamais task_not_found", async () => {
+      const c = client([
+        { id: ROOT_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: true, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      ]);
+      const res = await reportToTomorrowForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(res.error).toBe("task_completed");
+    });
+
+    test("tache abandonnee : task_abandoned, jamais task_not_found", async () => {
+      const c = client([
+        { id: ROOT_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: true, deadline_at: null, deferred_at: null, position: 0 },
+      ]);
+      const res = await reportToTomorrowForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(res.error).toBe("task_abandoned");
+    });
+
+    test("tache d'un autre utilisateur : reste task_not_found (pas de regression du cas tenant)", async () => {
+      const c = client([
+        { id: ROOT_ID, user_id: "victime", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      ]);
+      const res = await reportToTomorrowForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(res.error).toBe("task_not_found");
+    });
+  });
+
+  describe("bringToTodayForUser — diagnostic fin sur 0 ligne (issue #201, fix revue)", () => {
+    const ROOT_ID = "66666666-6666-6666-6666-666666666666";
+
+    // bringToTodayForUser ne filtre pas sur day_date (contrairement a
+    // reportToTomorrowForUser) : une tache active et non abandonnee matche
+    // TOUJOURS l'UPDATE, meme si elle est deja "aujourd'hui" — l'appel repete
+    // reste donc idempotent par un vrai match (1 ligne, reappliquee a
+    // l'identique), jamais via la branche 0-ligne. Documente ici pour ne pas
+    // reintroduire par erreur un filtre day_date qui casserait cette
+    // idempotence naturelle.
+    test("appelee deux fois sur la meme tache : les deux fois matchent reellement (idempotence par update, pas par diagnostic)", async () => {
+      const c = client([
+        { id: ROOT_ID, user_id: "u1", parent_id: null, day_date: "2026-09-06", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      ]);
+
+      const first = await bringToTodayForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(first.error).toBeNull();
+      expect(first.broughtBackTasks?.length).toBe(1);
+
+      const second = await bringToTodayForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(second.error).toBeNull();
+      expect(second.broughtBackTasks?.length).toBe(1);
+    });
+
+    test("tache abandonnee : task_abandoned, jamais task_not_found", async () => {
+      const c = client([
+        { id: ROOT_ID, user_id: "u1", parent_id: null, day_date: "2026-09-06", is_completed: false, is_abandoned: true, deadline_at: null, deferred_at: null, position: 0 },
+      ]);
+      const res = await bringToTodayForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(res.error).toBe("task_abandoned");
+    });
+
+    test("tache d'un autre utilisateur : reste task_not_found (pas de regression du cas tenant)", async () => {
+      const c = client([
+        { id: ROOT_ID, user_id: "victime", parent_id: null, day_date: "2026-09-06", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      ]);
+      const res = await bringToTodayForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(res.error).toBe("task_not_found");
+    });
+  });
 });
 
 describe("listTasksForUser", () => {

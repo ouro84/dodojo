@@ -889,9 +889,36 @@ export async function reportToTomorrowForUser(
     .select();
 
   if (error) return { error: "update_failed" };
+
+  // Revue #201 (lot 4, fix) : 0 ligne mise a jour ne veut PAS forcement dire
+  // "introuvable" — l'UPDATE ci-dessus combine 2 filtres de tenant
+  // (id/parent_id, user_id) et 3 filtres METIER (day_date, is_completed,
+  // is_abandoned). Un agent qui rappelle move_task sur une tache deja
+  // deplacee, ou sur une tache visible mais deja terminee, matcherait 0
+  // ligne pour une raison entierement differente d'un id etranger/inexistant
+  // — le layer tool (lib/mcp-tools.ts) ne peut structurellement pas
+  // distinguer ces cas, seule une relecture ciblee ici le peut.
+  if ((updated ?? []).length === 0) {
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("id, day_date, is_completed, is_abandoned")
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!existing) return { error: "task_not_found" };
+    if (existing.is_abandoned) return { error: "task_abandoned" };
+    if (existing.is_completed) return { error: "task_completed" };
+    // Ligne active, appartient bien a l'utilisateur, mais day_date !== today
+    // (deja sur demain, ou sur un autre jour) : succes no-op, jamais une
+    // erreur — un agent qui retente un move_task deja effectue ne doit pas
+    // se voir opposer un echec qu'il doit alors interpreter.
+    return { error: null, reportedTasks: [] };
+  }
+
   // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
-  return { error: null, reportedTasks: (updated ?? []) as Task[] };
+  await Promise.allSettled(updated.map((row) => cancelDeadlineReminder(row.id as string)));
+  return { error: null, reportedTasks: updated as Task[] };
 }
 
 // Issue #116 : ramène une tâche de la section "Demain" à aujourd'hui —
@@ -932,9 +959,29 @@ export async function bringToTodayForUser(
     .select();
 
   if (error) return { error: "update_failed" };
+
+  // Meme diagnostic fin que reportToTomorrowForUser ci-dessus, en plus
+  // simple : cette UPDATE n'a que 2 filtres de tenant (id/parent_id,
+  // user_id) + 1 filtre metier (is_abandoned) — pas de day_date/is_completed,
+  // donc 0 ligne ne peut signifier qu'introuvable ou abandonnee (jamais "deja
+  // aujourd'hui", une tache active matche toujours cette UPDATE quel que
+  // soit son day_date courant).
+  if ((updated ?? []).length === 0) {
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("id, is_abandoned")
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!existing) return { error: "task_not_found" };
+    if (existing.is_abandoned) return { error: "task_abandoned" };
+    return { error: null, broughtBackTasks: [] };
+  }
+
   // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
-  return { error: null, broughtBackTasks: (updated ?? []) as Task[] };
+  await Promise.allSettled(updated.map((row) => cancelDeadlineReminder(row.id as string)));
+  return { error: null, broughtBackTasks: updated as Task[] };
 }
 
 export interface TaskRead {

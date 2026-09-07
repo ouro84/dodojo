@@ -36,8 +36,16 @@ export const ADD_TASK_TOOL: McpTool = {
       // s'applique jamais en meme temps que parent_id — une sous-tache herite
       // du day_date de sa tache parente (issue #116) ; le parseur (lib/mcp-tools.ts)
       // refuse explicitement la combinaison plutot que de l'ignorer.
-      parent_id: { type: "string", description: "Pour creer une sous-tache : identifiant de la tache parente" },
-      day: { type: "string", description: "'today' (defaut) ou 'tomorrow'" },
+      parent_id: {
+        type: "string",
+        description:
+          "Pour creer une sous-tache : identifiant de la tache parente. Mutuellement exclusif avec day (une sous-tache herite du jour de sa tache parente).",
+      },
+      day: {
+        type: "string",
+        description:
+          "'today' (defaut) ou 'tomorrow'. Mutuellement exclusif avec parent_id (ne s'applique jamais a une sous-tache).",
+      },
     },
     required: ["title"],
   },
