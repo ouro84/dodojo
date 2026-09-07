@@ -29,10 +29,20 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
   private mode: "select" | "insert" | "update" = "select";
   private patch: Row = {};
   private insertedRow: Row | null = null;
+  private countMode = false;
 
   constructor(private readonly rows: Row[]) {}
 
-  select(): this {
+  // Issue #201 (lot 4) : `select("id", { count: "exact", head: true })` doit
+  // renvoyer un COMPTE, pas des lignes. Sans ca, les trois comptages de
+  // assembleAchievementContext (rage quits, routines, partages reussis)
+  // recevaient `count: undefined` quel que soit le contenu de la table — donc
+  // aucun test ne pouvait distinguer « n'a compte que mes lignes » de « a tout
+  // compte ». Meme angle mort que les filtres no-op soldes au lot 3, et meme
+  // enjeu : le serveur MCP appelle le domaine avec un client service-role qui
+  // contourne RLS, ces filtres applicatifs sont la seule frontiere de tenant.
+  select(_columns?: string, options?: { count?: string; head?: boolean }): this {
+    this.countMode = options?.count != null;
     return this;
   }
 
@@ -138,7 +148,13 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     onfulfilled?: ((value: { data: Row[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
   ): PromiseLike<TResult1 | TResult2> {
     const data = this.apply();
-    return Promise.resolve({ data, error: null as null }).then(
+    // En mode `count`, PostgREST renvoie le compte des lignes qui matchent les
+    // filtres (et `data: null` quand `head: true`). Le compte porte donc la
+    // meme frontiere de tenant que les lignes elles-memes.
+    const payload = this.countMode
+      ? { data: [] as Row[], count: data.length, error: null as null }
+      : { data, error: null as null };
+    return Promise.resolve(payload).then(
       onfulfilled ?? undefined,
     ) as PromiseLike<TResult1 | TResult2>;
   }

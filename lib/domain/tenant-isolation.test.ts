@@ -4,6 +4,9 @@ import { FakeSupabaseClient } from "./fake-supabase";
 import { completeTaskForUser, setTaskDeadlineForUser } from "./tasks";
 import { readProgression } from "./progression";
 import { readDailyBoss } from "./boss";
+import { assembleAchievementContext, applyNewAchievements } from "./achievements";
+
+type Row = Record<string, unknown>;
 
 const cancelCalls: string[] = [];
 const scheduleCalls: Array<{ taskId: string }> = [];
@@ -104,5 +107,77 @@ describe("isolation de tenant — le domaine ne voit jamais les lignes d'autrui"
 
     const res = await readDailyBoss(c as unknown as SupabaseClient, "u1", "2026-09-06");
     expect(res).toBeNull();
+  });
+
+  // Issue #201 (lot 4) : assembleAchievementContext a emmenage dans lib/domain/
+  // avec la Task 2, donc elle est desormais appelee par le serveur MCP via
+  // completeTaskForUser -> applyNewAchievements, avec un client service-role.
+  // Ses 11 requetes n'avaient jamais ete verrouillees ici. Une seule d'entre
+  // elles perdant son `.eq("user_id", ...)` donnerait a un agent la progression
+  // d'un autre joueur — et debloquerait chez lui des succes qu'il n'a pas
+  // gagnes, puisque applyNewAchievements ecrit sur la base de ce contexte.
+  test("assembleAchievementContext ne voit aucune donnee d'un autre utilisateur", async () => {
+    const c = new FakeSupabaseClient({
+      profiles: [
+        { id: "victime", level: 99, best_streak: 42, aggressivity_level: "brut", title_manually_set: false },
+      ],
+      unlocked_heroes: [{ user_id: "victime", hero_id: "metal_bladekeeper" }],
+      unlocked_skins: [{ user_id: "victime", skin_id: "metal_bladekeeper_gold" }],
+      daily_boss: [{ user_id: "victime", boss_id: "minotaur", background_id: "forest-1" }],
+      day_results: [
+        { user_id: "victime", outcome: "victory", tasks_completed: 9, tasks_abandoned: 0, gold_earned: 500, boss_max_hp: 200 },
+      ],
+      tasks: [{ user_id: "victime", abandon_reason: "rage_quit" }],
+      recurring_templates: [{ user_id: "victime" }],
+      share_events: [{ user_id: "victime", event: "share_succeeded" }],
+      unlocked_achievements: [],
+    });
+
+    const ctx = await assembleAchievementContext(c as unknown as SupabaseClient, "u1");
+
+    // Chaque champ retombe sur son defaut : u1 n'existe dans aucune table.
+    expect(ctx.level).toBe(1);
+    expect(ctx.bestStreak).toBe(0);
+    expect(ctx.aggressivityLevel).toBe("direct");
+    expect(ctx.unlockedHeroIds).toEqual([]);
+    expect(ctx.unlockedSkinIds).toEqual([]);
+    expect(ctx.seenBossIds).toEqual([]);
+    expect(ctx.seenBackgroundIds).toEqual([]);
+    expect(ctx.dayResults).toEqual([]);
+    // Les trois comptages : sans le support de `{ count }` ajoute au faux
+    // client dans ce meme lot, ils valaient `undefined` -> 0 quoi qu'il arrive,
+    // et ces trois assertions auraient passe meme sans filtre `user_id`.
+    expect(ctx.rageQuitCount).toBe(0);
+    expect(ctx.routineCount).toBe(0);
+    expect(ctx.shareSuccessCount).toBe(0);
+  });
+
+  test("applyNewAchievements ne debloque rien depuis les succes d'autrui", async () => {
+    const unlocked: Row[] = [{ user_id: "victime", code: "FIRST_VICTORY", unlocked_at: "2026-01-01T00:00:00.000Z" }];
+    const c = new FakeSupabaseClient({
+      profiles: [{ id: "u1", title_manually_set: false }],
+      unlocked_achievements: unlocked,
+    });
+
+    // Contexte neutre : rien n'est gagne, donc rien ne doit etre ecrit.
+    const codes = await applyNewAchievements(c as unknown as SupabaseClient, "u1", {
+      level: 1,
+      bestStreak: 0,
+      aggressivityLevel: "direct",
+      unlockedHeroIds: [],
+      unlockedSkinIds: [],
+      seenBossIds: [],
+      seenBackgroundIds: [],
+      dayResults: [],
+      rageQuitCount: 0,
+      routineCount: 0,
+      shareSuccessCount: 0,
+    });
+
+    expect(codes).toEqual([]);
+    // La ligne de la victime est intacte : aucun upsert ne l'a touchee.
+    expect(unlocked).toEqual([
+      { user_id: "victime", code: "FIRST_VICTORY", unlocked_at: "2026-01-01T00:00:00.000Z" },
+    ]);
   });
 });
