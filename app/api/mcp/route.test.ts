@@ -87,9 +87,19 @@ describe("POST /api/mcp - protocole JSON-RPC (US-22)", () => {
     const response = await POST(mcpRequest({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
     const body = await response.json();
     const names = body.result.tools.map((t: { name: string }) => t.name).sort();
-    // Lot 4 (tache 3) ajoute complete_task/set_deadline, requiredScope
-    // "tasks:write" - couverts par le meme scope que ce test exerce deja.
-    expect(names).toEqual(["add_task", "complete_task", "get_boss_status", "get_streak", "list_tasks", "set_deadline"]);
+    // Lot 4 (tache 3) ajoute complete_task/set_deadline, lot 4 (tache 4)
+    // ajoute move_task - tous requiredScope "tasks:write", couverts par le
+    // meme scope que ce test exerce deja. equip_hero (profile:write) reste
+    // absent : ce scope ne l'accorde pas.
+    expect(names).toEqual([
+      "add_task",
+      "complete_task",
+      "get_boss_status",
+      "get_streak",
+      "list_tasks",
+      "move_task",
+      "set_deadline",
+    ]);
   });
 
   test("notifications/initialized repond 202 sans corps", async () => {

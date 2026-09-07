@@ -111,17 +111,19 @@ describe("add_task handler (lot 4, tache 3 - fixes) finding 5", () => {
   });
 });
 
-describe("catalogue (lot 3 lecture + lot 4 tache 3 ecriture)", () => {
-  test("les 8 tools attendus sont enregistres", () => {
+describe("catalogue (lot 3 lecture + lot 4 ecriture complete)", () => {
+  test("les 10 tools attendus sont enregistres", () => {
     expect(TOOL_REGISTRY.map((t) => t.tool.name).sort()).toEqual(
       [
         "add_task",
         "complete_task",
+        "equip_hero",
         "get_boss_status",
         "get_progression",
         "get_streak",
         "list_heroes",
         "list_tasks",
+        "move_task",
         "set_deadline",
       ].sort(),
     );
@@ -134,19 +136,34 @@ describe("catalogue (lot 3 lecture + lot 4 tache 3 ecriture)", () => {
     expect(scopeOf("get_streak")).toBe("tasks:read");
     expect(scopeOf("get_progression")).toBe("profile:read");
     expect(scopeOf("list_heroes")).toBe("profile:read");
+    expect(scopeOf("add_task")).toBe("tasks:write");
     expect(scopeOf("complete_task")).toBe("tasks:write");
     expect(scopeOf("set_deadline")).toBe("tasks:write");
+    expect(scopeOf("move_task")).toBe("tasks:write");
+    expect(scopeOf("equip_hero")).toBe("profile:write");
   });
 
-  test("un token tasks:read seul ne voit aucun tool d'ecriture", () => {
-    const names = toolsForScope("tasks:read").map((t) => t.name);
-    expect(names).toContain("list_tasks");
-    expect(names).not.toContain("add_task");
+  // Lot 4, tache 4 : un agent ne doit voir QUE ce que son token peut appeler -
+  // un test exhaustif par famille de scope, pas seulement "contient"/"ne
+  // contient pas" (cf. brief : les tests precedents ne couvraient qu'add_task).
+  test("un token tasks:read seul ne voit que les 3 lectures tasks", () => {
+    const names = toolsForScope("tasks:read").map((t) => t.name).sort();
+    expect(names).toEqual(["get_boss_status", "get_streak", "list_tasks"].sort());
+  });
+
+  test("un token tasks:write seul ne voit que les 4 ecritures tasks", () => {
+    const names = toolsForScope("tasks:write").map((t) => t.name).sort();
+    expect(names).toEqual(["add_task", "complete_task", "move_task", "set_deadline"].sort());
   });
 
   test("un token profile:read seul ne voit que les tools de profil", () => {
     const names = toolsForScope("profile:read").map((t) => t.name).sort();
     expect(names).toEqual(["get_progression", "list_heroes"]);
+  });
+
+  test("un token profile:write seul ne voit que equip_hero", () => {
+    const names = toolsForScope("profile:write").map((t) => t.name);
+    expect(names).toEqual(["equip_hero"]);
   });
 
   // Revue #201 (lot 4, tache 3 - fixes) finding 6 : meme prefixe manquant
@@ -614,5 +631,334 @@ describe("set_deadline (lot 4, tache 3)", () => {
     expect(res.isError).toBe(false);
     const row = tasksTable.find((t) => t.id === OWN_TASK_ID);
     expect(row?.reminder_enabled).toBe(false);
+  });
+});
+
+// Lot 4, tache 4 : add_task etendu (parent_id, day), move_task, equip_hero.
+// TOOL_REGISTRY passe de 8 a 10 entrees - aucune nouvelle logique metier,
+// tout delegue a lib/domain/ deja ecrit aux taches precedentes (cf. brief).
+const PARENT_TASK_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const NESTED_GRANDPARENT_ID = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+const NESTED_PARENT_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc"; // deja une sous-tache
+
+describe("add_task parseArgs — extension parent_id/day (lot 4, tache 4)", () => {
+  test("parent_id absent et day absent -> day par defaut 'today', parentId undefined", () => {
+    const parsed = findTool("add_task")!.parseArgs({ title: "Rappeler" });
+    expect(parsed).toEqual({ ok: true, args: { title: "Rappeler", parentId: undefined, day: "today" } });
+  });
+
+  test("refuse un parent_id non-string", () => {
+    const parsed = findTool("add_task")!.parseArgs({ title: "Rappeler", parent_id: 42 });
+    expect(parsed).toEqual({ ok: false, error: "invalid_args : parent_id doit etre une chaine." });
+  });
+
+  test("refuse un day invalide", () => {
+    const parsed = findTool("add_task")!.parseArgs({ title: "Rappeler", day: "hier" });
+    expect(parsed).toEqual({ ok: false, error: "invalid_args : day doit valoir 'today' ou 'tomorrow'." });
+  });
+
+  test("day='tomorrow' seul (pas de parent_id) est accepte", () => {
+    const parsed = findTool("add_task")!.parseArgs({ title: "Rappeler", day: "tomorrow" });
+    expect(parsed).toEqual({ ok: true, args: { title: "Rappeler", parentId: undefined, day: "tomorrow" } });
+  });
+
+  test("parent_id seul (pas de day) est accepte", () => {
+    const parsed = findTool("add_task")!.parseArgs({ title: "Sous-tache", parent_id: PARENT_TASK_ID });
+    expect(parsed).toEqual({ ok: true, args: { title: "Sous-tache", parentId: PARENT_TASK_ID, day: "today" } });
+  });
+
+  // *** Le refus explicite demande par le brief - jamais un succes silencieux
+  // avec une tache datee autrement que demande, cf. purchaseHero #192 /
+  // setTaskDeadlineForUser lot 3 ***
+  test("parent_id + day ensemble : REFUSE, jamais ignore silencieusement", () => {
+    const parsed = findTool("add_task")!.parseArgs({
+      title: "Sous-tache",
+      parent_id: PARENT_TASK_ID,
+      day: "tomorrow",
+    });
+    expect(parsed).toEqual({
+      ok: false,
+      error:
+        "invalid_args : day ne s'applique pas a une sous-tache : elle herite du jour de sa tache parente.",
+    });
+  });
+
+  test("parent_id + day='today' (valeur qui coinciderait avec le defaut) est quand meme refuse", () => {
+    // Le brief est explicite : refuser la combinaison plutot que de deviner si
+    // la valeur demandee coinciderait avec le jour reel du parent (couterait
+    // une lecture supplementaire pour une ergonomie marginale).
+    const parsed = findTool("add_task")!.parseArgs({
+      title: "Sous-tache",
+      parent_id: PARENT_TASK_ID,
+      day: "today",
+    });
+    expect(parsed.ok).toBe(false);
+  });
+});
+
+describe("add_task handler — sous-tache (parent_id, lot 4 tache 4)", () => {
+  test("herite le day_date du parent (issue #116), jamais 'aujourd'hui' force", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      { id: PARENT_TASK_ID, user_id: "u1", parent_id: null, is_abandoned: false, day_date: TOMORROW, position: 0 },
+    ];
+    const res = await runTool(
+      "add_task",
+      { title: "Sous-tache", parent_id: PARENT_TASK_ID },
+      { tasks: tasksTable, profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(false);
+    const created = tasksTable.find((t) => t.parent_id === PARENT_TASK_ID);
+    expect(created).toBeDefined();
+    expect(created?.day_date).toBe(TOMORROW);
+    expect(created?.day_date).not.toBe(TODAY);
+  });
+
+  test("un parent qui est deja une sous-tache -> depth_limit (RG-01)", async () => {
+    const res = await runTool(
+      "add_task",
+      { title: "Trop profond", parent_id: NESTED_PARENT_ID },
+      {
+        tasks: [
+          { id: NESTED_GRANDPARENT_ID, user_id: "u1", parent_id: null, is_abandoned: false, day_date: TODAY, position: 0 },
+          { id: NESTED_PARENT_ID, user_id: "u1", parent_id: NESTED_GRANDPARENT_ID, is_abandoned: false, day_date: TODAY, position: 0 },
+        ],
+        profiles: [{ id: "u1", timezone: "UTC" }],
+      },
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toBe("depth_limit : une sous-tâche ne peut pas avoir de sous-tâches");
+  });
+
+  test("un parent d'un autre utilisateur -> task_not_found (pas un throw)", async () => {
+    const res = await runTool(
+      "add_task",
+      { title: "Sous-tache", parent_id: FOREIGN_TASK_ID },
+      {
+        tasks: [{ id: FOREIGN_TASK_ID, user_id: "victime", parent_id: null, is_abandoned: false, day_date: TODAY, position: 0 }],
+        profiles: [{ id: "u1", timezone: "UTC" }],
+      },
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("task_not_found");
+  });
+
+  test("succes : message distinct de buildAddTaskToolResult (pas de HP de Boss sur cette forme de retour)", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      { id: PARENT_TASK_ID, user_id: "u1", parent_id: null, is_abandoned: false, day_date: TODAY, position: 0 },
+    ];
+    const res = await runTool(
+      "add_task",
+      { title: "Sous-tache", parent_id: PARENT_TASK_ID },
+      { tasks: tasksTable, profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).not.toContain("Boss");
+  });
+});
+
+describe("add_task handler — day (lot 4 tache 4)", () => {
+  test("day='tomorrow' : la tache atterrit sur nextDayKey(today), jamais aujourd'hui", async () => {
+    const tasksTable: Record<string, unknown>[] = [];
+    const res = await runTool(
+      "add_task",
+      { title: "Pour demain", day: "tomorrow" },
+      { tasks: tasksTable, profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain(TOMORROW);
+    const created = tasksTable.find((t) => t.title === "Pour demain");
+    expect(created?.day_date).toBe(TOMORROW);
+  });
+
+  // Retro-compatibilite absolue (brief) : title seul doit se comporter
+  // EXACTEMENT comme avant ce lot.
+  test("titre seul (comportement pre-existant, inchange) : la tache reste sur aujourd'hui", async () => {
+    const tasksTable: Record<string, unknown>[] = [];
+    const res = await runTool(
+      "add_task",
+      { title: "Sans day precise" },
+      { tasks: tasksTable, profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain(TODAY);
+    const created = tasksTable.find((t) => t.title === "Sans day precise");
+    expect(created?.day_date).toBe(TODAY);
+  });
+});
+
+describe("move_task parseArgs (lot 4, tache 4)", () => {
+  test("refuse un task_id absent", () => {
+    const parsed = findTool("move_task")!.parseArgs({ to: "tomorrow" });
+    expect(parsed.ok).toBe(false);
+  });
+
+  test("refuse un task_id non-string", () => {
+    const parsed = findTool("move_task")!.parseArgs({ task_id: 42, to: "tomorrow" });
+    expect(parsed.ok).toBe(false);
+  });
+
+  test("refuse un to absent", () => {
+    const parsed = findTool("move_task")!.parseArgs({ task_id: OWN_TASK_ID });
+    expect(parsed.ok).toBe(false);
+  });
+
+  test("refuse toute valeur de to autre que today/tomorrow", () => {
+    const parsed = findTool("move_task")!.parseArgs({ task_id: OWN_TASK_ID, to: "yesterday" });
+    expect(parsed).toEqual({
+      ok: false,
+      error: "invalid_args : to doit valoir 'today' ou 'tomorrow'.",
+    });
+  });
+
+  test("accepte task_id + to='today'", () => {
+    const parsed = findTool("move_task")!.parseArgs({ task_id: OWN_TASK_ID, to: "today" });
+    expect(parsed).toEqual({ ok: true, args: { taskId: OWN_TASK_ID, to: "today" } });
+  });
+});
+
+const MOVE_ROOT_ID = "11111111-1111-1111-1111-111111111111";
+const MOVE_CHILD_ID = "22222222-2222-2222-2222-222222222222";
+const MOVE_NEIGHBOUR_ID = "33333333-3333-3333-3333-333333333333";
+
+describe("move_task handler (lot 4, tache 4)", () => {
+  test("refuse un task_id non-UUID (erreur metier, jamais un throw)", async () => {
+    const res = await runTool(
+      "move_task",
+      { task_id: "optimistic-1", to: "tomorrow" },
+      { tasks: [], profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toBe("invalid_task_id : identifiant de tâche invalide");
+  });
+
+  test("une tache d'un autre utilisateur renvoie une erreur metier, jamais un succes a 0 ligne", async () => {
+    const res = await runTool(
+      "move_task",
+      { task_id: FOREIGN_TASK_ID, to: "tomorrow" },
+      {
+        tasks: [
+          { id: FOREIGN_TASK_ID, user_id: "victime", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+        ],
+        profiles: [{ id: "u1", timezone: "UTC" }],
+      },
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("task_not_found");
+  });
+
+  test("to='tomorrow' route vers reportToTomorrowForUser et confirme le compte deplace", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      { id: OWN_TASK_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+    ];
+    const res = await runTool(
+      "move_task",
+      { task_id: OWN_TASK_ID, to: "tomorrow" },
+      { tasks: tasksTable, profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain("1 tâche(s)");
+    const row = tasksTable.find((t) => t.id === OWN_TASK_ID);
+    expect(row?.day_date).toBe(TOMORROW);
+  });
+
+  test("to='today' route vers bringToTodayForUser et confirme le compte ramene", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      { id: OWN_TASK_ID, user_id: "u1", parent_id: null, day_date: TOMORROW, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+    ];
+    const res = await runTool(
+      "move_task",
+      { task_id: OWN_TASK_ID, to: "today" },
+      { tasks: tasksTable, profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain("1 tâche(s)");
+    const row = tasksTable.find((t) => t.id === OWN_TASK_ID);
+    expect(row?.day_date).toBe(TODAY);
+  });
+
+  // *** Le test qui n'existait pas avant Task 1 de ce lot : sans un faux
+  // client qui parse reellement `.or()`, une voisine satisfaisant tous les
+  // AUTRES filtres (meme utilisateur, meme jour, active) aurait ete deplacee
+  // a tort — cf. rapport de tache pour la preuve (or() force en no-op). ***
+  test("cascade : ne deplace que la tache visee et ses enfants, jamais une racine voisine", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      { id: MOVE_ROOT_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      { id: MOVE_CHILD_ID, user_id: "u1", parent_id: MOVE_ROOT_ID, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+      { id: MOVE_NEIGHBOUR_ID, user_id: "u1", parent_id: null, day_date: TODAY, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 1 },
+    ];
+    const res = await runTool(
+      "move_task",
+      { task_id: MOVE_ROOT_ID, to: "tomorrow" },
+      { tasks: tasksTable, profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain("2 tâche(s)");
+
+    const neighbour = tasksTable.find((t) => t.id === MOVE_NEIGHBOUR_ID);
+    expect(neighbour?.day_date).toBe(TODAY);
+
+    const movedIds = tasksTable.filter((t) => t.day_date === TOMORROW).map((t) => t.id).sort();
+    expect(movedIds).toEqual([MOVE_ROOT_ID, MOVE_CHILD_ID].sort());
+  });
+});
+
+describe("equip_hero parseArgs (lot 4, tache 4)", () => {
+  test("refuse un hero_id absent", () => {
+    const parsed = findTool("equip_hero")!.parseArgs({});
+    expect(parsed.ok).toBe(false);
+  });
+
+  test("refuse un hero_id non-string", () => {
+    const parsed = findTool("equip_hero")!.parseArgs({ hero_id: 42 });
+    expect(parsed).toEqual({ ok: false, error: "invalid_args : hero_id est requis (string)." });
+  });
+
+  test("accepte un hero_id string", () => {
+    const parsed = findTool("equip_hero")!.parseArgs({ hero_id: "water_priestess" });
+    expect(parsed).toEqual({ ok: true, args: { heroId: "water_priestess" } });
+  });
+});
+
+describe("equip_hero handler (lot 4, tache 4)", () => {
+  test("un heros non debloque renvoie hero_not_owned", async () => {
+    const lockedHero = HEROES.find((h) => h.id !== "fire_knight")!;
+    const res = await runTool("equip_hero", { hero_id: lockedHero.id }, {
+      profiles: [{ id: "u1", equipped_hero_id: "fire_knight", equipped_skin_id: null }],
+      unlocked_heroes: [{ user_id: "u1", hero_id: "fire_knight" }],
+      unlocked_skins: [],
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toBe("hero_not_owned : héros non débloqué");
+  });
+
+  test("un heros inconnu du catalogue renvoie hero_not_found", async () => {
+    const res = await runTool("equip_hero", { hero_id: "does_not_exist" }, {
+      profiles: [{ id: "u1", equipped_hero_id: "fire_knight", equipped_skin_id: null }],
+      unlocked_heroes: [{ user_id: "u1", hero_id: "fire_knight" }],
+      unlocked_skins: [],
+    });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toBe("hero_not_found : héros introuvable au catalogue");
+  });
+
+  test("un heros debloque s'equipe, avec sa tenue par defaut (defaultSkinIdFor, jamais fabrique a la main)", async () => {
+    const profilesTable: Record<string, unknown>[] = [
+      { id: "u1", equipped_hero_id: "fire_knight", equipped_skin_id: null },
+    ];
+    const res = await runTool("equip_hero", { hero_id: "water_priestess" }, {
+      profiles: profilesTable,
+      unlocked_heroes: [
+        { user_id: "u1", hero_id: "fire_knight" },
+        { user_id: "u1", hero_id: "water_priestess" },
+      ],
+      unlocked_skins: [],
+    });
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain("Prêtresse de l'Eau");
+    const profile = profilesTable.find((p) => p.id === "u1");
+    expect(profile?.equipped_hero_id).toBe("water_priestess");
+    // Tenue "default" -> jamais une ligne unlocked_skins, equipped_skin_id
+    // reste null (cf. equipHeroForUser / skin.isDefault, US-53 D4).
+    expect(profile?.equipped_skin_id).toBeNull();
   });
 });

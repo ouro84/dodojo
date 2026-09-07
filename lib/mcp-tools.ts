@@ -9,13 +9,23 @@ import {
 import { insertTaskForUser } from "./task-insertion";
 import { validateTaskTitle } from "./task-title";
 import { hasScope, type OAuthScope } from "./oauth-scopes";
-import { completeTaskForUser, listTasksForUser, setTaskDeadlineForUser, userToday } from "./domain/tasks";
+import {
+  addSubtaskForUser,
+  bringToTodayForUser,
+  completeTaskForUser,
+  listTasksForUser,
+  reportToTomorrowForUser,
+  setTaskDeadlineForUser,
+  userToday,
+} from "./domain/tasks";
 import { readStreak } from "./domain/streak";
 import { readBossStatus } from "./domain/boss";
 import { readHeroRoster } from "./domain/heroes";
 import { readProgression } from "./domain/progression";
+import { equipHeroForUser } from "./domain/shop";
 import { localTimeFromIso, nextDayKey } from "./game-engine";
 import { getHero } from "./heroes";
+import { defaultSkinIdFor } from "./hero-skins";
 import type { DomainErrorCode } from "./domain/errors";
 
 export interface McpContext {
@@ -79,7 +89,42 @@ function parseAddTaskArgs(args: Record<string, unknown>): ParsedArgs<Record<stri
     // "invalid_args : <phrase>" n'etait donc pas vraiment unifiee.
     return { ok: false, error: "invalid_args : title est requis (string)." };
   }
-  return { ok: true, args: { title: rawTitle } };
+
+  // Issue #201 (lot 4, tache 4) : parent_id/day, ajoutes en meme temps que
+  // move_task/equip_hero. Refus explicite sur un mauvais type, jamais de
+  // reinterpretation silencieuse (meme discipline que
+  // parseSetDeadlineArgs/parseCompleteTaskArgs).
+  const rawParentId = args.parent_id;
+  if (rawParentId !== undefined && typeof rawParentId !== "string") {
+    return { ok: false, error: "invalid_args : parent_id doit etre une chaine." };
+  }
+  const parentId = rawParentId as string | undefined;
+
+  const rawDay = args.day;
+  if (rawDay !== undefined && rawDay !== "today" && rawDay !== "tomorrow") {
+    return { ok: false, error: "invalid_args : day doit valoir 'today' ou 'tomorrow'." };
+  }
+
+  // addSubtaskForUser (lib/domain/tasks.ts) n'a volontairement aucun
+  // parametre dayDate : une sous-tache herite du day_date de sa tache
+  // parente (issue #116). Le tool ne peut donc structurellement pas honorer
+  // `day` sur une sous-tache — REFUSER la combinaison, jamais l'ignorer,
+  // sinon l'agent recoit `error: null` plus une tache datee autrement que
+  // demande, sans rien dans la reponse qui le signale (cf. purchaseHero
+  // #192, setTaskDeadlineForUser lot 3). Refuse quelle que soit la valeur de
+  // `day` (meme "today", qui pourrait par hasard coincider avec le jour reel
+  // du parent) : deviner exigerait de lire le parent avant de dispatcher,
+  // pour une ergonomie marginale.
+  if (parentId !== undefined && rawDay !== undefined) {
+    return {
+      ok: false,
+      error:
+        "invalid_args : day ne s'applique pas a une sous-tache : elle herite du jour de sa tache parente.",
+    };
+  }
+
+  const day = (rawDay as "today" | "tomorrow" | undefined) ?? "today";
+  return { ok: true, args: { title: rawTitle, parentId, day } };
 }
 
 async function handleAddTask(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
@@ -91,11 +136,41 @@ async function handleAddTask(ctx: McpContext, args: Record<string, unknown>): Pr
     return buildToolErrorResult(withCode("invalid_title", validation.error));
   }
 
+  const parentId = args.parentId as string | undefined;
+
+  // Issue #201 (lot 4, tache 4) : branche sous-tache. addSubtaskForUser
+  // renvoie AddTaskOutcome ({ error, id }) — forme differente de
+  // InsertTaskOutcome (pas de HP de Boss) — donc pas de buildAddTaskToolResult
+  // ici, message de retour distinct (cf. brief tache 4).
+  if (parentId !== undefined) {
+    const outcome = await addSubtaskForUser(ctx.supabase, ctx.userId, parentId, validation.title);
+    if (outcome.error !== null) {
+      return buildToolErrorResult(domainErrorMessage(outcome.error));
+    }
+    return {
+      content: [{ type: "text", text: `Sous-tâche ajoutée (id ${outcome.id}).` }],
+      isError: false,
+    };
+  }
+
+  // Branche racine (comportement pre-existant, inchange quand day="today" -
+  // le defaut) : dayDate reste undefined => insertTaskForUser derive le jour
+  // de ctx.timezone comme avant ce lot. Seul day="tomorrow" declenche une
+  // lecture supplementaire (userToday, meme patron que list_tasks - brief
+  // tache 4), pour ne jamais changer le nombre de requetes du chemin
+  // existant.
+  let dayDate: string | undefined;
+  if (args.day === "tomorrow") {
+    const today = await userToday(ctx.supabase, ctx.userId);
+    dayDate = nextDayKey(today);
+  }
+
   try {
     const outcome = await insertTaskForUser(ctx.supabase, {
       userId: ctx.userId,
       title: validation.title,
       timezone: ctx.timezone,
+      dayDate,
     });
     return buildAddTaskToolResult(outcome);
   } catch (err) {
@@ -186,6 +261,41 @@ const SET_DEADLINE_TOOL: McpTool = {
       reminder_offset_minutes: { type: "number", description: "Minutes avant la deadline pour le rappel (omis = inchangé)" },
     },
     required: ["task_id", "deadline_at"],
+  },
+};
+
+// Issue #201 (lot 4, tache 4) : delegue a reportToTomorrowForUser/
+// bringToTodayForUser (lib/domain/tasks.ts, extraites au lot 1 justement pour
+// cet usage) — deux des six ecritures `.or("id.eq.X,parent_id.eq.X")` dont la
+// portee (tache visee + enfants, jamais une racine voisine) n'est prouvable
+// que depuis que FakeQueryBuilder.or() parse reellement cette forme (lot 3).
+const MOVE_TASK_TOOL: McpTool = {
+  name: "move_task",
+  description: "Déplace une tâche entre aujourd'hui et demain.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", description: "Identifiant de la tâche (UUID)" },
+      to: { type: "string", description: "'today' ou 'tomorrow'" },
+    },
+    required: ["task_id", "to"],
+  },
+};
+
+// Issue #201 (lot 4, tache 4) : delegue a equipHeroForUser (lib/domain/shop.ts).
+// Ce tool n'expose delibérement pas le choix de tenue — l'utilisateur a
+// demande "tenue de base uniquement" ; un agent qui voudrait changer de
+// tenue passe par l'app. Scope profile:write (pas tasks:write) : ce tool ne
+// touche aucune tache.
+const EQUIP_HERO_TOOL: McpTool = {
+  name: "equip_hero",
+  description: "Équipe un combattant déjà débloqué (tenue par défaut).",
+  inputSchema: {
+    type: "object",
+    properties: {
+      hero_id: { type: "string", description: "Identifiant du combattant (donné par list_heroes)" },
+    },
+    required: ["hero_id"],
   },
 };
 
@@ -439,6 +549,74 @@ async function handleSetDeadline(ctx: McpContext, args: Record<string, unknown>)
   return { content: [{ type: "text", text: `Deadline fixée à ${localTime}.` }], isError: false };
 }
 
+function parseMoveTaskArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
+  const taskId = args.task_id;
+  if (typeof taskId !== "string") {
+    return { ok: false, error: "invalid_args : task_id est requis (string)." };
+  }
+  const to = args.to;
+  if (to !== "today" && to !== "tomorrow") {
+    return { ok: false, error: "invalid_args : to doit valoir 'today' ou 'tomorrow'." };
+  }
+  return { ok: true, args: { taskId, to } };
+}
+
+async function handleMoveTask(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
+  const taskId = args.taskId as string;
+  const to = args.to as "today" | "tomorrow";
+
+  const outcome =
+    to === "tomorrow"
+      ? await reportToTomorrowForUser(ctx.supabase, ctx.userId, taskId)
+      : await bringToTodayForUser(ctx.supabase, ctx.userId, taskId);
+
+  if (outcome.error !== null) {
+    return buildToolErrorResult(domainErrorMessage(outcome.error));
+  }
+
+  // reportToTomorrowForUser/bringToTodayForUser scopent leur UPDATE par
+  // .eq("user_id", userId) — une tache d'un autre utilisateur (ou un id qui
+  // n'existe pas) ne matche donc aucune ligne, et l'update PostgREST renvoie
+  // `error: null` avec un tableau vide plutot qu'une erreur (meme classe de
+  // piege que setTaskDeadlineForUser avant son fix du lot 3). 0 ligne
+  // deplacee est traite ici comme task_not_found — jamais un succes muet a
+  // "0 tâche(s)" qui laisserait l'agent croire que l'action a eu lieu.
+  const moved = (to === "tomorrow" ? outcome.reportedTasks : outcome.broughtBackTasks) ?? [];
+  if (moved.length === 0) {
+    return buildToolErrorResult(domainErrorMessage("task_not_found"));
+  }
+
+  // Compte annonce explicitement (pas seulement "OK") : rend visible a
+  // l'agent la cascade parent -> enfants sans qu'il ait besoin de re-lister
+  // (brief tache 4).
+  const verb = to === "tomorrow" ? "déplacée(s) vers demain" : "ramenée(s) à aujourd'hui";
+  return {
+    content: [{ type: "text", text: `${moved.length} tâche(s) ${verb}.` }],
+    isError: false,
+  };
+}
+
+function parseEquipHeroArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
+  const heroId = args.hero_id;
+  if (typeof heroId !== "string") {
+    return { ok: false, error: "invalid_args : hero_id est requis (string)." };
+  }
+  return { ok: true, args: { heroId } };
+}
+
+async function handleEquipHero(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
+  const heroId = args.heroId as string;
+  // defaultSkinIdFor (lib/hero-skins.ts) : ne jamais fabriquer l'id de la
+  // tenue par defaut a la main (brief tache 4) - equipHeroForUser exige un
+  // skinId, ce tool n'expose que la tenue de base.
+  const outcome = await equipHeroForUser(ctx.supabase, ctx.userId, heroId, defaultSkinIdFor(heroId));
+  if (outcome.error !== null) {
+    return buildToolErrorResult(domainErrorMessage(outcome.error));
+  }
+  const name = getHero(heroId)?.name ?? heroId;
+  return { content: [{ type: "text", text: `Combattant équipé : ${name}.` }], isError: false };
+}
+
 const NO_ARGS: McpToolDef["parseArgs"] = () => ({ ok: true, args: {} });
 
 export const TOOL_REGISTRY: readonly McpToolDef[] = [
@@ -489,6 +667,18 @@ export const TOOL_REGISTRY: readonly McpToolDef[] = [
     requiredScope: "tasks:write",
     parseArgs: parseSetDeadlineArgs,
     handler: handleSetDeadline,
+  },
+  {
+    tool: MOVE_TASK_TOOL,
+    requiredScope: "tasks:write",
+    parseArgs: parseMoveTaskArgs,
+    handler: handleMoveTask,
+  },
+  {
+    tool: EQUIP_HERO_TOOL,
+    requiredScope: "profile:write",
+    parseArgs: parseEquipHeroArgs,
+    handler: handleEquipHero,
   },
 ];
 

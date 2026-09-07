@@ -30,7 +30,15 @@ export const ADD_TASK_TOOL: McpTool = {
   description: "Ajoute une tache au combat du jour dans Dodojo.",
   inputSchema: {
     type: "object",
-    properties: { title: { type: "string", description: "Titre de la tache a ajouter" } },
+    properties: {
+      title: { type: "string", description: "Titre de la tache a ajouter" },
+      // Issue #201 (lot 4, tache 4) : parent_id cree une sous-tache. day ne
+      // s'applique jamais en meme temps que parent_id — une sous-tache herite
+      // du day_date de sa tache parente (issue #116) ; le parseur (lib/mcp-tools.ts)
+      // refuse explicitement la combinaison plutot que de l'ignorer.
+      parent_id: { type: "string", description: "Pour creer une sous-tache : identifiant de la tache parente" },
+      day: { type: "string", description: "'today' (defaut) ou 'tomorrow'" },
+    },
     required: ["title"],
   },
 };
