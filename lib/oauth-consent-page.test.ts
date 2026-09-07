@@ -14,7 +14,12 @@ describe("renderConsentPage (US-22)", () => {
 
   test("affiche le nom du client et le droit derive du scope demande", () => {
     const html = renderConsentPage(baseParams);
-    expect(html).toContain("Gemini veut accéder à ton compte Dodojo");
+    // Le nom du client est mis en evidence dans un <span class="client"> : sur
+    // un ecran de consentement c'est LE mot qui permet de ne pas se faire
+    // hameconner. La phrase n'est donc plus contigue dans le HTML — asserter
+    // ses deux moities separement prouve exactement la meme chose.
+    expect(html).toContain('<span class="client">Gemini</span>');
+    expect(html).toContain("veut accéder à ton compte Dodojo");
     expect(html).toContain("Créer et cocher des tâches");
   });
 

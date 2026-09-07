@@ -136,7 +136,10 @@ describe("GET /oauth/authorize (US-22)", () => {
     const response = await GET(new Request(authorizeUrl()));
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain("Gemini veut accéder à ton compte Dodojo");
+    // Nom du client mis en evidence dans un <span class="client"> — cf. le
+    // test equivalent dans lib/oauth-consent-page.test.ts.
+    expect(html).toContain('<span class="client">Gemini</span>');
+    expect(html).toContain("veut accéder à ton compte Dodojo");
   });
 
   test("scope inconnu : erreur 400, jamais de redirection (Task 4, issue #201)", async () => {
