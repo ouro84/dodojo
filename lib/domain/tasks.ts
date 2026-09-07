@@ -482,7 +482,7 @@ export async function addSubtaskForUser(
     return { error: "depth_limit" };
   }
 
-  // SECURITY 1 (issue #201, lot 5) : `.eq("user_id", userId)` ajoute — aucune
+  // SECURITY 1 (issue #201, lot 4 revue) : `.eq("user_id", userId)` ajoute — aucune
   // FK ne garantit qu'un enfant partage le user_id de son parent, et ce
   // client peut etre service-role (serveur MCP), qui contourne RLS. Sans ce
   // filtre, une fratrie appartenant a un autre utilisateur (meme parent_id)
@@ -951,7 +951,7 @@ export async function bringToTodayForUser(
     .eq("day_date", today)
     .is("parent_id", null);
 
-  // BLOCKING 1 (issue #201, lot 5) : `.neq("day_date", today)` ajoute ici —
+  // BLOCKING 1 (issue #201, lot 4 revue) : `.neq("day_date", today)` ajoute ici —
   // sans lui, une tache DEJA sur aujourd'hui rematchait quand meme cette
   // UPDATE et perdait silencieusement sa deadline (deadline_at: null) + sa
   // position (recalculee en fin de fratrie), tout en renvoyant un faux

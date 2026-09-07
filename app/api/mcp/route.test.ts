@@ -189,7 +189,7 @@ describe("POST /api/mcp - scopes (issue #201)", () => {
     expect(response.status).toBe(200);
     expect(body.error).toBeUndefined();
     expect(body.result.isError).toBe(true);
-    // Revue #201 (lot 6, finding 4) : convention `<code> : <phrase>` retrofittee
+    // Revue #201 (lot 4 revue finale, finding 4) : convention `<code> : <phrase>` retrofittee
     // ici aussi — ce refus de scope n'emettait auparavant qu'une prose sans
     // code stable a brancher (contrairement aux erreurs du domaine, deja
     // unifiees par lib/mcp-tools.ts).
@@ -225,7 +225,7 @@ describe("POST /api/mcp - throw non rattrape dans un handler (revue finale PR #2
     expect(response.status).toBe(200);
     expect(body.error).toBeUndefined();
     expect(body.result.isError).toBe(true);
-    // Revue #201 (lot 6, finding 4) : ce site emettait un code nu
+    // Revue #201 (lot 4 revue finale, finding 4) : ce site emettait un code nu
     // ("internal_error"), pas la forme "<code> : <phrase>" unifiee partout
     // ailleurs — seul `isError` etait verifie jusqu'ici, jamais le message.
     expect(body.result.content[0].text).toBe("internal_error : erreur interne du serveur MCP.");

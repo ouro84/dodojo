@@ -117,7 +117,7 @@ describe("addSubtaskForUser", () => {
     expect(res.error).toBe("task_abandoned");
   });
 
-  // SECURITY 1 (issue #201, lot 5) : la lecture des fratries
+  // SECURITY 1 (issue #201, lot 4 revue) : la lecture des fratries
   // (`.select("position").eq("parent_id", parentId)`) n'avait aucun filtre
   // `user_id`. Aucune FK ne garantit qu'un enfant partage le `user_id` de son
   // parent (supabase/migrations/20260708134344_init_schema.sql) — une ligne
@@ -456,7 +456,7 @@ describe("famille Demain", () => {
   describe("bringToTodayForUser — diagnostic fin sur 0 ligne (issue #201, fix revue)", () => {
     const ROOT_ID = "66666666-6666-6666-6666-666666666666";
 
-    // BLOCKING 1 (issue #201, lot 5) : avant ce fix, bringToTodayForUser
+    // BLOCKING 1 (issue #201, lot 4 revue) : avant ce fix, bringToTodayForUser
     // n'avait AUCUN filtre day_date — une tache deja sur aujourd'hui
     // rematchait quand meme l'UPDATE, perdait silencieusement sa deadline
     // (deadline_at: null) et repartait en fin de fratrie (nouvelle

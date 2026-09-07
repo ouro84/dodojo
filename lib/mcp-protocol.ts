@@ -100,14 +100,14 @@ export interface McpToolResult {
   isError: boolean;
 }
 
-// BLOCKING 2 (issue #201, lot 5) : `isTomorrow` qualifie explicitement le
+// BLOCKING 2 (issue #201, lot 4 revue) : `isTomorrow` qualifie explicitement le
 // Boss quand la tache vient d'etre creee pour demain — insertTaskForUser
 // (lib/task-insertion.ts) calcule alors bossMaxHp/bossCurrentHp a partir des
 // taches de DEMAIN, jamais du Boss du jour courant (invariant CLAUDE.md :
 // une tache de demain ne peut jamais affecter le Boss d'aujourd'hui). Un
 // texte "Boss a X/Y HP" non qualifie serait relaye tel quel par un agent au
 // joueur, qui le lirait a tort comme l'etat du Boss du jour.
-// Revue #201 (lot 6, finding 3) : `outcome.taskId` (InsertTaskOutcome,
+// Revue #201 (lot 4 revue finale, finding 3) : `outcome.taskId` (InsertTaskOutcome,
 // lib/task-insertion.ts) n'apparaissait nulle part dans le texte renvoye -
 // alors que complete_task/set_deadline/move_task/add_task(parent_id) exigent
 // tous un task_id, obtenable uniquement en rappelant list_tasks et en

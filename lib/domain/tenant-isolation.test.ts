@@ -153,7 +153,7 @@ describe("isolation de tenant — le domaine ne voit jamais les lignes d'autrui"
     expect(ctx.shareSuccessCount).toBe(0);
   });
 
-  // SECURITY 2 (issue #201, lot 5) : `shop.ts` n'a aucun fichier de test —
+  // SECURITY 2 (issue #201, lot 4 revue) : `shop.ts` n'a aucun fichier de test —
   // les seuls tests existants (lib/mcp-tools.test.ts) utilisent des fixtures
   // mono-tenant, donc supprimer `.eq("user_id", userId)` a la ligne 23 de
   // shop.ts les laisserait tous verts. Ce test verrouille que le domaine
@@ -180,7 +180,7 @@ describe("isolation de tenant — le domaine ne voit jamais les lignes d'autrui"
     expect(profilesTable[0].equipped_hero_id).toBe("fire_knight");
   });
 
-  // SECURITY 2 (issue #201, lot 5) : l'UPDATE `profiles` de equipHeroForUser
+  // SECURITY 2 (issue #201, lot 4 revue) : l'UPDATE `profiles` de equipHeroForUser
   // n'avait aucun garde sur le nombre de lignes mises a jour — un userId sans
   // ligne `profiles` (profil jamais cree, ou fuite tenant type
   // setTaskDeadlineForUser du lot 3) recevait un succes silencieux pour une
@@ -198,7 +198,7 @@ describe("isolation de tenant — le domaine ne voit jamais les lignes d'autrui"
     expect(res.error).toBe("profile_not_found");
   });
 
-  // Issue #201 (lot 6) : reecrit apres l'ajout d'un vrai `upsert` au faux
+  // Issue #201 (lot 4 revue finale) : reecrit apres l'ajout d'un vrai `upsert` au faux
   // client. L'ancienne version de ce test passait un contexte neutre (rien de
   // debloque) — `evaluateAchievements` renvoyait alors `[]` quel que soit le
   // contenu d'`alreadyUnlocked`, donc `applyNewAchievements` (lib/domain/achievements.ts:91)

@@ -35,7 +35,7 @@ export async function equipHeroForUser(
   }
 
   const equippedSkinId = skin.isDefault ? null : skinId;
-  // SECURITY 2 (issue #201, lot 5) : `.select("id")` + garde sur le nombre de
+  // SECURITY 2 (issue #201, lot 4 revue) : `.select("id")` + garde sur le nombre de
   // lignes mises a jour — sans ca, un userId sans ligne `profiles` (profil
   // jamais cree) recevait `error: null` ("Combattant equipe : X") pour une
   // ecriture qui n'avait rien change, meme forme de faux succes silencieux

@@ -7,7 +7,7 @@
 // consulté par apply() en lecture comme en update). `or()` parse uniquement
 // la forme étroite "colonne.eq.valeur[,...]" (cf. sa définition) et LÈVE sur
 // toute autre forme plutôt que de retomber en no-op silencieux. `upsert()`
-// (issue #201, lot 6) matche réellement sur les colonnes `onConflict` — plus
+// (issue #201, lot 4 revue finale) matche réellement sur les colonnes `onConflict` — plus
 // aucun no-op ne reste dans ce fichier : sans lui, le seul appelant
 // (applyNewAchievements) plantait avec un TypeError (`.upsert is not a
 // function`) dès qu'un test déclenchait réellement un nouveau succès, et
@@ -64,7 +64,7 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     return this;
   }
 
-  // Dernier no-op du faux client (issue #201, lot 6) : seul consommateur a ce
+  // Dernier no-op du faux client (issue #201, lot 4 revue finale) : seul consommateur a ce
   // jour, applyNewAchievements (lib/domain/achievements.ts) — appele SANS
   // .eq() prealable (le user_id voyage dans chaque ligne de `rows`, pas comme
   // filtre de requete), donc onConflict est la SEULE frontiere de matching a
@@ -85,7 +85,7 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     return this;
   }
 
-  // BLOCKING 1 (issue #201, lot 5) : bringToTodayForUser a besoin de
+  // BLOCKING 1 (issue #201, lot 4 revue) : bringToTodayForUser a besoin de
   // `.neq("day_date", today)` pour ne plus rematcher une tache deja sur
   // aujourd'hui. Meme convention nullish que `eq` (une colonne absente EST un
   // NULL SQL).

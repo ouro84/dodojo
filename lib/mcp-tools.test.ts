@@ -181,7 +181,7 @@ describe("catalogue (lot 3 lecture + lot 4 ecriture complete)", () => {
     expect(parsed.ok).toBe(true);
   });
 
-  // Revue #201 (lot 6, finding 5) : `args.day ?? "today"` collapsait
+  // Revue #201 (lot 4 revue finale, finding 5) : `args.day ?? "today"` collapsait
   // `day: null` sur le defaut exactement comme une absence d'argument - un
   // type incorrect (pas seulement une chaine invalide comme "hier" ci-dessus)
   // passait donc silencieusement. Doit desormais etre refuse, comme
@@ -194,7 +194,7 @@ describe("catalogue (lot 3 lecture + lot 4 ecriture complete)", () => {
     );
   });
 
-  // Revue #201 (lot 6, finding 5) : meme pattern outlawed par
+  // Revue #201 (lot 4 revue finale, finding 5) : meme pattern outlawed par
   // parseCompleteTaskArgs (lot 4) mais laisse en place ici - `include_completed:
   // 0`/`"no"`/`{}` retombaient tous silencieusement sur `false`, la branche
   // qui filtre les taches completees (jamais neutre pour un agent).
@@ -478,7 +478,7 @@ describe("complete_task (lot 4, tache 3)", () => {
     expect(res.content[0].text).toContain("task_not_found");
   });
 
-  // Revue #201 (lot 6, finding 2) : `'Tâche décochée.'.includes('cochée')`
+  // Revue #201 (lot 4 revue finale, finding 2) : `'Tâche décochée.'.includes('cochée')`
   // vaut `true` (le mot "décochée" contient "cochée" comme sous-chaîne) — donc
   // `toContain("cochée")` seul ne prouve rien sur la BRANCHE réellement prise,
   // et rien n'assertait `is_completed` sur la ligne. Un défaut `completed`
@@ -823,7 +823,7 @@ describe("add_task handler — day (lot 4 tache 4)", () => {
     expect(created?.day_date).toBe(TOMORROW);
   });
 
-  // BLOCKING 2 (issue #201, lot 5) : le Boss renvoye par un add_task
+  // BLOCKING 2 (issue #201, lot 4 revue) : le Boss renvoye par un add_task
   // day="tomorrow" est celui de DEMAIN (insertTaskForUser le calcule sur les
   // taches de dayDate=demain) — jamais un texte "Boss a X/Y HP" non qualifie
   // qu'un agent relaierait a tort comme l'etat du Boss d'aujourd'hui.

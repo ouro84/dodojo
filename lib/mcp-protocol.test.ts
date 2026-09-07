@@ -54,7 +54,7 @@ describe("buildAddTaskToolResult / buildToolErrorResult", () => {
     ]);
   });
 
-  // BLOCKING 2 (issue #201, lot 5) : une tache creee pour demain
+  // BLOCKING 2 (issue #201, lot 4 revue) : une tache creee pour demain
   // (day: "tomorrow") ne doit jamais afficher un "Boss a X/Y HP" non
   // qualifie — insertTaskForUser calcule ces HP a partir des taches de
   // DEMAIN (lib/task-insertion.ts), jamais du Boss du jour courant (CLAUDE.md

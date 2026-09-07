@@ -174,7 +174,7 @@ async function handleAddTask(ctx: McpContext, args: Record<string, unknown>): Pr
       timezone: ctx.timezone,
       dayDate,
     });
-    // BLOCKING 2 (issue #201, lot 5) : le Boss renvoye ici porte sur
+    // BLOCKING 2 (issue #201, lot 4 revue) : le Boss renvoye ici porte sur
     // `dayDate` (demain quand isTomorrow), jamais sur le Boss du jour
     // courant — cf. buildAddTaskToolResult.
     return buildAddTaskToolResult(outcome, isTomorrow);
@@ -305,7 +305,7 @@ const EQUIP_HERO_TOOL: McpTool = {
 };
 
 function parseListTasksArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
-  // Fix (lot 6, finding 5) : `args.day ?? "today"` traitait `day: null`
+  // Fix (lot 4 revue finale, finding 5) : `args.day ?? "today"` traitait `day: null`
   // exactement comme une absence d'argument (`??` collapse null ET undefined
   // vers le defaut) — donc un type incorrect passait silencieusement en
   // "today" au lieu d'etre refuse, contrairement a parseAddTaskArgs qui refuse
@@ -320,7 +320,7 @@ function parseListTasksArgs(args: Record<string, unknown>): ParsedArgs<Record<st
   }
   const day = rawDay ?? "today";
 
-  // Fix (lot 6, finding 5) : meme pattern que celui outlawed dans
+  // Fix (lot 4 revue finale, finding 5) : meme pattern que celui outlawed dans
   // parseCompleteTaskArgs (lot 4) - `rawInclude === "true" || rawInclude ===
   // true` est un test d'EGALITE, pas une coercition, donc tout ce qui n'est ni
   // `true`/`"true"` ni `false`/`"false"` (ex. `0`, `"no"`, `{}`) retombait

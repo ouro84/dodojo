@@ -155,7 +155,7 @@ async function handleToolsCall(
   }
 
   if (!hasScope(grantedScope, def.requiredScope)) {
-    // Revue #201 (lot 6, finding 4) : convention `<code> : <phrase>` unifiee
+    // Revue #201 (lot 4 revue finale, finding 4) : convention `<code> : <phrase>` unifiee
     // par lib/mcp-tools.ts (DOMAIN_ERROR_PHRASES) mais jamais retrofittee ici
     // — ce refus de scope, l'un des deux que rencontre le plus souvent un
     // agent, renvoyait une prose sans code stable a brancher. `scope_denied`
@@ -194,7 +194,7 @@ async function handleToolsCall(
   try {
     result = await def.handler(ctx, parsed.args);
   } catch {
-    // Revue #201 (lot 6, finding 4) : "internal_error" nu n'est pas un membre
+    // Revue #201 (lot 4 revue finale, finding 4) : "internal_error" nu n'est pas un membre
     // de DomainErrorCode (le "code nu sans phrase" que ce lot corrige partout
     // ailleurs) — meme forme `<code> : <phrase>` que le reste des tools, sans
     // pour autant forcer ce code dans DomainErrorCode (ce n'est pas une erreur

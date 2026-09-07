@@ -15,7 +15,7 @@ function deriveCodeChallenge(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
-// Revue #201 (lot 6, finding 3) : le texte de retour d'add_task
+// Revue #201 (lot 4 revue finale, finding 3) : le texte de retour d'add_task
 // (buildAddTaskToolResult) porte desormais l'id de la tache creee
 // ("Tache ajoutee (id <uuid>) pour le ..."), comme addSubtaskForUser le
 // faisait deja - plus besoin de repasser par list_tasks pour l'obtenir.
@@ -154,7 +154,7 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     // Lot 4 (issue #201) : aller-retour d'ecriture complet, pas seulement de
     // la lecture. complete_task cible la tache creee par add_task un peu plus
     // haut - premiere preuve qu'un agent MCP peut faire AVANCER le combat, pas
-    // seulement le consulter. Revue lot 6 (finding 3) : l'id vient desormais
+    // seulement le consulter. Revue lot 4 revue finale (finding 3) : l'id vient desormais
     // directement de la reponse add_task, plus besoin de repasser par
     // list_tasks pour l'obtenir.
     const taskId = extractTaskIdFromAddResult(addBody.result.content[0].text);
@@ -168,7 +168,7 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     });
     const completeBody = await completeRes.json();
     expect(completeBody.result.isError).toBe(false);
-    // Revue #201 (lot 6, finding 2) : "cochée" est aussi une sous-chaîne de
+    // Revue #201 (lot 4 revue finale, finding 2) : "cochée" est aussi une sous-chaîne de
     // "décochée" - sous-chaîne non-ambiguë avec l'espace qui précède.
     expect(completeBody.result.content[0].text).toContain("Tâche cochée.");
 
