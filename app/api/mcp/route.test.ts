@@ -182,6 +182,34 @@ describe("POST /api/mcp - scopes (issue #201)", () => {
   });
 });
 
+describe("POST /api/mcp - throw non rattrape dans un handler (revue finale PR #205, fix 1)", () => {
+  test("un fuseau profiles.timezone invalide fait planter le handler cote serveur (RangeError Intl) sans jamais fuiter en HTTP 500", async () => {
+    // profiles.timezone est capture cote navigateur a l'onboarding, jamais
+    // valide serveur (cf. CLAUDE.md) - une valeur IANA malformee est donc
+    // atteignable en pratique. `handleListTasks` (lib/mcp-tools.ts) appelle
+    // `userToday` (dayKey -> Intl.DateTimeFormat({ timeZone })) avant meme
+    // d'atteindre `localTimeFromIso` : le RangeError part donc de `dayKey`,
+    // un cran plus tot que `localTimeFromIso`, mais reste exactement le meme
+    // declencheur reel (un fuseau invalide non valide) et traverse la meme
+    // absence de try/catch qu'on verifie ici.
+    dbTables.profiles[0].timezone = "Not/AZone";
+    const { POST } = await import("./route");
+    const response = await POST(
+      mcpRequest({
+        jsonrpc: "2.0",
+        id: 10,
+        method: "tools/call",
+        params: { name: "list_tasks", arguments: {} },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.error).toBeUndefined();
+    expect(body.result.isError).toBe(true);
+  });
+});
+
 describe("POST /api/mcp - rate limit (issue #201)", () => {
   test("un token ayant atteint son quota recoit une erreur rate_limited, jamais un 500", async () => {
     rpcQuotaResult = false;
