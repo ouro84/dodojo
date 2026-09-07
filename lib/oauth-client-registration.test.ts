@@ -75,6 +75,48 @@ describe("validateClientRegistration (US-22 - RFC 7591)", () => {
     expect("registration" in result).toBe(true);
   });
 
+  // Constate en branchant un vrai client MCP le 2026-09-07 : l'enregistrement
+  // echouait en `invalid_client_metadata`. Le durcissement de l'audit #67
+  // n'autorisait que https + loopback IPv4/localhost, alors que RFC 8252 —
+  // cite par ce meme durcissement — decrit trois formes de redirection.
+  test("valide : schema prive court (RFC 8252 §7.1) — cas `claude://`", () => {
+    const result = validateClientRegistration({ redirect_uris: ["claude://oauth/callback"] });
+    expect("registration" in result).toBe(true);
+  });
+
+  test("valide : schema prive reverse-DNS (RFC 8252 §7.1)", () => {
+    const result = validateClientRegistration({
+      redirect_uris: ["com.anthropic.claude:/oauth2redirect"],
+    });
+    expect("registration" in result).toBe(true);
+  });
+
+  test("valide : loopback IPv6 `http://[::1]` (RFC 8252 §7.3 l'exige au meme titre qu'IPv4)", () => {
+    const result = validateClientRegistration({ redirect_uris: ["http://[::1]:8080/callback"] });
+    expect("registration" in result).toBe(true);
+  });
+
+  test.each(["javascript:alert(1)", "data:text/html,x", "vbscript:msgbox", "file:///etc/passwd", "blob:https://x/y"])(
+    "erreur : schema jamais legitime rejete — %s",
+    (uri) => {
+      expect("error" in validateClientRegistration({ redirect_uris: [uri] })).toBe(true);
+    },
+  );
+
+  // Un refus opaque ("une URL absolue valide", sans dire laquelle) a coute un
+  // diagnostic complet cote integrateur : le corps de la requete n'est pas
+  // journalise non plus, donc personne ne pouvait voir la valeur envoyee.
+  test("le message d'erreur nomme l'URI fautive", () => {
+    const result = validateClientRegistration({
+      redirect_uris: ["https://ok.example/cb", "http://evil.example.com/callback"],
+    });
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toContain("http://evil.example.com/callback");
+      expect(result.error).not.toContain("https://ok.example/cb");
+    }
+  });
+
   test("erreur : client_name vide", () => {
     const result = validateClientRegistration({
       redirect_uris: ["https://client.example/callback"],
