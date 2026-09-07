@@ -3,9 +3,15 @@
 // (la copie locale de ce dernier a été fusionnée ici, issue #201 lot 3) et
 // app/api/mcp/route.test.ts (fusionnée à son tour, issue #201 lot 3 tache 4 —
 // `.rpc()` ci-dessous vient de cette copie, seul consommateur à ce jour).
-// `eq`/`in`/`lt`/`is` filtrent réellement les lignes (this.filters, consulté
-// par apply() en lecture comme en update) — seul `or()` reste un no-op,
-// choix documenté juste au-dessus de sa définition, pas un oubli.
+// `eq`/`neq`/`in`/`lt`/`is`/`or` filtrent réellement les lignes (this.filters,
+// consulté par apply() en lecture comme en update). `or()` parse uniquement
+// la forme étroite "colonne.eq.valeur[,...]" (cf. sa définition) et LÈVE sur
+// toute autre forme plutôt que de retomber en no-op silencieux. `upsert()`
+// (issue #201, lot 4 revue finale) matche réellement sur les colonnes `onConflict` — plus
+// aucun no-op ne reste dans ce fichier : sans lui, le seul appelant
+// (applyNewAchievements) plantait avec un TypeError (`.upsert is not a
+// function`) dès qu'un test déclenchait réellement un nouveau succès, et
+// aucun test ne pouvait vérifier que l'écriture reste scopée par utilisateur.
 
 import { vi } from "vitest";
 
@@ -24,13 +30,25 @@ function nullish(value: unknown): boolean {
 
 export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
   private filters: Array<(row: Row) => boolean> = [];
-  private mode: "select" | "insert" | "update" = "select";
+  private mode: "select" | "insert" | "update" | "upsert" = "select";
   private patch: Row = {};
   private insertedRow: Row | null = null;
+  private countMode = false;
+  private upsertRows: Row[] = [];
+  private onConflictColumns: string[] = [];
 
   constructor(private readonly rows: Row[]) {}
 
-  select(): this {
+  // Issue #201 (lot 4) : `select("id", { count: "exact", head: true })` doit
+  // renvoyer un COMPTE, pas des lignes. Sans ca, les trois comptages de
+  // assembleAchievementContext (rage quits, routines, partages reussis)
+  // recevaient `count: undefined` quel que soit le contenu de la table — donc
+  // aucun test ne pouvait distinguer « n'a compte que mes lignes » de « a tout
+  // compte ». Meme angle mort que les filtres no-op soldes au lot 3, et meme
+  // enjeu : le serveur MCP appelle le domaine avec un client service-role qui
+  // contourne RLS, ces filtres applicatifs sont la seule frontiere de tenant.
+  select(_columns?: string, options?: { count?: string; head?: boolean }): this {
+    this.countMode = options?.count != null;
     return this;
   }
 
@@ -46,16 +64,58 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     return this;
   }
 
+  // Dernier no-op du faux client (issue #201, lot 4 revue finale) : seul consommateur a ce
+  // jour, applyNewAchievements (lib/domain/achievements.ts) — appele SANS
+  // .eq() prealable (le user_id voyage dans chaque ligne de `rows`, pas comme
+  // filtre de requete), donc onConflict est la SEULE frontiere de matching a
+  // simuler ici. Matche une ligne existante seulement si TOUTES les colonnes
+  // de `onConflict` sont egales (jamais un sous-ensemble) — un onConflict qui
+  // omettrait "user_id" par erreur cote appelant fusionnerait alors a tort sur
+  // la ligne d'un autre utilisateur partageant le meme `code`, exactement le
+  // trou que ce faux client doit pouvoir revenir prouver.
+  upsert(rows: Row | Row[], options?: { onConflict?: string }): this {
+    this.mode = "upsert";
+    this.upsertRows = Array.isArray(rows) ? rows : [rows];
+    this.onConflictColumns = options?.onConflict ? options.onConflict.split(",") : [];
+    return this;
+  }
+
   eq(column: string, value: unknown): this {
     this.filters.push((row) => (value === null ? nullish(row[column]) : row[column] === value));
     return this;
   }
 
-  // `or` reste volontairement permissif : les vraies clauses `.or()` de ce
-  // repo sont des chaines PostgREST (`id.eq.X,parent_id.eq.X`) dont le
-  // parsing complet n'apporterait rien ici — mais contrairement aux autres,
-  // ce no-op est desormais EXPLICITE et documente, plus un oubli silencieux.
-  or(): this {
+  // BLOCKING 1 (issue #201, lot 4 revue) : bringToTodayForUser a besoin de
+  // `.neq("day_date", today)` pour ne plus rematcher une tache deja sur
+  // aujourd'hui. Meme convention nullish que `eq` (une colonne absente EST un
+  // NULL SQL).
+  neq(column: string, value: unknown): this {
+    this.filters.push((row) => (value === null ? !nullish(row[column]) : row[column] !== value));
+    return this;
+  }
+
+  // Parse la forme etroite que ce repo emet reellement :
+  // `col.eq.valeur,col.eq.valeur` (cf. les six ecritures de
+  // lib/domain/tasks.ts, toutes identiques). Les conditions sont OR entre
+  // elles, et l'ensemble est AND avec les autres filtres — comme PostgREST.
+  //
+  // Toute autre forme LEVE, volontairement : un parseur qui retomberait sur
+  // un no-op face a une syntaxe inconnue recreerait le faux-vert que ce
+  // correctif supprime (issue #201, lot 4), en pire — il aurait l'air de
+  // filtrer. Ajouter une forme ici est un geste conscient.
+  or(filters: string): this {
+    const conditions = filters.split(",").map((raw) => {
+      const parts = raw.split(".");
+      if (parts.length !== 3 || parts[1] !== "eq") {
+        throw new Error(
+          `FakeQueryBuilder.or : forme non supportee "${raw}". ` +
+            `Seul "colonne.eq.valeur" est parse (cf. commentaire). Etendre le parseur si besoin.`,
+        );
+      }
+      const [column, , value] = parts;
+      return (row: Row) => String(row[column]) === value;
+    });
+    this.filters.push((row) => conditions.some((c) => c(row)));
     return this;
   }
 
@@ -92,6 +152,23 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
       for (const row of matched) Object.assign(row, this.patch);
       return matched;
     }
+    if (this.mode === "upsert") {
+      const result: Row[] = [];
+      for (const row of this.upsertRows) {
+        const existing =
+          this.onConflictColumns.length > 0
+            ? this.rows.find((r) => this.onConflictColumns.every((col) => r[col] === row[col]))
+            : undefined;
+        if (existing) {
+          Object.assign(existing, row);
+          result.push(existing);
+        } else {
+          this.rows.push(row);
+          result.push(row);
+        }
+      }
+      return result;
+    }
     // Clone en lecture : un `select` renvoie un instantané détaché, comme le
     // vrai Supabase (les lignes désérialisées ne sont pas des références
     // vivantes vers l'état serveur) — sans ça, un `update` déclenché APRÈS un
@@ -119,7 +196,13 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     onfulfilled?: ((value: { data: Row[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
   ): PromiseLike<TResult1 | TResult2> {
     const data = this.apply();
-    return Promise.resolve({ data, error: null as null }).then(
+    // En mode `count`, PostgREST renvoie le compte des lignes qui matchent les
+    // filtres (et `data: null` quand `head: true`). Le compte porte donc la
+    // meme frontiere de tenant que les lignes elles-memes.
+    const payload = this.countMode
+      ? { data: [] as Row[], count: data.length, error: null as null }
+      : { data, error: null as null };
+    return Promise.resolve(payload).then(
       onfulfilled ?? undefined,
     ) as PromiseLike<TResult1 | TResult2>;
   }

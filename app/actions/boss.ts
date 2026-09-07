@@ -10,7 +10,7 @@ import {
   pickDailyBoss,
 } from "@/lib/bosses";
 import { DEFAULT_BACKGROUND_ID } from "@/lib/backgrounds";
-import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
+import { applyNewAchievements, assembleAchievementContext } from "@/lib/domain/achievements";
 
 export interface DailyBossSelection {
   bossId: string;

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getHero } from "@/lib/heroes";
-import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
+import { applyNewAchievements, assembleAchievementContext } from "@/lib/domain/achievements";
 import type { AggressivityLevel } from "@/types";
 
 export interface CreateProfileState {

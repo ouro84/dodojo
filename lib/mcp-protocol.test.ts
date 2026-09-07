@@ -50,7 +50,25 @@ describe("buildAddTaskToolResult / buildToolErrorResult", () => {
     const result = buildAddTaskToolResult({ taskId: "t1", dayDate: "2026-07-22", bossMaxHp: 40, bossCurrentHp: 20 });
     expect(result.isError).toBe(false);
     expect(result.content).toEqual([
-      { type: "text", text: "Tache ajoutee pour le 2026-07-22. Boss a 20/40 HP." },
+      { type: "text", text: "Tache ajoutee (id t1) pour le 2026-07-22. Boss a 20/40 HP." },
+    ]);
+  });
+
+  // BLOCKING 2 (issue #201, lot 4 revue) : une tache creee pour demain
+  // (day: "tomorrow") ne doit jamais afficher un "Boss a X/Y HP" non
+  // qualifie — insertTaskForUser calcule ces HP a partir des taches de
+  // DEMAIN (lib/task-insertion.ts), jamais du Boss du jour courant (CLAUDE.md
+  // : une tache de demain ne peut jamais affecter le Boss d'aujourd'hui). Un
+  // agent qui relaie ce texte tel quel au joueur mentirait sur l'etat reel du
+  // Boss du jour.
+  test("formate un resultat de succes pour demain avec un Boss explicitement qualifie", () => {
+    const result = buildAddTaskToolResult(
+      { taskId: "t1", dayDate: "2026-07-23", bossMaxHp: 20, bossCurrentHp: 20 },
+      true,
+    );
+    expect(result.isError).toBe(false);
+    expect(result.content).toEqual([
+      { type: "text", text: "Tache ajoutee (id t1) pour le 2026-07-23. Boss de demain a 20/20 HP." },
     ]);
   });
 

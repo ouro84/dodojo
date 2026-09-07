@@ -9,7 +9,7 @@ import {
   summarizeDay,
   type SummaryTask,
 } from "@/lib/game-engine";
-import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
+import { applyNewAchievements, assembleAchievementContext } from "@/lib/domain/achievements";
 import type { DayOutcome } from "@/types";
 
 interface CloseDayResult {

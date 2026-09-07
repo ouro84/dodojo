@@ -155,8 +155,17 @@ async function handleToolsCall(
   }
 
   if (!hasScope(grantedScope, def.requiredScope)) {
+    // Revue #201 (lot 4 revue finale, finding 4) : convention `<code> : <phrase>` unifiee
+    // par lib/mcp-tools.ts (DOMAIN_ERROR_PHRASES) mais jamais retrofittee ici
+    // — ce refus de scope, l'un des deux que rencontre le plus souvent un
+    // agent, renvoyait une prose sans code stable a brancher. `scope_denied`
+    // n'est volontairement PAS ajoute a DomainErrorCode : ce n'est pas une
+    // erreur du domaine, seulement la meme FORME de surface.
     return NextResponse.json(
-      successResponse(rpcRequest.id, buildToolErrorResult(`Ce tool necessite le scope ${def.requiredScope}.`)),
+      successResponse(
+        rpcRequest.id,
+        buildToolErrorResult(`scope_denied : ce tool necessite le scope ${def.requiredScope}.`),
+      ),
     );
   }
 
@@ -185,7 +194,12 @@ async function handleToolsCall(
   try {
     result = await def.handler(ctx, parsed.args);
   } catch {
-    result = buildToolErrorResult("internal_error");
+    // Revue #201 (lot 4 revue finale, finding 4) : "internal_error" nu n'est pas un membre
+    // de DomainErrorCode (le "code nu sans phrase" que ce lot corrige partout
+    // ailleurs) — meme forme `<code> : <phrase>` que le reste des tools, sans
+    // pour autant forcer ce code dans DomainErrorCode (ce n'est pas une erreur
+    // du domaine, seulement un throw non rattrape par le handler).
+    result = buildToolErrorResult("internal_error : erreur interne du serveur MCP.");
   }
   return NextResponse.json(successResponse(rpcRequest.id, result));
 }

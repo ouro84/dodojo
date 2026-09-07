@@ -9,13 +9,24 @@ import {
 import { insertTaskForUser } from "./task-insertion";
 import { validateTaskTitle } from "./task-title";
 import { hasScope, type OAuthScope } from "./oauth-scopes";
-import { listTasksForUser, userToday } from "./domain/tasks";
+import {
+  addSubtaskForUser,
+  bringToTodayForUser,
+  completeTaskForUser,
+  listTasksForUser,
+  reportToTomorrowForUser,
+  setTaskDeadlineForUser,
+  userToday,
+} from "./domain/tasks";
 import { readStreak } from "./domain/streak";
 import { readBossStatus } from "./domain/boss";
 import { readHeroRoster } from "./domain/heroes";
 import { readProgression } from "./domain/progression";
+import { equipHeroForUser } from "./domain/shop";
 import { localTimeFromIso, nextDayKey } from "./game-engine";
 import { getHero } from "./heroes";
+import { defaultSkinIdFor } from "./hero-skins";
+import type { DomainErrorCode } from "./domain/errors";
 
 export interface McpContext {
   supabase: SupabaseClient;
@@ -37,18 +48,123 @@ export interface McpToolDef {
   handler: (ctx: McpContext, args: Record<string, unknown>) => Promise<McpToolResult>;
 }
 
+// Issue #201 (lot 4, tache 3) : convention unifiee pour TOUT message d'erreur
+// de tool MCP - `<code machine> : <phrase courte>`. Avant ce lot, trois sites
+// emettaient un code nu (cf. retrofits ci-dessous) : un agent devait deviner
+// le sens, une phrase seule sans code ne lui donne rien de stable a brancher.
+// `Record<DomainErrorCode, string>` plutot qu'une chaine de `if` : exhaustif
+// sur l'union fermee, un futur code ajoute a DomainErrorCode fait echouer la
+// compilation ici plutot que de retomber silencieusement dans un defaut.
+// Phrases courtes et factuelles - le registre "voix" (lib/copy/) ne concerne
+// pas cette surface machine-facing.
+const DOMAIN_ERROR_PHRASES: Record<DomainErrorCode, string> = {
+  invalid_task_id: "identifiant de tâche invalide",
+  invalid_title: "titre de tâche invalide",
+  task_not_found: "tâche introuvable",
+  task_abandoned: "tâche abandonnée",
+  task_completed: "tâche déjà terminée",
+  depth_limit: "une sous-tâche ne peut pas avoir de sous-tâches",
+  fetch_failed: "échec de lecture en base",
+  insert_failed: "échec de création en base",
+  update_failed: "échec de mise à jour en base",
+  profile_not_found: "profil introuvable",
+  hero_not_found: "héros introuvable au catalogue",
+  hero_not_owned: "héros non débloqué",
+  skin_not_found: "tenue introuvable au catalogue",
+  skin_not_owned: "tenue non débloquée",
+};
+
+function withCode(code: string, phrase: string): string {
+  return `${code} : ${phrase}`;
+}
+
+function domainErrorMessage(code: DomainErrorCode): string {
+  return withCode(code, DOMAIN_ERROR_PHRASES[code]);
+}
+
 function parseAddTaskArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
   const rawTitle = args.title;
   if (typeof rawTitle !== "string") {
-    return { ok: false, error: "title est requis (string)." };
+    // Fix (lot 4, tache 3 - revue finding 6) : ce site (pre-lot) emettait un
+    // code nu, contrairement aux parseurs ajoutes par ce lot - la convention
+    // "invalid_args : <phrase>" n'etait donc pas vraiment unifiee.
+    return { ok: false, error: "invalid_args : title est requis (string)." };
   }
-  return { ok: true, args: { title: rawTitle } };
+
+  // Issue #201 (lot 4, tache 4) : parent_id/day, ajoutes en meme temps que
+  // move_task/equip_hero. Refus explicite sur un mauvais type, jamais de
+  // reinterpretation silencieuse (meme discipline que
+  // parseSetDeadlineArgs/parseCompleteTaskArgs).
+  const rawParentId = args.parent_id;
+  if (rawParentId !== undefined && typeof rawParentId !== "string") {
+    return { ok: false, error: "invalid_args : parent_id doit etre une chaine." };
+  }
+  const parentId = rawParentId as string | undefined;
+
+  const rawDay = args.day;
+  if (rawDay !== undefined && rawDay !== "today" && rawDay !== "tomorrow") {
+    return { ok: false, error: "invalid_args : day doit valoir 'today' ou 'tomorrow'." };
+  }
+
+  // addSubtaskForUser (lib/domain/tasks.ts) n'a volontairement aucun
+  // parametre dayDate : une sous-tache herite du day_date de sa tache
+  // parente (issue #116). Le tool ne peut donc structurellement pas honorer
+  // `day` sur une sous-tache — REFUSER la combinaison, jamais l'ignorer,
+  // sinon l'agent recoit `error: null` plus une tache datee autrement que
+  // demande, sans rien dans la reponse qui le signale (cf. purchaseHero
+  // #192, setTaskDeadlineForUser lot 3). Refuse quelle que soit la valeur de
+  // `day` (meme "today", qui pourrait par hasard coincider avec le jour reel
+  // du parent) : deviner exigerait de lire le parent avant de dispatcher,
+  // pour une ergonomie marginale.
+  if (parentId !== undefined && rawDay !== undefined) {
+    return {
+      ok: false,
+      error:
+        "invalid_args : day ne s'applique pas a une sous-tache : elle herite du jour de sa tache parente.",
+    };
+  }
+
+  const day = (rawDay as "today" | "tomorrow" | undefined) ?? "today";
+  return { ok: true, args: { title: rawTitle, parentId, day } };
 }
 
 async function handleAddTask(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
   const validation = validateTaskTitle(args.title as string);
   if ("error" in validation) {
-    return buildToolErrorResult(validation.error);
+    // Retrofit (lot 4, tache 3) : validateTaskTitle renvoie deja une phrase
+    // francaise (vide/trop long) - on la prefixe du code "invalid_title" au
+    // lieu de la remplacer, pour garder le detail tout en unifiant le format.
+    return buildToolErrorResult(withCode("invalid_title", validation.error));
+  }
+
+  const parentId = args.parentId as string | undefined;
+
+  // Issue #201 (lot 4, tache 4) : branche sous-tache. addSubtaskForUser
+  // renvoie AddTaskOutcome ({ error, id }) — forme differente de
+  // InsertTaskOutcome (pas de HP de Boss) — donc pas de buildAddTaskToolResult
+  // ici, message de retour distinct (cf. brief tache 4).
+  if (parentId !== undefined) {
+    const outcome = await addSubtaskForUser(ctx.supabase, ctx.userId, parentId, validation.title);
+    if (outcome.error !== null) {
+      return buildToolErrorResult(domainErrorMessage(outcome.error));
+    }
+    return {
+      content: [{ type: "text", text: `Sous-tâche ajoutée (id ${outcome.id}).` }],
+      isError: false,
+    };
+  }
+
+  // Branche racine (comportement pre-existant, inchange quand day="today" -
+  // le defaut) : dayDate reste undefined => insertTaskForUser derive le jour
+  // de ctx.timezone comme avant ce lot. Seul day="tomorrow" declenche une
+  // lecture supplementaire (userToday, meme patron que list_tasks - brief
+  // tache 4), pour ne jamais changer le nombre de requetes du chemin
+  // existant.
+  let dayDate: string | undefined;
+  const isTomorrow = args.day === "tomorrow";
+  if (isTomorrow) {
+    const today = await userToday(ctx.supabase, ctx.userId);
+    dayDate = nextDayKey(today);
   }
 
   try {
@@ -56,10 +172,25 @@ async function handleAddTask(ctx: McpContext, args: Record<string, unknown>): Pr
       userId: ctx.userId,
       title: validation.title,
       timezone: ctx.timezone,
+      dayDate,
     });
-    return buildAddTaskToolResult(outcome);
-  } catch {
-    return buildToolErrorResult("insert_task_failed");
+    // BLOCKING 2 (issue #201, lot 4 revue) : le Boss renvoye ici porte sur
+    // `dayDate` (demain quand isTomorrow), jamais sur le Boss du jour
+    // courant — cf. buildAddTaskToolResult.
+    return buildAddTaskToolResult(outcome, isTomorrow);
+  } catch (err) {
+    // Retrofit (lot 4, tache 3) : ce site emettait la chaine litterale
+    // "insert_task_failed", qui n'est meme pas un membre de DomainErrorCode
+    // (le plus proche est "insert_failed") - corrige au passage.
+    // Fix (lot 4, tache 3 - revue finding 5) : insertTaskForUser
+    // (lib/task-insertion.ts) leve deux erreurs distinctes -
+    // "insert_task_fetch_failed" (lecture des taches du jour echouee) et
+    // "insert_task_failed" (l'insertion elle-meme) - les conflater en
+    // "insert_failed" cache a l'agent qu'une simple LECTURE a echoue avant
+    // meme la tentative d'ecriture.
+    const code =
+      err instanceof Error && err.message.endsWith("fetch_failed") ? "fetch_failed" : "insert_failed";
+    return buildToolErrorResult(domainErrorMessage(code));
   }
 }
 
@@ -103,13 +234,106 @@ const LIST_HEROES_TOOL: McpTool = {
   inputSchema: { type: "object", properties: {}, required: [] },
 };
 
+const COMPLETE_TASK_TOOL: McpTool = {
+  name: "complete_task",
+  description: "Coche (ou décoche) une tâche Dodojo et inflige les dégâts au Boss du jour.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", description: "Identifiant de la tâche (UUID, donné par list_tasks)" },
+      completed: { type: "boolean", description: "true pour cocher (défaut), false pour décocher" },
+    },
+    required: ["task_id"],
+  },
+};
+
+const SET_DEADLINE_TOOL: McpTool = {
+  name: "set_deadline",
+  description: "Fixe, modifie ou efface l'heure limite d'une tâche.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", description: "Identifiant de la tâche (UUID)" },
+      // Fix (lot 4, tache 3 - revue finding 2) : `type: "string"` seul
+      // interdisait `null` a un client qui valide ses arguments contre ce
+      // schema avant d'appeler le tool - "effacer la deadline" devenait alors
+      // inatteignable malgre un parseur qui l'accepte deja.
+      deadline_at: {
+        type: ["string", "null"],
+        description: "Instant ISO 8601 (UTC), ou null pour effacer",
+      },
+      reminder_enabled: { type: "boolean", description: "Activer/désactiver le rappel push pour cette tâche (omis = inchangé)" },
+      reminder_offset_minutes: { type: "number", description: "Minutes avant la deadline pour le rappel (omis = inchangé)" },
+    },
+    required: ["task_id", "deadline_at"],
+  },
+};
+
+// Issue #201 (lot 4, tache 4) : delegue a reportToTomorrowForUser/
+// bringToTodayForUser (lib/domain/tasks.ts, extraites au lot 1 justement pour
+// cet usage) — deux des six ecritures `.or("id.eq.X,parent_id.eq.X")` dont la
+// portee (tache visee + enfants, jamais une racine voisine) n'est prouvable
+// que depuis que FakeQueryBuilder.or() parse reellement cette forme (lot 3).
+const MOVE_TASK_TOOL: McpTool = {
+  name: "move_task",
+  description: "Déplace une tâche entre aujourd'hui et demain.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", description: "Identifiant de la tâche (UUID)" },
+      to: { type: "string", description: "'today' ou 'tomorrow'" },
+    },
+    required: ["task_id", "to"],
+  },
+};
+
+// Issue #201 (lot 4, tache 4) : delegue a equipHeroForUser (lib/domain/shop.ts).
+// Ce tool n'expose delibérement pas le choix de tenue — l'utilisateur a
+// demande "tenue de base uniquement" ; un agent qui voudrait changer de
+// tenue passe par l'app. Scope profile:write (pas tasks:write) : ce tool ne
+// touche aucune tache.
+const EQUIP_HERO_TOOL: McpTool = {
+  name: "equip_hero",
+  description: "Équipe un combattant déjà débloqué (tenue par défaut).",
+  inputSchema: {
+    type: "object",
+    properties: {
+      hero_id: { type: "string", description: "Identifiant du combattant (donné par list_heroes)" },
+    },
+    required: ["hero_id"],
+  },
+};
+
 function parseListTasksArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
-  const day = args.day ?? "today";
-  if (day !== "today" && day !== "tomorrow") {
-    return { ok: false, error: "day doit valoir 'today' ou 'tomorrow'." };
+  // Fix (lot 4 revue finale, finding 5) : `args.day ?? "today"` traitait `day: null`
+  // exactement comme une absence d'argument (`??` collapse null ET undefined
+  // vers le defaut) — donc un type incorrect passait silencieusement en
+  // "today" au lieu d'etre refuse, contrairement a parseAddTaskArgs qui refuse
+  // deja tout `day` non-undefined et non "today"/"tomorrow" (null inclus). On
+  // valide maintenant la valeur BRUTE avant d'appliquer le defaut, seul
+  // `undefined` beneficiant du defaut.
+  const rawDay = args.day;
+  if (rawDay !== undefined && rawDay !== "today" && rawDay !== "tomorrow") {
+    // Fix (lot 4, tache 3 - revue finding 6) : meme retrofit que
+    // parseAddTaskArgs ci-dessus - site pre-lot, code nu jusqu'ici.
+    return { ok: false, error: "invalid_args : day doit valoir 'today' ou 'tomorrow'." };
   }
+  const day = rawDay ?? "today";
+
+  // Fix (lot 4 revue finale, finding 5) : meme pattern que celui outlawed dans
+  // parseCompleteTaskArgs (lot 4) - `rawInclude === "true" || rawInclude ===
+  // true` est un test d'EGALITE, pas une coercition, donc tout ce qui n'est ni
+  // `true`/`"true"` ni `false`/`"false"` (ex. `0`, `"no"`, `{}`) retombait
+  // silencieusement sur `false`. Refuse desormais un type incorrect plutot que
+  // de le reinterpreter en "false", exactement la discipline deja appliquee a
+  // `completed`.
   const rawInclude = args.include_completed;
-  const includeCompleted = rawInclude === undefined ? true : rawInclude === "true" || rawInclude === true;
+  let includeCompleted: boolean;
+  if (rawInclude === undefined) includeCompleted = true;
+  else if (rawInclude === true || rawInclude === "true") includeCompleted = true;
+  else if (rawInclude === false || rawInclude === "false") includeCompleted = false;
+  else return { ok: false, error: "invalid_args : include_completed doit etre un booleen." };
+
   return { ok: true, args: { day, includeCompleted } };
 }
 
@@ -198,7 +422,7 @@ async function handleGetStreak(ctx: McpContext): Promise<McpToolResult> {
 
 async function handleGetProgression(ctx: McpContext): Promise<McpToolResult> {
   const prog = await readProgression(ctx.supabase, ctx.userId);
-  if (!prog) return buildToolErrorResult("profile_not_found");
+  if (!prog) return buildToolErrorResult(domainErrorMessage("profile_not_found"));
 
   // Revue #201 (fix round 1) : nom d'affichage (comme list_heroes), jamais le
   // slug brut seul — mais le slug reste imprimé entre parenthèses, un agent
@@ -228,6 +452,197 @@ async function handleListHeroes(ctx: McpContext): Promise<McpToolResult> {
 
   const header = `${ownedCount} combattant(s) débloqué(s) sur ${roster.length} :`;
   return { content: [{ type: "text", text: [header, ...lines].join("\n") }], isError: false };
+}
+
+function parseCompleteTaskArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
+  const taskId = args.task_id;
+  if (typeof taskId !== "string") {
+    return { ok: false, error: "invalid_args : task_id est requis (string)." };
+  }
+  // Fix (lot 4, tache 3 - revue finding 4) : l'ancienne forme
+  // (`raw === true || raw === "true"`) est un test d'EGALITE, pas une
+  // coercition — tout ce qui n'est ni `true`/`"true"` ni `false`/`"false"`
+  // (ex. `1`, `"yes"`, `"TRUE"`) retombait silencieusement sur `false`, la
+  // branche DESTRUCTRICE (decocher rembourse xp_awarded et remet le combo a
+  // zero cote domaine). Un type incorrect doit etre refuse, jamais
+  // reinterprete en decochage.
+  const raw = args.completed;
+  let completed: boolean;
+  if (raw === undefined) completed = true;
+  else if (raw === true || raw === "true") completed = true;
+  else if (raw === false || raw === "false") completed = false;
+  else return { ok: false, error: "invalid_args : completed doit etre un booleen." };
+  return { ok: true, args: { taskId, completed } };
+}
+
+async function handleCompleteTask(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
+  const outcome = await completeTaskForUser(
+    ctx.supabase,
+    ctx.userId,
+    args.taskId as string,
+    args.completed === true,
+  );
+  if (outcome.error !== null) {
+    return buildToolErrorResult(domainErrorMessage(outcome.error));
+  }
+
+  const verb = args.completed === true ? "cochée" : "décochée";
+  const parts: string[] = [`Tâche ${verb}.`];
+  // Revue #201 (lot 4, tache 3) : tous les champs hors `error` sont optionnels
+  // (une completion sans transition reelle - re-cocher une tache deja cochee -
+  // n'en renvoie aucun) - ne jamais les lire inconditionnellement.
+  if (outcome.level !== undefined && outcome.xp !== undefined) {
+    parts.push(`Niveau ${outcome.level} · ${outcome.xp} XP.`);
+  }
+  if (outcome.leveledUp) {
+    parts.push("Niveau supérieur atteint !");
+  }
+  if (outcome.comboCount !== undefined && outcome.comboCount > 1) {
+    parts.push(`Combo ×${outcome.comboCount}.`);
+  }
+  return { content: [{ type: "text", text: parts.join(" ") }], isError: false };
+}
+
+function parseSetDeadlineArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
+  const taskId = args.task_id;
+  if (typeof taskId !== "string") {
+    return { ok: false, error: "invalid_args : task_id est requis (string)." };
+  }
+  const rawDeadline = args.deadline_at;
+  if (rawDeadline !== null && typeof rawDeadline !== "string") {
+    return { ok: false, error: "invalid_args : deadline_at est requis (string ISO ou null)." };
+  }
+
+  // ⚠️ Piege undefined-propagation (cf. brief tache 3) : dans
+  // setTaskDeadlineForUser, `undefined` pour ces deux parametres signifie
+  // "ne touche pas la colonne", jamais "false"/"valeur par defaut". Un
+  // parseur ecrit par symetrie avec parseCompleteTaskArgs
+  // (`args.reminder_enabled === true`) transformerait "argument absent" en
+  // "desactive explicitement le rappel" - un agent qui repousse simplement
+  // une deadline effacerait alors silencieusement le rappel push existant.
+  // On propage donc `undefined` tel quel plutot que de le collapser.
+  const reminderEnabled =
+    args.reminder_enabled === undefined ? undefined : args.reminder_enabled === true;
+
+  // Fix (lot 4, tache 3 - revue finding 1) : le parametre domaine est
+  // `number | null` (lib/domain/tasks.ts:526), et `null` signifie "herite le
+  // reglage du profil" - distinct de l'absence d'argument (`undefined`, "ne
+  // touche pas la colonne"). `Number(null)` valait 0 ("notifier a la
+  // deadline elle-meme", un reglage DIFFERENT ecrit silencieusement), et
+  // `Number("soon")` valait NaN (serialise en `null` par supabase-js, donc un
+  // reset silencieux vers l'heritage profil). Trois cas distincts, et on
+  // refuse le reste plutot que de le reinterpreter - meme discipline que les
+  // autres parseurs de ce fichier.
+  const rawOffset = args.reminder_offset_minutes;
+  let reminderOffsetMinutes: number | null | undefined;
+  if (rawOffset === undefined) reminderOffsetMinutes = undefined;
+  else if (rawOffset === null) reminderOffsetMinutes = null;
+  else if (typeof rawOffset !== "number" || !Number.isFinite(rawOffset)) {
+    return { ok: false, error: "invalid_args : reminder_offset_minutes doit etre un nombre ou null." };
+  } else reminderOffsetMinutes = rawOffset;
+
+  return {
+    ok: true,
+    args: { taskId, deadlineAt: rawDeadline, reminderEnabled, reminderOffsetMinutes },
+  };
+}
+
+async function handleSetDeadline(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
+  const taskId = args.taskId as string;
+  const deadlineAt = args.deadlineAt as string | null;
+  const reminderOffsetMinutes = args.reminderOffsetMinutes as number | null | undefined;
+  const reminderEnabled = args.reminderEnabled as boolean | undefined;
+
+  // Ordre de setTaskDeadlineForUser : (…, deadlineAt, reminderOffsetMinutes,
+  // reminderEnabled) - l'offset avant le booleen, contre-intuitif mais verifie
+  // (lib/domain/tasks.ts:521).
+  const result = await setTaskDeadlineForUser(
+    ctx.supabase,
+    ctx.userId,
+    taskId,
+    deadlineAt,
+    reminderOffsetMinutes,
+    reminderEnabled,
+  );
+  if (result.error !== null) {
+    return buildToolErrorResult(domainErrorMessage(result.error));
+  }
+
+  if (deadlineAt === null) {
+    return { content: [{ type: "text", text: "Deadline effacée." }], isError: false };
+  }
+  const localTime = localTimeFromIso(deadlineAt, ctx.timezone);
+  return { content: [{ type: "text", text: `Deadline fixée à ${localTime}.` }], isError: false };
+}
+
+function parseMoveTaskArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
+  const taskId = args.task_id;
+  if (typeof taskId !== "string") {
+    return { ok: false, error: "invalid_args : task_id est requis (string)." };
+  }
+  const to = args.to;
+  if (to !== "today" && to !== "tomorrow") {
+    return { ok: false, error: "invalid_args : to doit valoir 'today' ou 'tomorrow'." };
+  }
+  return { ok: true, args: { taskId, to } };
+}
+
+async function handleMoveTask(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
+  const taskId = args.taskId as string;
+  const to = args.to as "today" | "tomorrow";
+
+  const outcome =
+    to === "tomorrow"
+      ? await reportToTomorrowForUser(ctx.supabase, ctx.userId, taskId)
+      : await bringToTodayForUser(ctx.supabase, ctx.userId, taskId);
+
+  if (outcome.error !== null) {
+    return buildToolErrorResult(domainErrorMessage(outcome.error));
+  }
+
+  // Revue #201 (lot 4, fix) : reportToTomorrowForUser/bringToTodayForUser
+  // distinguent desormais elles-memes task_not_found/task_abandoned/
+  // task_completed d'un vrai 0-ligne (cf. leur diagnostic fin sur relecture
+  // ciblee) — un `error: null` qui arrive ici avec un tableau vide ne peut
+  // donc plus signifier "introuvable" : il signifie que la tache existe,
+  // appartient bien a l'appelant, et est deja exactement ou l'agent voulait
+  // l'envoyer. Le signaler comme un succes no-op, jamais comme un echec que
+  // l'agent devrait diagnostiquer lui-meme.
+  const moved = (to === "tomorrow" ? outcome.reportedTasks : outcome.broughtBackTasks) ?? [];
+  if (moved.length === 0) {
+    const already = to === "tomorrow" ? "Cette tâche est déjà sur demain." : "Cette tâche est déjà sur aujourd'hui.";
+    return { content: [{ type: "text", text: already }], isError: false };
+  }
+
+  // Compte annonce explicitement (pas seulement "OK") : rend visible a
+  // l'agent la cascade parent -> enfants sans qu'il ait besoin de re-lister
+  // (brief tache 4).
+  const verb = to === "tomorrow" ? "déplacée(s) vers demain" : "ramenée(s) à aujourd'hui";
+  return {
+    content: [{ type: "text", text: `${moved.length} tâche(s) ${verb}.` }],
+    isError: false,
+  };
+}
+
+function parseEquipHeroArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
+  const heroId = args.hero_id;
+  if (typeof heroId !== "string") {
+    return { ok: false, error: "invalid_args : hero_id est requis (string)." };
+  }
+  return { ok: true, args: { heroId } };
+}
+
+async function handleEquipHero(ctx: McpContext, args: Record<string, unknown>): Promise<McpToolResult> {
+  const heroId = args.heroId as string;
+  // defaultSkinIdFor (lib/hero-skins.ts) : ne jamais fabriquer l'id de la
+  // tenue par defaut a la main (brief tache 4) - equipHeroForUser exige un
+  // skinId, ce tool n'expose que la tenue de base.
+  const outcome = await equipHeroForUser(ctx.supabase, ctx.userId, heroId, defaultSkinIdFor(heroId));
+  if (outcome.error !== null) {
+    return buildToolErrorResult(domainErrorMessage(outcome.error));
+  }
+  const name = getHero(heroId)?.name ?? heroId;
+  return { content: [{ type: "text", text: `Combattant équipé : ${name}.` }], isError: false };
 }
 
 const NO_ARGS: McpToolDef["parseArgs"] = () => ({ ok: true, args: {} });
@@ -268,6 +683,30 @@ export const TOOL_REGISTRY: readonly McpToolDef[] = [
     requiredScope: "profile:read",
     parseArgs: NO_ARGS,
     handler: handleListHeroes,
+  },
+  {
+    tool: COMPLETE_TASK_TOOL,
+    requiredScope: "tasks:write",
+    parseArgs: parseCompleteTaskArgs,
+    handler: handleCompleteTask,
+  },
+  {
+    tool: SET_DEADLINE_TOOL,
+    requiredScope: "tasks:write",
+    parseArgs: parseSetDeadlineArgs,
+    handler: handleSetDeadline,
+  },
+  {
+    tool: MOVE_TASK_TOOL,
+    requiredScope: "tasks:write",
+    parseArgs: parseMoveTaskArgs,
+    handler: handleMoveTask,
+  },
+  {
+    tool: EQUIP_HERO_TOOL,
+    requiredScope: "profile:write",
+    parseArgs: parseEquipHeroArgs,
+    handler: handleEquipHero,
   },
 ];
 

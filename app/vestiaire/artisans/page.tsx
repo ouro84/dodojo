@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { assembleAchievementContext } from "@/app/actions/achievements";
+import { assembleAchievementContext } from "@/lib/domain/achievements";
 import ArtisansCarousel from "@/components/vestiaire/ArtisansCarousel";
 import BackLink from "@/components/ui/BackLink";
 import BottomNav from "@/components/ui/BottomNav";

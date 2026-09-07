@@ -82,12 +82,24 @@ describe("POST /api/mcp - protocole JSON-RPC (US-22)", () => {
     expect(body.result.capabilities).toEqual({ tools: {} });
   });
 
-  test("tools/list retourne les tools couverts par le scope tasks:read tasks:write (issue #201, lot 3)", async () => {
+  test("tools/list retourne les tools couverts par le scope tasks:read tasks:write (issue #201, lot 3/4)", async () => {
     const { POST } = await import("./route");
     const response = await POST(mcpRequest({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
     const body = await response.json();
     const names = body.result.tools.map((t: { name: string }) => t.name).sort();
-    expect(names).toEqual(["add_task", "get_boss_status", "get_streak", "list_tasks"]);
+    // Lot 4 (tache 3) ajoute complete_task/set_deadline, lot 4 (tache 4)
+    // ajoute move_task - tous requiredScope "tasks:write", couverts par le
+    // meme scope que ce test exerce deja. equip_hero (profile:write) reste
+    // absent : ce scope ne l'accorde pas.
+    expect(names).toEqual([
+      "add_task",
+      "complete_task",
+      "get_boss_status",
+      "get_streak",
+      "list_tasks",
+      "move_task",
+      "set_deadline",
+    ]);
   });
 
   test("notifications/initialized repond 202 sans corps", async () => {
@@ -177,7 +189,13 @@ describe("POST /api/mcp - scopes (issue #201)", () => {
     expect(response.status).toBe(200);
     expect(body.error).toBeUndefined();
     expect(body.result.isError).toBe(true);
-    expect(body.result.content[0].text).toContain("tasks:write");
+    // Revue #201 (lot 4 revue finale, finding 4) : convention `<code> : <phrase>` retrofittee
+    // ici aussi — ce refus de scope n'emettait auparavant qu'une prose sans
+    // code stable a brancher (contrairement aux erreurs du domaine, deja
+    // unifiees par lib/mcp-tools.ts).
+    expect(body.result.content[0].text).toBe(
+      "scope_denied : ce tool necessite le scope tasks:write.",
+    );
     expect(dbTables.tasks).toHaveLength(0);
   });
 });
@@ -207,6 +225,10 @@ describe("POST /api/mcp - throw non rattrape dans un handler (revue finale PR #2
     expect(response.status).toBe(200);
     expect(body.error).toBeUndefined();
     expect(body.result.isError).toBe(true);
+    // Revue #201 (lot 4 revue finale, finding 4) : ce site emettait un code nu
+    // ("internal_error"), pas la forme "<code> : <phrase>" unifiee partout
+    // ailleurs — seul `isError` etait verifie jusqu'ici, jamais le message.
+    expect(body.result.content[0].text).toBe("internal_error : erreur interne du serveur MCP.");
   });
 });
 

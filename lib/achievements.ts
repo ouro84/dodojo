@@ -1,7 +1,7 @@
 // Issue #72 : catalogue de succès + titres équipables. Remplace titleForStreak
 // (lib/game-engine.ts). Toute la logique de condition est pure ici (D2 du
 // spec) : aucun accès base, tout le contexte est assemblé par l'appelant
-// (app/actions/achievements.ts) avant l'appel.
+// (lib/domain/achievements.ts) avant l'appel.
 // Voir docs/superpowers/specs/2026-07-31-issue72-succes-titres-design.md.
 import type { AggressivityLevel, DayOutcome } from "../types";
 import { HEROES } from "./heroes";
@@ -14,7 +14,7 @@ export type AchievementDisplayMode = "mystery" | "progress";
 
 // Issue #199 : le contexte porte les LIGNES brutes de day_results, jamais des
 // scalaires pré-agrégés par l'appelant. C'est ce qui permet à
-// assembleAchievementContext (app/actions/achievements.ts) de rester une simple
+// assembleAchievementContext (lib/domain/achievements.ts) de rester une simple
 // lecture (D2 du spec #72) et garde toute l'agrégation ici, pure et testable
 // sans base.
 export type AchievementDayResult = {

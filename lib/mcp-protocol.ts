@@ -14,7 +14,13 @@ export interface McpTool {
   description: string;
   inputSchema: {
     type: "object";
-    properties: Record<string, { type: string; description: string }>;
+    // `string | string[]` (issue #201, lot 4 tache 3 - revue finding 2) :
+    // JSON Schema autorise un tableau de types pour "l'un ou l'autre" (ex.
+    // set_deadline.deadline_at : "string" OU "null" pour effacer). Un simple
+    // `type: string` empechait toute propriete d'annoncer ce cas — un client
+    // MCP qui valide les arguments contre ce schema avant l'appel rejetterait
+    // alors une valeur que le parseur accepte reellement.
+    properties: Record<string, { type: string | string[]; description: string }>;
     required: string[];
   };
 }
@@ -24,7 +30,23 @@ export const ADD_TASK_TOOL: McpTool = {
   description: "Ajoute une tache au combat du jour dans Dodojo.",
   inputSchema: {
     type: "object",
-    properties: { title: { type: "string", description: "Titre de la tache a ajouter" } },
+    properties: {
+      title: { type: "string", description: "Titre de la tache a ajouter" },
+      // Issue #201 (lot 4, tache 4) : parent_id cree une sous-tache. day ne
+      // s'applique jamais en meme temps que parent_id — une sous-tache herite
+      // du day_date de sa tache parente (issue #116) ; le parseur (lib/mcp-tools.ts)
+      // refuse explicitement la combinaison plutot que de l'ignorer.
+      parent_id: {
+        type: "string",
+        description:
+          "Pour creer une sous-tache : identifiant de la tache parente. Mutuellement exclusif avec day (une sous-tache herite du jour de sa tache parente).",
+      },
+      day: {
+        type: "string",
+        description:
+          "'today' (defaut) ou 'tomorrow'. Mutuellement exclusif avec parent_id (ne s'applique jamais a une sous-tache).",
+      },
+    },
     required: ["title"],
   },
 };
@@ -78,11 +100,30 @@ export interface McpToolResult {
   isError: boolean;
 }
 
-export function buildAddTaskToolResult(outcome: InsertTaskOutcome): McpToolResult {
+// BLOCKING 2 (issue #201, lot 4 revue) : `isTomorrow` qualifie explicitement le
+// Boss quand la tache vient d'etre creee pour demain — insertTaskForUser
+// (lib/task-insertion.ts) calcule alors bossMaxHp/bossCurrentHp a partir des
+// taches de DEMAIN, jamais du Boss du jour courant (invariant CLAUDE.md :
+// une tache de demain ne peut jamais affecter le Boss d'aujourd'hui). Un
+// texte "Boss a X/Y HP" non qualifie serait relaye tel quel par un agent au
+// joueur, qui le lirait a tort comme l'etat du Boss du jour.
+// Revue #201 (lot 4 revue finale, finding 3) : `outcome.taskId` (InsertTaskOutcome,
+// lib/task-insertion.ts) n'apparaissait nulle part dans le texte renvoye -
+// alors que complete_task/set_deadline/move_task/add_task(parent_id) exigent
+// tous un task_id, obtenable uniquement en rappelant list_tasks et en
+// regex-scrapant son texte (cf. extractTaskId de e2e/mcp-oauth.spec.ts). La
+// branche sous-tache du meme tool (lib/mcp-tools.ts, handleAddTask) le
+// renvoyait deja - meme forme ici, pour qu'un agent puisse enchainer un
+// aller-retour d'ecriture sans round-trip de lecture supplementaire.
+export function buildAddTaskToolResult(outcome: InsertTaskOutcome, isTomorrow = false): McpToolResult {
+  const bossLabel = isTomorrow ? "Boss de demain a " : "Boss a ";
   const text =
-    "Tache ajoutee pour le " +
+    "Tache ajoutee (id " +
+    outcome.taskId +
+    ") pour le " +
     outcome.dayDate +
-    ". Boss a " +
+    ". " +
+    bossLabel +
     String(outcome.bossCurrentHp) +
     "/" +
     String(outcome.bossMaxHp) +

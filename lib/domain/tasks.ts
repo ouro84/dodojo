@@ -17,7 +17,7 @@ import {
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import type { CascadeTask } from "@/lib/game-engine";
-import { assembleAchievementContext, applyNewAchievements } from "@/app/actions/achievements";
+import { assembleAchievementContext, applyNewAchievements } from "@/lib/domain/achievements";
 import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";
@@ -482,10 +482,16 @@ export async function addSubtaskForUser(
     return { error: "depth_limit" };
   }
 
+  // SECURITY 1 (issue #201, lot 4 revue) : `.eq("user_id", userId)` ajoute — aucune
+  // FK ne garantit qu'un enfant partage le user_id de son parent, et ce
+  // client peut etre service-role (serveur MCP), qui contourne RLS. Sans ce
+  // filtre, une fratrie appartenant a un autre utilisateur (meme parent_id)
+  // faussait `nextSiblingPosition`.
   const { data: siblings, error: siblingsError } = await supabase
     .from("tasks")
     .select("position")
-    .eq("parent_id", parentId);
+    .eq("parent_id", parentId)
+    .eq("user_id", userId);
 
   if (siblingsError) {
     return { error: "insert_failed" };
@@ -889,9 +895,36 @@ export async function reportToTomorrowForUser(
     .select();
 
   if (error) return { error: "update_failed" };
+
+  // Revue #201 (lot 4, fix) : 0 ligne mise a jour ne veut PAS forcement dire
+  // "introuvable" — l'UPDATE ci-dessus combine 2 filtres de tenant
+  // (id/parent_id, user_id) et 3 filtres METIER (day_date, is_completed,
+  // is_abandoned). Un agent qui rappelle move_task sur une tache deja
+  // deplacee, ou sur une tache visible mais deja terminee, matcherait 0
+  // ligne pour une raison entierement differente d'un id etranger/inexistant
+  // — le layer tool (lib/mcp-tools.ts) ne peut structurellement pas
+  // distinguer ces cas, seule une relecture ciblee ici le peut.
+  if ((updated ?? []).length === 0) {
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("id, day_date, is_completed, is_abandoned")
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!existing) return { error: "task_not_found" };
+    if (existing.is_abandoned) return { error: "task_abandoned" };
+    if (existing.is_completed) return { error: "task_completed" };
+    // Ligne active, appartient bien a l'utilisateur, mais day_date !== today
+    // (deja sur demain, ou sur un autre jour) : succes no-op, jamais une
+    // erreur — un agent qui retente un move_task deja effectue ne doit pas
+    // se voir opposer un echec qu'il doit alors interpreter.
+    return { error: null, reportedTasks: [] };
+  }
+
   // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
-  return { error: null, reportedTasks: (updated ?? []) as Task[] };
+  await Promise.allSettled(updated.map((row) => cancelDeadlineReminder(row.id as string)));
+  return { error: null, reportedTasks: updated as Task[] };
 }
 
 // Issue #116 : ramène une tâche de la section "Demain" à aujourd'hui —
@@ -918,6 +951,15 @@ export async function bringToTodayForUser(
     .eq("day_date", today)
     .is("parent_id", null);
 
+  // BLOCKING 1 (issue #201, lot 4 revue) : `.neq("day_date", today)` ajoute ici —
+  // sans lui, une tache DEJA sur aujourd'hui rematchait quand meme cette
+  // UPDATE et perdait silencieusement sa deadline (deadline_at: null) + sa
+  // position (recalculee en fin de fratrie), tout en renvoyant un faux
+  // succes ("1 tache ramenee a aujourd'hui"). Consequence : `to: "today"`
+  // n'etait pas idempotent (contrairement a `to: "tomorrow"`), et un agent
+  // qui pose une deadline puis assure que la tache est bien sur aujourd'hui
+  // (deux appels tools plausibles sous le meme scope tasks:write) detruisait
+  // la deadline qu'il venait de poser.
   const { data: updated, error } = await supabase
     .from("tasks")
     .update({
@@ -929,12 +971,39 @@ export async function bringToTodayForUser(
     .or(`id.eq.${taskId},parent_id.eq.${taskId}`)
     .eq("user_id", userId)
     .eq("is_abandoned", false)
+    .neq("day_date", today)
     .select();
 
   if (error) return { error: "update_failed" };
+
+  // Meme diagnostic fin que reportToTomorrowForUser ci-dessus : cette UPDATE
+  // combine desormais 2 filtres de tenant (id/parent_id, user_id) + 2
+  // filtres metier (is_abandoned, day_date) — 0 ligne peut donc signifier
+  // introuvable, abandonnee, OU deja sur aujourd'hui (nouveau cas rendu
+  // possible par le `.neq` ci-dessus). Le `day_date` est relu pour
+  // documenter explicitement ce 3e cas plutot que de le deduire par
+  // elimination silencieuse.
+  if ((updated ?? []).length === 0) {
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("id, is_abandoned, day_date")
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!existing) return { error: "task_not_found" };
+    if (existing.is_abandoned) return { error: "task_abandoned" };
+    // Ligne active, appartient bien a l'utilisateur, day_date === today (seul
+    // cas restant compte tenu du `.neq` ci-dessus) : succes no-op, jamais une
+    // erreur — un agent qui retente move_task{to:"today"} deja effectue ne
+    // doit pas se voir opposer un echec qu'il doit alors interpreter, ni
+    // voir sa deadline detruite une 2e fois.
+    return { error: null, broughtBackTasks: [] };
+  }
+
   // Issue #114 : deadline effacée ci-dessus — rappel programmé obsolète.
-  await Promise.allSettled((updated ?? []).map((row) => cancelDeadlineReminder(row.id as string)));
-  return { error: null, broughtBackTasks: (updated ?? []) as Task[] };
+  await Promise.allSettled(updated.map((row) => cancelDeadlineReminder(row.id as string)));
+  return { error: null, broughtBackTasks: updated as Task[] };
 }
 
 export interface TaskRead {

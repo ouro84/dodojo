@@ -15,6 +15,18 @@ function deriveCodeChallenge(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
+// Revue #201 (lot 4 revue finale, finding 3) : le texte de retour d'add_task
+// (buildAddTaskToolResult) porte desormais l'id de la tache creee
+// ("Tache ajoutee (id <uuid>) pour le ..."), comme addSubtaskForUser le
+// faisait deja - plus besoin de repasser par list_tasks pour l'obtenir.
+function extractTaskIdFromAddResult(addResultText: string): string {
+  const match = addResultText.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+  if (!match) {
+    throw new Error(`extractTaskIdFromAddResult : aucun UUID trouve dans : "${addResultText}"`);
+  }
+  return match[0];
+}
+
 test.describe("Handshake OAuth + MCP (issue #201)", () => {
   test("enregistrement, autorisation, echange de token, tools/list filtre, add_task, tool inconnu refuse", async ({
     page,
@@ -115,6 +127,7 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     expect(addRes.status()).toBe(200);
     const addBody = await addRes.json();
     expect(addBody.result.isError).toBe(false);
+    expect(addBody.result.content[0].text).toContain("id ");
 
     // Lot 3 : les tools de lecture repondent avec le scope par defaut
     const listTasksRes = await request.post(`${baseURL}/api/mcp`, {
@@ -137,6 +150,151 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
       },
     });
     expect((await bossRes.json()).result.isError).toBe(false);
+
+    // Lot 4 (issue #201) : aller-retour d'ecriture complet, pas seulement de
+    // la lecture. complete_task cible la tache creee par add_task un peu plus
+    // haut - premiere preuve qu'un agent MCP peut faire AVANCER le combat, pas
+    // seulement le consulter. Revue lot 4 revue finale (finding 3) : l'id vient desormais
+    // directement de la reponse add_task, plus besoin de repasser par
+    // list_tasks pour l'obtenir.
+    const taskId = extractTaskIdFromAddResult(addBody.result.content[0].text);
+
+    const completeRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 20, method: "tools/call",
+        params: { name: "complete_task", arguments: { task_id: taskId } },
+      },
+    });
+    const completeBody = await completeRes.json();
+    expect(completeBody.result.isError).toBe(false);
+    // Revue #201 (lot 4 revue finale, finding 2) : "cochée" est aussi une sous-chaîne de
+    // "décochée" - sous-chaîne non-ambiguë avec l'espace qui précède.
+    expect(completeBody.result.content[0].text).toContain("Tâche cochée.");
+
+    // include_completed: false -> la tache cochee juste au-dessus a disparu
+    // de la liste active.
+    const listActiveOnlyRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 21, method: "tools/call",
+        params: { name: "list_tasks", arguments: { include_completed: false } },
+      },
+    });
+    const listActiveOnlyBody = await listActiveOnlyRes.json();
+    expect(listActiveOnlyBody.result.isError).toBe(false);
+    expect(listActiveOnlyBody.result.content[0].text).not.toContain(taskTitle);
+
+    // set_deadline : fixe une deadline sur une nouvelle tache, puis l'efface
+    // (deadline_at: null). Deux appels distincts pour verifier a la fois la
+    // pose et l'effacement, sans dependre de l'etat laisse par complete_task.
+    const deadlineTaskTitle = `Tache MCP e2e deadline ${Date.now()}`;
+    const addDeadlineTaskRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 22, method: "tools/call",
+        params: { name: "add_task", arguments: { title: deadlineTaskTitle } },
+      },
+    });
+    const deadlineTaskId = extractTaskIdFromAddResult(
+      (await addDeadlineTaskRes.json()).result.content[0].text,
+    );
+
+    const deadlineIso = new Date(Date.now() + 3_600_000).toISOString();
+    const setDeadlineRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 24, method: "tools/call",
+        params: { name: "set_deadline", arguments: { task_id: deadlineTaskId, deadline_at: deadlineIso } },
+      },
+    });
+    const setDeadlineBody = await setDeadlineRes.json();
+    expect(setDeadlineBody.result.isError).toBe(false);
+    expect(setDeadlineBody.result.content[0].text).toContain("Deadline fixée");
+
+    const clearDeadlineRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 25, method: "tools/call",
+        params: { name: "set_deadline", arguments: { task_id: deadlineTaskId, deadline_at: null } },
+      },
+    });
+    const clearDeadlineBody = await clearDeadlineRes.json();
+    expect(clearDeadlineBody.result.isError).toBe(false);
+    expect(clearDeadlineBody.result.content[0].text).toContain("Deadline effacée");
+
+    // move_task : aujourd'hui -> demain -> encore demain (idempotent, PAS une
+    // erreur) -> aujourd'hui. move_task diagnostique desormais task_not_found/
+    // task_abandoned/task_completed pour de vrais echecs ; deplacer une tache
+    // deja a la destination demandee est un succes no-op explicite (cf.
+    // CLAUDE.md, issue #201 lot 4) - un appelant qui s'attendrait a une erreur
+    // sur le second appel testerait le mauvais contrat.
+    const moveTaskTitle = `Tache MCP e2e move ${Date.now()}`;
+    const addMoveTaskRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 26, method: "tools/call",
+        params: { name: "add_task", arguments: { title: moveTaskTitle } },
+      },
+    });
+    const moveTaskId = extractTaskIdFromAddResult((await addMoveTaskRes.json()).result.content[0].text);
+
+    const moveToTomorrowRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 28, method: "tools/call",
+        params: { name: "move_task", arguments: { task_id: moveTaskId, to: "tomorrow" } },
+      },
+    });
+    expect((await moveToTomorrowRes.json()).result.isError).toBe(false);
+
+    const listTomorrowRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 29, method: "tools/call",
+        params: { name: "list_tasks", arguments: { day: "tomorrow" } },
+      },
+    });
+    expect((await listTomorrowRes.json()).result.content[0].text).toContain(moveTaskTitle);
+
+    // Deuxieme appel, meme destination : succes idempotent explicite.
+    const moveToTomorrowAgainRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 30, method: "tools/call",
+        params: { name: "move_task", arguments: { task_id: moveTaskId, to: "tomorrow" } },
+      },
+    });
+    const moveAgainBody = await moveToTomorrowAgainRes.json();
+    expect(moveAgainBody.result.isError).toBe(false);
+    expect(moveAgainBody.result.content[0].text).toContain("déjà sur demain");
+
+    const moveBackRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 31, method: "tools/call",
+        params: { name: "move_task", arguments: { task_id: moveTaskId, to: "today" } },
+      },
+    });
+    expect((await moveBackRes.json()).result.isError).toBe(false);
+
+    // equip_hero requiert profile:write (D2 du spec) : le scope par defaut
+    // ("tasks:read tasks:write") ne l'accorde JAMAIS - ni visible dans
+    // tools/list, ni appelable via tools/call. Le round explicite scope=
+    // profile:write qui prouve l'autre sens vit dans son propre test
+    // ci-dessous (l'autorisation ne peut se faire qu'une fois par round).
+    expect(listBody.result.tools.map((t: { name: string }) => t.name)).not.toContain("equip_hero");
+
+    const equipDefaultScopeRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0", id: 32, method: "tools/call",
+        params: { name: "equip_hero", arguments: { hero_id: "fire_knight" } },
+      },
+    });
+    const equipDefaultScopeBody = await equipDefaultScopeRes.json();
+    expect(equipDefaultScopeBody.error).toBeUndefined();
+    expect(equipDefaultScopeBody.result.isError).toBe(true);
 
     // 9. Un tool hors catalogue -> erreur JSON-RPC, jamais un 500
     const unknownRes = await request.post(`${baseURL}/api/mcp`, {
@@ -242,6 +400,24 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     expect(callBody.error).toBeUndefined();
     expect(callBody.result.isError).toBe(true);
 
+    // complete_task requiert aussi tasks:write, meme refus que add_task -
+    // task_id absent n'a pas d'importance : le garde de scope (hasScope) est
+    // verifie AVANT parseArgs cote route (app/api/mcp/route.ts), donc ce refus
+    // n'a rien a voir avec la validation des arguments.
+    const completeRefusedRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0",
+        id: 13,
+        method: "tools/call",
+        params: { name: "complete_task", arguments: {} },
+      },
+    });
+    expect(completeRefusedRes.status()).toBe(200);
+    const completeRefusedBody = await completeRefusedRes.json();
+    expect(completeRefusedBody.error).toBeUndefined();
+    expect(completeRefusedBody.result.isError).toBe(true);
+
     // Premiere assertion croisee entre deux familles de scopes : tasks:read
     // voit list_tasks mais pas get_progression (requiert profile:read, non
     // accorde ici).
@@ -256,5 +432,91 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     const progBody = await progRes.json();
     expect(progBody.error).toBeUndefined();
     expect(progBody.result.isError).toBe(true);
+  });
+
+  // Autre sens de la meme garantie D2 : un client qui demande explicitement
+  // profile:write l'obtient, et RIEN d'autre (le scope demande remplace le
+  // defaut, il ne s'y ajoute pas - cf. lib/oauth-scopes.ts). Round
+  // d'autorisation dedie : un scope ne peut se negocier qu'une fois par
+  // exchange de code, donc ce cas ne peut pas partager le round du premier test.
+  test("scope=profile:write explicite : equip_hero seul expose et autorise", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const clientName = `e2e-mcp-equip-${Date.now()}`;
+    const redirectUri = "http://127.0.0.1:9999/callback";
+
+    const registerRes = await request.post(`${baseURL}/oauth/register`, {
+      data: { client_name: clientName, redirect_uris: [redirectUri] },
+    });
+    expect(registerRes.status()).toBe(201);
+    const { client_id: clientId } = await registerRes.json();
+    expect(clientId).toBeTruthy();
+
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = deriveCodeChallenge(codeVerifier);
+
+    await login(page);
+    const authorizeUrl = new URL("/oauth/authorize", baseURL!);
+    authorizeUrl.searchParams.set("client_id", clientId);
+    authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+    authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+    authorizeUrl.searchParams.set("code_challenge_method", "S256");
+    authorizeUrl.searchParams.set("scope", "profile:write");
+    await page.goto(authorizeUrl.toString());
+
+    // Consentement : seule la ligne profile:write, aucune des lectures.
+    await expect(page.getByText(/Changer ton combattant équipé/)).toBeVisible();
+    await expect(page.getByText(/Lire tes tâches/)).toHaveCount(0);
+    await expect(page.getByText(/Créer et cocher des tâches/)).toHaveCount(0);
+
+    const [redirectRequest] = await Promise.all([
+      page.waitForRequest((req) => req.url().startsWith(redirectUri)),
+      page.getByRole("button", { name: "Autoriser" }).click(),
+    ]);
+    const code = new URL(redirectRequest.url()).searchParams.get("code");
+    expect(code).toBeTruthy();
+
+    const tokenRes = await request.post(`${baseURL}/oauth/token`, {
+      form: {
+        grant_type: "authorization_code",
+        code: code!,
+        code_verifier: codeVerifier,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+      },
+    });
+    expect(tokenRes.status()).toBe(200);
+    const { access_token: accessToken } = await tokenRes.json();
+    expect(accessToken).toBeTruthy();
+
+    // tools/list : equip_hero SEUL - aucune des 9 autres entrees du registre,
+    // ni meme get_progression/list_heroes (profile:read, non demande ici).
+    const listRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: { jsonrpc: "2.0", id: 1, method: "tools/list" },
+    });
+    expect(listRes.status()).toBe(200);
+    const toolNames = (await listRes.json()).result.tools.map((t: { name: string }) => t.name);
+    expect(toolNames).toEqual(["equip_hero"]);
+
+    // fire_knight est possede par defaut sur le compte e2e (offert a
+    // l'onboarding, US-29 ; purgeE2eAccountState le reseme systematiquement,
+    // cf. e2e/fixtures.ts) - succes attendu sans seed supplementaire.
+    const equipRes = await request.post(`${baseURL}/api/mcp`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "equip_hero", arguments: { hero_id: "fire_knight" } },
+      },
+    });
+    expect(equipRes.status()).toBe(200);
+    const equipBody = await equipRes.json();
+    expect(equipBody.error).toBeUndefined();
+    expect(equipBody.result.isError).toBe(false);
+    expect(equipBody.result.content[0].text).toContain("Combattant équipé");
   });
 });

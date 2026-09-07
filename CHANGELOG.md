@@ -13,6 +13,7 @@ nouvelle section versionnée et datée.
 - Couche domaine `lib/domain/` : toute la logique métier des tâches, de la boutique, du boss et de la progression est désormais appelable sans session cookie, préparant l'ouverture du serveur MCP (issue #201).
 - Serveur MCP : scopes OAuth (lecture/écriture tâches, lecture/écriture profil), registry de tools extensible, consentement détaillant les droits demandés, rate limit autoritaire (issue #201).
 - Serveur MCP : 5 tools de lecture (tâches du jour, statut du Boss, série, progression, roster de combattants) — un assistant IA peut désormais consulter l'état du combat, pas seulement créer des tâches (issue #201).
+- Serveur MCP : 5 tools d'écriture (créer une tâche ou une sous-tâche, cocher, poser/effacer une deadline avec son rappel, déplacer entre aujourd'hui et demain, changer de combattant équipé) — un assistant IA peut désormais faire avancer le combat, pas seulement le consulter (issue #201).
 
 ### Produit
 - Issue #199 : 16 nouveaux succès à débloquer, dont « Fashion Week » (toutes les tenues de tous les héros), « Centurion » et « Millénaire » (100 et 1000 tâches terminées), « Habitué » et « Vétéran » (10 et 50 journées gagnées), « Coffre-fort » (10 000 or gagnés), « Journée Pleine », « Sans Bavure », « Titan », « Lucidité » (ton premier Rage Quit assumé) ou encore « Volume Max ». Une nouvelle section « Combat » apparaît dans le catalogue des succès, et acheter une tenue débloque désormais ses succès sur-le-champ au lieu d'attendre le prochain passage par l'Arène.
@@ -20,8 +21,6 @@ nouvelle section versionnée et datée.
 ### Corrections
 - Issue #196 : sur la carte du Vestiaire, tous les cercles du chemin ont désormais la même bordure dorée — seuls ceux de droite l'avaient, ce qui donnait l'impression d'une colonne active et d'une colonne éteinte. La taille des cercles continue de signaler les deux sections principales.
 - Issue #195 : valider une tâche la fait de nouveau descendre en bas de liste, et une tâche créée s'affiche au-dessus des tâches déjà validées. L'ordre partait avec un temps de retard sur ce que tu venais de faire : cocher deux tâches d'affilée pouvait renvoyer la seconde tout en haut, et une tâche ajoutée rester coincée sous les validées — très visible en 4G, quasi jamais sur une connexion rapide. Les tâches dictées à Siri ou créées par Gemini arrivaient elles aussi sous les validées : corrigé également. Et taper une tâche puis Entrée pendant que la précédente s'enregistre fonctionne enfin (l'Entrée était purement ignoré, sans le moindre message).
-
-### Corrections
 - Issue #194 : trois écrans se re-construisaient entièrement au chargement à cause d'une erreur d'hydratation React, ce qui pouvait avaler le premier clic fait juste après l'affichage (Le Profil, l'Arène). Corrigé : le toggle de rappel du soir, le compte à rebours avant minuit et la détection « animations réduites » attendent désormais le navigateur au lieu de deviner côté serveur.
 - Issue #192 : le Chevalier de Feu est de nouveau achetable au Marché Noir. Si ton starter d'onboarding était un autre héros, le débloquer était impossible — le clic sur "Confirmer" ne faisait strictement rien, même avec assez d'or — et il restait donc inaccessible à vie sur ce profil. Les 6 autres héros et toutes les tenues n'étaient pas concernés.
 

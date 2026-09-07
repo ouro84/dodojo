@@ -7,6 +7,7 @@ export type DomainErrorCode =
   | "invalid_title"
   | "task_not_found"
   | "task_abandoned"
+  | "task_completed"
   | "depth_limit"
   | "fetch_failed"
   | "insert_failed"

@@ -98,3 +98,59 @@ describe("FakeQueryBuilder — filtres réels (issue #201, lot 3)", () => {
     expect(data.map((r) => r.id)).toEqual(["t1"]);
   });
 });
+
+describe("FakeQueryBuilder.or — forme PostgREST etroite (issue #201, lot 4)", () => {
+  test("matche la ligne cible et ses enfants, jamais les autres", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "cible", parent_id: null, user_id: "u1" },
+        { id: "enfant", parent_id: "cible", user_id: "u1" },
+        { id: "voisine", parent_id: null, user_id: "u1" },
+        { id: "enfant-voisine", parent_id: "voisine", user_id: "u1" },
+      ],
+    });
+    const { data } = await c
+      .from("tasks")
+      .select()
+      .or("id.eq.cible,parent_id.eq.cible")
+      .eq("user_id", "u1");
+    expect(data.map((r) => r.id).sort()).toEqual(["cible", "enfant"]);
+  });
+
+  test("se combine en AND avec les autres filtres", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "cible", parent_id: null, user_id: "u1" },
+        { id: "cible-autrui", parent_id: null, user_id: "autre" },
+      ],
+    });
+    const { data } = await c
+      .from("tasks")
+      .select()
+      .or("id.eq.cible,parent_id.eq.cible")
+      .eq("user_id", "u1");
+    expect(data.map((r) => r.id)).toEqual(["cible"]);
+  });
+
+  test("un update .or() ne touche que la cible et ses enfants", async () => {
+    const rows = [
+      { id: "cible", parent_id: null, user_id: "u1", day_date: "J" },
+      { id: "enfant", parent_id: "cible", user_id: "u1", day_date: "J" },
+      { id: "voisine", parent_id: null, user_id: "u1", day_date: "J" },
+    ];
+    const c = new FakeSupabaseClient({ tasks: rows });
+    await c
+      .from("tasks")
+      .update({ day_date: "J+1" })
+      .or("id.eq.cible,parent_id.eq.cible")
+      .eq("user_id", "u1");
+    expect(rows.find((r) => r.id === "cible")?.day_date).toBe("J+1");
+    expect(rows.find((r) => r.id === "enfant")?.day_date).toBe("J+1");
+    expect(rows.find((r) => r.id === "voisine")?.day_date).toBe("J");
+  });
+
+  test("une forme non reconnue leve plutot que de filtrer silencieusement faux", () => {
+    const c = new FakeSupabaseClient({ tasks: [] });
+    expect(() => c.from("tasks").select().or("id.gt.5,title.like.*x*")).toThrow();
+  });
+});
