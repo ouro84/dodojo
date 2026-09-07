@@ -230,15 +230,15 @@
     "majLe": "2026-07-24T21:37:00.000Z"
   },
   {
-    "titre": "Ajouter une tâche à la voix (Gemini / Android)",
+    "titre": "Connecter Gemini à Dodojo (Android)",
     "slug": "gemini",
     "section": "Intégrations",
     "ordre": 30,
-    "resume": "Connecter Dodojo à Gemini pour ajouter des tâches à la voix sur Android.",
+    "resume": "Connecter Dodojo à Gemini sur Android : les étapes, l'écran de consentement et les droits accordés.",
     "motsCles": [
       "integration"
     ],
-    "majLe": "2026-07-24T21:37:00.000Z"
+    "majLe": "2026-09-07T18:17:00.000Z"
   },
   {
     "titre": "Ce qu'un agent IA peut faire dans Dodojo",
