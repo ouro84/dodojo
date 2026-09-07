@@ -32,7 +32,30 @@
 - `equipHeroForUser(supabase, userId, heroId, skinId)` (`lib/domain/shop.ts:11`) exige un `skinId` ; l'utilisateur a demandé « tenue de base uniquement » pour ce tool.
 - `addTaskForUser(supabase, userId, title, dayDate?)` accepte déjà un `dayDate` optionnel, non utilisé jusqu'ici — c'est la préparation posée au lot 1 pour l'argument `day` de ce lot.
 - Les **six** écritures `.or()` de `lib/domain/tasks.ts` (lignes 304, 643, 696, 726, 884, 929) ont toutes exactement la même forme : `` `id.eq.${taskId},parent_id.eq.${taskId}` ``. Parser cette forme précise couvre donc 100 % de l'usage réel du repo.
-- `app/actions/achievements.ts` est `"use server"` et importe `revalidatePath` + `createClient`. Ces deux imports ne servent qu'à `equipTitle` (ligne 127) ; `assembleAchievementContext` et `applyNewAchievements` n'en utilisent aucun. Cinq fichiers les importent : `app/actions/boss.ts`, `app/actions/day.ts`, `app/actions/shop.ts`, `app/onboarding/actions.ts`, `lib/domain/tasks.ts`.
+- `app/actions/achievements.ts` est `"use server"` et importe `revalidatePath` + `createClient`. Ces deux imports ne servent qu'à `equipTitle` (ligne 127) ; `assembleAchievementContext` et `applyNewAchievements` n'en utilisent aucun.
+
+⚠️ **Correction : ils ont 7 consommateurs de production, pas 5.** Une première version de ce plan en listait cinq — les deux pages RSC avaient été manquées. Inventaire complet, relevé à `c868848` :
+
+| Fichier | Importe |
+|---|---|
+| `app/actions/boss.ts:13` | les deux |
+| `app/actions/day.ts:12` | les deux |
+| `app/actions/shop.ts:8` | les deux |
+| `app/onboarding/actions.ts:6` | les deux |
+| `lib/domain/tasks.ts:20` | les deux ← **c'est la violation que cette tâche solde** |
+| `app/tableau-de-chasse/succes/page.tsx:12` | `assembleAchievementContext` seul |
+| `app/vestiaire/artisans/page.tsx:4` | `assembleAchievementContext` seul |
+
+⚠️ **Et deux `vi.mock` visent le chemin qui va bouger** — c'est le vrai piège de cette tâche :
+
+- `app/actions/boss.test.ts:56` — `vi.mock("@/app/actions/achievements", …)`
+- `app/actions/shop.test.ts:42` — idem
+
+`vi.mock` intercepte un **spécificateur de module**, pas une fonction. Si le source part vers `@/lib/domain/achievements` et que ces deux mocks continuent de viser `@/app/actions/achievements`, ils cessent d'intercepter quoi que ce soit : `boss.ts`/`shop.ts` appelleraient la **vraie** `assembleAchievementContext`, qui lance ~8 requêtes sur le faux client. Selon les fixtures, ça donne soit un échec au diagnostic obscur, soit — bien pire — un test **toujours vert pour une raison différente de celle qu'il annonce**. Les deux mocks doivent être re-pointés dans le même commit.
+
+`components/pantheon/TitleSelector.test.tsx:13` mocke aussi ce chemin, mais pour `equipTitle`, qui **reste** dans `app/actions/achievements.ts` — ne pas y toucher.
+
+Aucun fichier de test ne couvre `app/actions/achievements.ts` aujourd'hui (`app/actions/achievements.test.ts` n'existe pas).
 
 ---
 
@@ -212,7 +235,8 @@ Dette reportée du lot 2 puis du lot 3. `lib/domain/tasks.ts` importe `assembleA
 **Files:**
 - Create: `lib/domain/achievements.ts`
 - Modify: `app/actions/achievements.ts`
-- Modify: `app/actions/boss.ts`, `app/actions/day.ts`, `app/actions/shop.ts`, `app/onboarding/actions.ts`, `lib/domain/tasks.ts`
+- Modify: `app/actions/boss.ts`, `app/actions/day.ts`, `app/actions/shop.ts`, `app/onboarding/actions.ts`, `lib/domain/tasks.ts`, `app/tableau-de-chasse/succes/page.tsx`, `app/vestiaire/artisans/page.tsx`
+- Modify (mocks): `app/actions/boss.test.ts`, `app/actions/shop.test.ts`
 
 - [ ] **Step 1 : Déplacer les deux fonctions**
 
@@ -220,17 +244,38 @@ Créer `lib/domain/achievements.ts` et y déplacer **le corps exact** de `assemb
 
 Vérifier avant de déplacer : ni l'une ni l'autre n'utilise `revalidatePath` ou `createClient` (ces deux imports ne servent qu'à `equipTitle`, qui **reste** dans le fichier `"use server"`). Si ce n'est pas le cas, s'arrêter et le signaler.
 
-- [ ] **Step 2 : Re-pointer les cinq consommateurs**
+- [ ] **Step 2 : Re-pointer les sept consommateurs — et les deux mocks**
+
+Chacun passe de `@/app/actions/achievements` à `@/lib/domain/achievements` :
 
 ```
-app/actions/boss.ts
-app/actions/day.ts
-app/actions/shop.ts
-app/onboarding/actions.ts
-lib/domain/tasks.ts
+app/actions/boss.ts:13                        (les deux fonctions)
+app/actions/day.ts:12                         (les deux)
+app/actions/shop.ts:8                         (les deux)
+app/onboarding/actions.ts:6                   (les deux)
+lib/domain/tasks.ts:20                        (les deux)
+app/tableau-de-chasse/succes/page.tsx:12      (assembleAchievementContext seul)
+app/vestiaire/artisans/page.tsx:4             (assembleAchievementContext seul)
 ```
 
-Chacun importe depuis `@/app/actions/achievements` → `@/lib/domain/achievements`. Vérifier qu'aucun autre fichier ne les importe (`grep` avant et après).
+⚠️ **Puis les deux `vi.mock`, dans le même commit :**
+
+```
+app/actions/boss.test.ts:56
+app/actions/shop.test.ts:42
+```
+
+`vi.mock` intercepte un spécificateur de module. Laissés sur l'ancien chemin, ils n'interceptent plus rien et `boss.ts`/`shop.ts` appellent la vraie `assembleAchievementContext` (~8 requêtes sur le faux client) — au mieux un échec obscur, au pire un vert obtenu pour une raison différente de celle annoncée. C'est le seul vrai risque de cette tâche : les imports de production, eux, cassent bruyamment à la compilation.
+
+**Ne pas toucher** `components/pantheon/TitleSelector.test.tsx:13`, qui mocke le même chemin pour `equipTitle` — celle-ci reste sur place.
+
+Vérifier après coup qu'il ne reste aucune référence aux deux fonctions déplacées via l'ancien chemin :
+
+```bash
+grep -rn "actions/achievements" --include=*.ts --include=*.tsx . | grep -v node_modules
+```
+
+Attendu : uniquement les lignes concernant `equipTitle` (`TitleSelector.tsx` + son test) et les commentaires de `lib/achievements.ts` — que cette tâche doit d'ailleurs corriger, ils citent l'ancien emplacement (lignes 4 et 17).
 
 - [ ] **Step 3 : Nettoyer `app/actions/achievements.ts`**
 
@@ -255,7 +300,11 @@ Attendu : **aucune sortie**. Si une autre dépendance vers `app/` existe encore,
 - [ ] **Step 5 : Commit**
 
 ```bash
-git add lib/domain/achievements.ts app/actions/achievements.ts app/actions/boss.ts app/actions/day.ts app/actions/shop.ts app/onboarding/actions.ts lib/domain/tasks.ts
+git add lib/domain/achievements.ts app/actions/achievements.ts \
+  app/actions/boss.ts app/actions/day.ts app/actions/shop.ts \
+  app/onboarding/actions.ts lib/domain/tasks.ts \
+  app/tableau-de-chasse/succes/page.tsx app/vestiaire/artisans/page.tsx \
+  app/actions/boss.test.ts app/actions/shop.test.ts lib/achievements.ts
 git commit -m "refactor: sortir les succes du fichier use server vers la couche domaine (issue #201)"
 ```
 
