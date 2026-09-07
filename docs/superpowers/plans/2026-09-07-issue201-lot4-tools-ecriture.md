@@ -422,9 +422,48 @@ async function handleCompleteTask(ctx: McpContext, args: Record<string, unknown>
 }
 ```
 
-⚠️ `completeTaskForUser` renvoie `level`/`xp`/`leveledUp`/`comboCount`/`newAchievements` — vérifier les champs réellement présents sur `CompleteTaskOutcome` avant de les lire, et ne mentionner dans le texte que ceux qui sont définis (une complétion sans transition réelle n'en renvoie aucun).
+✅ **Vérifié** avant écriture de ce plan — `CompleteTaskOutcome` (`lib/domain/tasks.ts:33`) est exactement :
 
-`set_deadline` suit le même patron : parseur validant `task_id` (string) et acceptant `deadline_at` en `string | null`, `reminder_enabled` en booléen optionnel, `reminder_offset_minutes` en nombre optionnel ; handler délégant à `setTaskDeadlineForUser(ctx.supabase, ctx.userId, taskId, deadlineAt, reminderOffsetMinutes, reminderEnabled)` — **vérifier l'ordre exact des paramètres dans la signature** avant d'écrire l'appel. Sur succès, renvoyer l'heure locale via `localTimeFromIso(deadlineAt, ctx.timezone)` quand `deadline_at` n'est pas nul, sinon confirmer l'effacement.
+```ts
+{ error: DomainErrorCode | null; level?: number; xp?: number; leveledUp?: boolean; comboCount?: number; newAchievements?: string[] }
+```
+
+Tous les champs hors `error` sont optionnels : une complétion sans transition réelle (re-cocher une tâche déjà cochée) n'en renvoie aucun. Le handler ci-dessus les garde derrière un test d'existence — ne pas les lire inconditionnellement.
+
+### `set_deadline` — un piège de signature à ne pas manquer
+
+✅ **Signature vérifiée** (`lib/domain/tasks.ts:521`), l'ordre est bien :
+
+```ts
+setTaskDeadlineForUser(supabase, userId, taskId, deadlineAt, reminderOffsetMinutes?, reminderEnabled?)
+```
+
+Noter que `reminderOffsetMinutes` précède `reminderEnabled`, contre-intuitivement. Les inverser serait une erreur de type (`number | null` vs `boolean`), donc `tsc` l'attrape — mais autant l'écrire juste du premier coup.
+
+⚠️ **Le vrai piège est ailleurs.** Dans le corps de la fonction :
+
+```ts
+if (reminderOffsetMinutes !== undefined) updates.reminder_offset_minutes = reminderOffsetMinutes;
+if (reminderEnabled !== undefined) updates.reminder_enabled = reminderEnabled;
+```
+
+`undefined` signifie **« ne pas toucher cette colonne »**. Un parseur écrit naïvement comme celui de `complete_task` —
+
+```ts
+const reminderEnabled = args.reminder_enabled === true;   // ❌ FAUX ICI
+```
+
+— transformerait « argument non fourni » en « désactive explicitement le rappel », donc un agent qui repousse simplement une deadline effacerait le rappel push de l'utilisateur au passage. Le parseur doit propager `undefined` tel quel :
+
+```ts
+const reminderEnabled = args.reminder_enabled === undefined ? undefined : args.reminder_enabled === true;
+const reminderOffsetMinutes =
+  args.reminder_offset_minutes === undefined ? undefined : Number(args.reminder_offset_minutes);
+```
+
+Ajouter un test qui verrouille ça : `set_deadline` avec `task_id` + `deadline_at` seuls ne doit modifier **ni** `reminder_enabled` **ni** `reminder_offset_minutes` sur la ligne.
+
+Sur succès, renvoyer l'heure locale via `localTimeFromIso(deadlineAt, ctx.timezone)` quand `deadline_at` n'est pas nul, sinon confirmer l'effacement.
 
 - [ ] **Step 5 : Enregistrer, tester, committer**
 
