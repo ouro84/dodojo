@@ -5,6 +5,7 @@ import { completeTaskForUser, setTaskDeadlineForUser } from "./tasks";
 import { readProgression } from "./progression";
 import { readDailyBoss } from "./boss";
 import { assembleAchievementContext, applyNewAchievements } from "./achievements";
+import { equipHeroForUser } from "./shop";
 
 type Row = Record<string, unknown>;
 
@@ -150,6 +151,51 @@ describe("isolation de tenant — le domaine ne voit jamais les lignes d'autrui"
     expect(ctx.rageQuitCount).toBe(0);
     expect(ctx.routineCount).toBe(0);
     expect(ctx.shareSuccessCount).toBe(0);
+  });
+
+  // SECURITY 2 (issue #201, lot 5) : `shop.ts` n'a aucun fichier de test —
+  // les seuls tests existants (lib/mcp-tools.test.ts) utilisent des fixtures
+  // mono-tenant, donc supprimer `.eq("user_id", userId)` a la ligne 23 de
+  // shop.ts les laisserait tous verts. Ce test verrouille que le domaine
+  // n'equipe jamais un heros possede seulement par un autre utilisateur —
+  // charge, PREUVE EMPIRIQUE fournie dans le rapport de vague, d'avoir
+  // vraiment retire le filtre et observe l'echec avant de le restaurer.
+  test("equipHeroForUser refuse un heros possede seulement par un autre utilisateur", async () => {
+    const profilesTable: Row[] = [{ id: "u1", equipped_hero_id: "fire_knight", equipped_skin_id: null }];
+    const c = new FakeSupabaseClient({
+      profiles: profilesTable,
+      unlocked_heroes: [{ user_id: "victime", hero_id: "water_priestess" }],
+      unlocked_skins: [],
+    });
+
+    const res = await equipHeroForUser(
+      c as unknown as SupabaseClient,
+      "u1",
+      "water_priestess",
+      "water_priestess_default",
+    );
+
+    expect(res.error).toBe("hero_not_owned");
+    // Aucune mutation : le profil de u1 reste sur son equipement d'origine.
+    expect(profilesTable[0].equipped_hero_id).toBe("fire_knight");
+  });
+
+  // SECURITY 2 (issue #201, lot 5) : l'UPDATE `profiles` de equipHeroForUser
+  // n'avait aucun garde sur le nombre de lignes mises a jour — un userId sans
+  // ligne `profiles` (profil jamais cree, ou fuite tenant type
+  // setTaskDeadlineForUser du lot 3) recevait un succes silencieux pour une
+  // ecriture qui n'a rien change. Meme forme de faux succes que le bug deja
+  // corrige sur setTaskDeadlineForUser.
+  test("equipHeroForUser renvoie profile_not_found plutot qu'un faux succes sans ligne profiles", async () => {
+    const c = new FakeSupabaseClient({
+      profiles: [{ id: "victime", equipped_hero_id: "fire_knight", equipped_skin_id: null }],
+      unlocked_heroes: [{ user_id: "u1", hero_id: "fire_knight" }],
+      unlocked_skins: [],
+    });
+
+    const res = await equipHeroForUser(c as unknown as SupabaseClient, "u1", "fire_knight", "fire_knight_default");
+
+    expect(res.error).toBe("profile_not_found");
   });
 
   test("applyNewAchievements ne debloque rien depuis les succes d'autrui", async () => {

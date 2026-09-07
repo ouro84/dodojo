@@ -482,10 +482,16 @@ export async function addSubtaskForUser(
     return { error: "depth_limit" };
   }
 
+  // SECURITY 1 (issue #201, lot 5) : `.eq("user_id", userId)` ajoute — aucune
+  // FK ne garantit qu'un enfant partage le user_id de son parent, et ce
+  // client peut etre service-role (serveur MCP), qui contourne RLS. Sans ce
+  // filtre, une fratrie appartenant a un autre utilisateur (meme parent_id)
+  // faussait `nextSiblingPosition`.
   const { data: siblings, error: siblingsError } = await supabase
     .from("tasks")
     .select("position")
-    .eq("parent_id", parentId);
+    .eq("parent_id", parentId)
+    .eq("user_id", userId);
 
   if (siblingsError) {
     return { error: "insert_failed" };
@@ -945,6 +951,15 @@ export async function bringToTodayForUser(
     .eq("day_date", today)
     .is("parent_id", null);
 
+  // BLOCKING 1 (issue #201, lot 5) : `.neq("day_date", today)` ajoute ici —
+  // sans lui, une tache DEJA sur aujourd'hui rematchait quand meme cette
+  // UPDATE et perdait silencieusement sa deadline (deadline_at: null) + sa
+  // position (recalculee en fin de fratrie), tout en renvoyant un faux
+  // succes ("1 tache ramenee a aujourd'hui"). Consequence : `to: "today"`
+  // n'etait pas idempotent (contrairement a `to: "tomorrow"`), et un agent
+  // qui pose une deadline puis assure que la tache est bien sur aujourd'hui
+  // (deux appels tools plausibles sous le meme scope tasks:write) detruisait
+  // la deadline qu'il venait de poser.
   const { data: updated, error } = await supabase
     .from("tasks")
     .update({
@@ -956,26 +971,33 @@ export async function bringToTodayForUser(
     .or(`id.eq.${taskId},parent_id.eq.${taskId}`)
     .eq("user_id", userId)
     .eq("is_abandoned", false)
+    .neq("day_date", today)
     .select();
 
   if (error) return { error: "update_failed" };
 
-  // Meme diagnostic fin que reportToTomorrowForUser ci-dessus, en plus
-  // simple : cette UPDATE n'a que 2 filtres de tenant (id/parent_id,
-  // user_id) + 1 filtre metier (is_abandoned) — pas de day_date/is_completed,
-  // donc 0 ligne ne peut signifier qu'introuvable ou abandonnee (jamais "deja
-  // aujourd'hui", une tache active matche toujours cette UPDATE quel que
-  // soit son day_date courant).
+  // Meme diagnostic fin que reportToTomorrowForUser ci-dessus : cette UPDATE
+  // combine desormais 2 filtres de tenant (id/parent_id, user_id) + 2
+  // filtres metier (is_abandoned, day_date) — 0 ligne peut donc signifier
+  // introuvable, abandonnee, OU deja sur aujourd'hui (nouveau cas rendu
+  // possible par le `.neq` ci-dessus). Le `day_date` est relu pour
+  // documenter explicitement ce 3e cas plutot que de le deduire par
+  // elimination silencieuse.
   if ((updated ?? []).length === 0) {
     const { data: existing } = await supabase
       .from("tasks")
-      .select("id, is_abandoned")
+      .select("id, is_abandoned, day_date")
       .eq("id", taskId)
       .eq("user_id", userId)
       .maybeSingle();
 
     if (!existing) return { error: "task_not_found" };
     if (existing.is_abandoned) return { error: "task_abandoned" };
+    // Ligne active, appartient bien a l'utilisateur, day_date === today (seul
+    // cas restant compte tenu du `.neq` ci-dessus) : succes no-op, jamais une
+    // erreur — un agent qui retente move_task{to:"today"} deja effectue ne
+    // doit pas se voir opposer un echec qu'il doit alors interpreter, ni
+    // voir sa deadline detruite une 2e fois.
     return { error: null, broughtBackTasks: [] };
   }
 

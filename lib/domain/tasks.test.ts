@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { dayKey } from "@/lib/game-engine";
+import { dayKey, nextDayKey } from "@/lib/game-engine";
 import { FakeSupabaseClient } from "./fake-supabase";
 import {
   addSubtaskForUser,
@@ -115,6 +115,34 @@ describe("addSubtaskForUser", () => {
       "Sous-tache",
     );
     expect(res.error).toBe("task_abandoned");
+  });
+
+  // SECURITY 1 (issue #201, lot 5) : la lecture des fratries
+  // (`.select("position").eq("parent_id", parentId)`) n'avait aucun filtre
+  // `user_id`. Aucune FK ne garantit qu'un enfant partage le `user_id` de son
+  // parent (supabase/migrations/20260708134344_init_schema.sql) — une ligne
+  // etrangere partageant le meme `parent_id` (improbable via l'app, mais
+  // atteignable par un client service-role) faussait donc
+  // `nextSiblingPosition` en tenant compte de sa position. Ce test verrouille
+  // que seules les fratries APPARTENANT a l'utilisateur comptent.
+  const PARENT_ID = "44444444-1111-1111-1111-111111111111";
+  test("le calcul de position ignore une fratrie appartenant a un autre utilisateur", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      { id: PARENT_ID, user_id: "u1", parent_id: null, is_abandoned: false, day_date: "2026-09-05" },
+      { id: "s1", user_id: "u1", parent_id: PARENT_ID, position: 0 },
+      // Ligne etrangere, meme parent_id, position tres haute.
+      { id: "s2", user_id: "victime", parent_id: PARENT_ID, position: 99 },
+    ];
+    const c = client(tasksTable);
+
+    const res = await addSubtaskForUser(c as unknown as SupabaseClient, "u1", PARENT_ID, "Nouvelle sous-tache");
+    expect(res.error).toBeNull();
+
+    const created = tasksTable.find((t) => t.id === res.id);
+    // Sans le filtre user_id, la position etrangere (99) ferait remonter la
+    // nouvelle position a 100 — avec le filtre, seule "s1" (position 0, meme
+    // utilisateur) compte, donc 1.
+    expect(created?.position).toBe(1);
   });
 });
 
@@ -428,25 +456,66 @@ describe("famille Demain", () => {
   describe("bringToTodayForUser — diagnostic fin sur 0 ligne (issue #201, fix revue)", () => {
     const ROOT_ID = "66666666-6666-6666-6666-666666666666";
 
-    // bringToTodayForUser ne filtre pas sur day_date (contrairement a
-    // reportToTomorrowForUser) : une tache active et non abandonnee matche
-    // TOUJOURS l'UPDATE, meme si elle est deja "aujourd'hui" — l'appel repete
-    // reste donc idempotent par un vrai match (1 ligne, reappliquee a
-    // l'identique), jamais via la branche 0-ligne. Documente ici pour ne pas
-    // reintroduire par erreur un filtre day_date qui casserait cette
-    // idempotence naturelle.
-    test("appelee deux fois sur la meme tache : les deux fois matchent reellement (idempotence par update, pas par diagnostic)", async () => {
+    // BLOCKING 1 (issue #201, lot 5) : avant ce fix, bringToTodayForUser
+    // n'avait AUCUN filtre day_date — une tache deja sur aujourd'hui
+    // rematchait quand meme l'UPDATE, perdait silencieusement sa deadline
+    // (deadline_at: null) et repartait en fin de fratrie (nouvelle
+    // position), tout en repondant un faux succes ("1 tache ramenee a
+    // aujourd'hui"). Le fix ajoute `.neq("day_date", today)` : une tache deja
+    // sur aujourd'hui ne matche plus l'UPDATE et ressort par la branche
+    // diagnostic ci-dessous en succes no-op — deadline et position intactes.
+    test("tache deja sur aujourd'hui avec une deadline posee : succes no-op, la deadline et la position survivent", async () => {
+      const tasksTable: Record<string, unknown>[] = [
+        {
+          id: ROOT_ID,
+          user_id: "u1",
+          parent_id: null,
+          day_date: TODAY,
+          is_completed: false,
+          is_abandoned: false,
+          deadline_at: "2026-09-07T18:00:00.000Z",
+          deferred_at: null,
+          position: 3,
+        },
+      ];
+      const c = client(tasksTable);
+
+      const res = await bringToTodayForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
+      expect(res.error).toBeNull();
+      expect(res.broughtBackTasks).toEqual([]);
+
+      const row = tasksTable.find((t) => t.id === ROOT_ID);
+      expect(row?.deadline_at).toBe("2026-09-07T18:00:00.000Z");
+      expect(row?.position).toBe(3);
+    });
+
+    // Cas reel d'usage (section "Demain" / toast d'annulation ~5s) : une
+    // tache sur demain rematche normalement, deadline effacee (comportement
+    // voulu, inchange par ce fix) — puis un second appel (retente/undo
+    // redondant) tombe sur le nouveau cas no-op ci-dessus.
+    test("tache sur demain : rematche et se deplace ; rappelee une 2e fois, succes no-op", async () => {
       const c = client([
-        { id: ROOT_ID, user_id: "u1", parent_id: null, day_date: "2026-09-06", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null, position: 0 },
+        {
+          id: ROOT_ID,
+          user_id: "u1",
+          parent_id: null,
+          day_date: nextDayKey(TODAY),
+          is_completed: false,
+          is_abandoned: false,
+          deadline_at: "2026-09-08T09:00:00.000Z",
+          deferred_at: null,
+          position: 0,
+        },
       ]);
 
       const first = await bringToTodayForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
       expect(first.error).toBeNull();
       expect(first.broughtBackTasks?.length).toBe(1);
+      expect(first.broughtBackTasks?.[0].deadline_at).toBeNull();
 
       const second = await bringToTodayForUser(c as unknown as SupabaseClient, "u1", ROOT_ID);
       expect(second.error).toBeNull();
-      expect(second.broughtBackTasks?.length).toBe(1);
+      expect(second.broughtBackTasks).toEqual([]);
     });
 
     test("tache abandonnee : task_abandoned, jamais task_not_found", async () => {

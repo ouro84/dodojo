@@ -770,6 +770,22 @@ describe("add_task handler — day (lot 4 tache 4)", () => {
     expect(created?.day_date).toBe(TOMORROW);
   });
 
+  // BLOCKING 2 (issue #201, lot 5) : le Boss renvoye par un add_task
+  // day="tomorrow" est celui de DEMAIN (insertTaskForUser le calcule sur les
+  // taches de dayDate=demain) — jamais un texte "Boss a X/Y HP" non qualifie
+  // qu'un agent relaierait a tort comme l'etat du Boss d'aujourd'hui.
+  test("day='tomorrow' : le Boss annonce est explicitement celui de demain, jamais une lecture non qualifiee", async () => {
+    const tasksTable: Record<string, unknown>[] = [];
+    const res = await runTool(
+      "add_task",
+      { title: "Pour demain", day: "tomorrow" },
+      { tasks: tasksTable, profiles: [{ id: "u1", timezone: "UTC" }] },
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain("Boss de demain a");
+    expect(res.content[0].text).not.toContain("Boss a ");
+  });
+
   // Retro-compatibilite absolue (brief) : title seul doit se comporter
   // EXACTEMENT comme avant ce lot.
   test("titre seul (comportement pre-existant, inchange) : la tache reste sur aujourd'hui", async () => {

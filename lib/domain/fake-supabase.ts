@@ -63,6 +63,15 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     return this;
   }
 
+  // BLOCKING 1 (issue #201, lot 5) : bringToTodayForUser a besoin de
+  // `.neq("day_date", today)` pour ne plus rematcher une tache deja sur
+  // aujourd'hui. Meme convention nullish que `eq` (une colonne absente EST un
+  // NULL SQL).
+  neq(column: string, value: unknown): this {
+    this.filters.push((row) => (value === null ? !nullish(row[column]) : row[column] !== value));
+    return this;
+  }
+
   // Parse la forme etroite que ce repo emet reellement :
   // `col.eq.valeur,col.eq.valeur` (cf. les six ecritures de
   // lib/domain/tasks.ts, toutes identiques). Les conditions sont OR entre

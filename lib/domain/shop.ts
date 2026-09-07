@@ -35,11 +35,18 @@ export async function equipHeroForUser(
   }
 
   const equippedSkinId = skin.isDefault ? null : skinId;
-  const { error } = await supabase
+  // SECURITY 2 (issue #201, lot 5) : `.select("id")` + garde sur le nombre de
+  // lignes mises a jour — sans ca, un userId sans ligne `profiles` (profil
+  // jamais cree) recevait `error: null` ("Combattant equipe : X") pour une
+  // ecriture qui n'avait rien change, meme forme de faux succes silencieux
+  // deja corrigee sur setTaskDeadlineForUser (lot 3).
+  const { data: updatedRows, error } = await supabase
     .from("profiles")
     .update({ equipped_hero_id: heroId, equipped_skin_id: equippedSkinId })
-    .eq("id", userId);
+    .eq("id", userId)
+    .select("id");
   if (error) return { error: "update_failed" };
+  if (!updatedRows || updatedRows.length === 0) return { error: "profile_not_found" };
 
   return { error: null };
 }

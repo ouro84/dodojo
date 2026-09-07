@@ -161,7 +161,8 @@ async function handleAddTask(ctx: McpContext, args: Record<string, unknown>): Pr
   // tache 4), pour ne jamais changer le nombre de requetes du chemin
   // existant.
   let dayDate: string | undefined;
-  if (args.day === "tomorrow") {
+  const isTomorrow = args.day === "tomorrow";
+  if (isTomorrow) {
     const today = await userToday(ctx.supabase, ctx.userId);
     dayDate = nextDayKey(today);
   }
@@ -173,7 +174,10 @@ async function handleAddTask(ctx: McpContext, args: Record<string, unknown>): Pr
       timezone: ctx.timezone,
       dayDate,
     });
-    return buildAddTaskToolResult(outcome);
+    // BLOCKING 2 (issue #201, lot 5) : le Boss renvoye ici porte sur
+    // `dayDate` (demain quand isTomorrow), jamais sur le Boss du jour
+    // courant — cf. buildAddTaskToolResult.
+    return buildAddTaskToolResult(outcome, isTomorrow);
   } catch (err) {
     // Retrofit (lot 4, tache 3) : ce site emettait la chaine litterale
     // "insert_task_failed", qui n'est meme pas un membre de DomainErrorCode

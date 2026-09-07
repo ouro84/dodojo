@@ -100,11 +100,20 @@ export interface McpToolResult {
   isError: boolean;
 }
 
-export function buildAddTaskToolResult(outcome: InsertTaskOutcome): McpToolResult {
+// BLOCKING 2 (issue #201, lot 5) : `isTomorrow` qualifie explicitement le
+// Boss quand la tache vient d'etre creee pour demain — insertTaskForUser
+// (lib/task-insertion.ts) calcule alors bossMaxHp/bossCurrentHp a partir des
+// taches de DEMAIN, jamais du Boss du jour courant (invariant CLAUDE.md :
+// une tache de demain ne peut jamais affecter le Boss d'aujourd'hui). Un
+// texte "Boss a X/Y HP" non qualifie serait relaye tel quel par un agent au
+// joueur, qui le lirait a tort comme l'etat du Boss du jour.
+export function buildAddTaskToolResult(outcome: InsertTaskOutcome, isTomorrow = false): McpToolResult {
+  const bossLabel = isTomorrow ? "Boss de demain a " : "Boss a ";
   const text =
     "Tache ajoutee pour le " +
     outcome.dayDate +
-    ". Boss a " +
+    ". " +
+    bossLabel +
     String(outcome.bossCurrentHp) +
     "/" +
     String(outcome.bossMaxHp) +
