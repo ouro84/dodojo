@@ -1,9 +1,19 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { findTool, toolsForScope, TOOL_REGISTRY, type McpContext } from "./mcp-tools";
 import { FakeSupabaseClient } from "./domain/fake-supabase";
 import { dayKey, nextDayKey } from "./game-engine";
 import { HEROES } from "./heroes";
+
+// Task 3 (lot 4) : complete_task/set_deadline delegent a
+// completeTaskForUser/setTaskDeadlineForUser, qui emettent tous deux des
+// evenements Inngest best-effort (cancelDeadlineReminder/scheduleDeadlineReminder).
+// Meme mock que lib/domain/tasks.test.ts - sans lui, un `inngest.send` reel
+// tenterait un appel reseau a chaque test set_deadline.
+vi.mock("@/lib/inngest/deadline-reminder", () => ({
+  cancelDeadlineReminder: async () => {},
+  scheduleDeadlineReminder: async () => {},
+}));
 
 describe("TOOL_REGISTRY", () => {
   test("add_task requiert tasks:write", () => {
@@ -44,10 +54,19 @@ describe("add_task parseArgs", () => {
   });
 });
 
-describe("catalogue de lecture (lot 3)", () => {
-  test("les 6 tools attendus sont enregistres", () => {
+describe("catalogue (lot 3 lecture + lot 4 tache 3 ecriture)", () => {
+  test("les 8 tools attendus sont enregistres", () => {
     expect(TOOL_REGISTRY.map((t) => t.tool.name).sort()).toEqual(
-      ["add_task", "get_boss_status", "get_progression", "get_streak", "list_heroes", "list_tasks"].sort(),
+      [
+        "add_task",
+        "complete_task",
+        "get_boss_status",
+        "get_progression",
+        "get_streak",
+        "list_heroes",
+        "list_tasks",
+        "set_deadline",
+      ].sort(),
     );
   });
 
@@ -58,6 +77,8 @@ describe("catalogue de lecture (lot 3)", () => {
     expect(scopeOf("get_streak")).toBe("tasks:read");
     expect(scopeOf("get_progression")).toBe("profile:read");
     expect(scopeOf("list_heroes")).toBe("profile:read");
+    expect(scopeOf("complete_task")).toBe("tasks:write");
+    expect(scopeOf("set_deadline")).toBe("tasks:write");
   });
 
   test("un token tasks:read seul ne voit aucun tool d'ecriture", () => {
@@ -235,11 +256,13 @@ describe("handlers (lot 3, revue - comportement)", () => {
     expect(res.content[0].text).toContain("n'a pas encore été tiré");
   });
 
-  test("get_progression : profil introuvable -> isError true, code profile_not_found", async () => {
+  // Revue #201 (lot 4, tache 3) : convention unifiee `<code> : <phrase>` -
+  // ce site emettait un code nu avant ce lot (cf. brief tache 3).
+  test("get_progression : profil introuvable -> isError true, format <code> : <phrase>", async () => {
     const supabase = new FakeSupabaseClient({ profiles: [] });
     const res = await callTool("get_progression", {}, makeCtx(supabase));
     expect(res.isError).toBe(true);
-    expect(res.content[0].text).toBe("profile_not_found");
+    expect(res.content[0].text).toBe("profile_not_found : profil introuvable");
   });
 
   test("get_progression : combattant equipe affiche par nom d'affichage, slug garde entre parentheses", async () => {
@@ -265,5 +288,169 @@ describe("handlers (lot 3, revue - comportement)", () => {
     expect(res.content[0].text).toContain("- fire_knight — Chevalier de Feu (équipé)");
     const lockedHero = HEROES.find((h) => h.id !== "fire_knight" && h.id !== "water_priestess")!;
     expect(res.content[0].text).toContain(`- ${lockedHero.id} — ${lockedHero.name} (verrouillé)`);
+  });
+});
+
+// Lot 4, tache 3 : complete_task / set_deadline. Vrais UUID exiges (UUID_RE
+// du domaine rejette tout le reste, y compris un id "foreign-task" en clair).
+const OWN_TASK_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const FOREIGN_TASK_ID = "99999999-9999-9999-9999-999999999999";
+
+function ownTaskFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    profiles: [{ id: "u1", level: 1, xp: 0, combo_count: 0, last_combo_completed_at: null, timezone: "UTC" }],
+    tasks: [
+      {
+        id: OWN_TASK_ID,
+        user_id: "u1",
+        parent_id: null,
+        is_completed: false,
+        is_abandoned: false,
+        xp_awarded: null,
+        deadline_at: null,
+        deferred_at: null,
+        reminder_enabled: null,
+        reminder_offset_minutes: null,
+        ...overrides,
+      },
+    ],
+    unlocked_achievements: [],
+  };
+}
+
+// Etend callTool (lot 3) : construit le FakeSupabaseClient a partir d'un jeu
+// de tables brut, plutot que d'exiger un McpContext deja assemble - permet
+// aux tests "tache d'un autre utilisateur" de passer des fixtures minimales
+// sans dupliquer makeCtx partout.
+function runTool(
+  name: string,
+  rawArgs: Record<string, unknown>,
+  tables: Record<string, Record<string, unknown>[]>,
+  timezone = "UTC",
+) {
+  const supabase = new FakeSupabaseClient(tables);
+  return callTool(name, rawArgs, makeCtx(supabase, timezone));
+}
+
+describe("complete_task (lot 4, tache 3)", () => {
+  test("refuse un task_id absent", () => {
+    const parsed = findTool("complete_task")!.parseArgs({});
+    expect(parsed.ok).toBe(false);
+  });
+
+  test("une tache d'un autre utilisateur renvoie une erreur metier, pas un throw", async () => {
+    const res = await runTool("complete_task", { task_id: FOREIGN_TASK_ID }, {
+      profiles: [{ id: "u1", level: 1, xp: 0, combo_count: 0, last_combo_completed_at: null, timezone: "UTC" }],
+      tasks: [
+        {
+          id: FOREIGN_TASK_ID,
+          user_id: "victime",
+          parent_id: null,
+          is_completed: false,
+          is_abandoned: false,
+          xp_awarded: null,
+          deadline_at: null,
+          deferred_at: null,
+        },
+      ],
+      unlocked_achievements: [],
+    });
+
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("task_not_found");
+  });
+
+  test("coche une tache et renvoie l'issue (cochee)", async () => {
+    const res = await runTool("complete_task", { task_id: OWN_TASK_ID }, ownTaskFixture());
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain("cochée");
+  });
+
+  test("completed: false decoche", async () => {
+    const res = await runTool(
+      "complete_task",
+      { task_id: OWN_TASK_ID, completed: false },
+      ownTaskFixture({ is_completed: true, xp_awarded: 10 }),
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain("décochée");
+  });
+
+  test("erreur au format <code> : <phrase>, jamais un code nu", async () => {
+    const res = await runTool("complete_task", { task_id: "optimistic-1" }, ownTaskFixture());
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toBe("invalid_task_id : identifiant de tâche invalide");
+  });
+});
+
+describe("set_deadline (lot 4, tache 3)", () => {
+  test("refuse un task_id absent", () => {
+    expect(findTool("set_deadline")!.parseArgs({}).ok).toBe(false);
+  });
+
+  test("refuse un deadline_at absent (ni string ni null)", () => {
+    const parsed = findTool("set_deadline")!.parseArgs({ task_id: OWN_TASK_ID });
+    expect(parsed.ok).toBe(false);
+  });
+
+  test("une tache d'un autre utilisateur renvoie une erreur metier", async () => {
+    const res = await runTool(
+      "set_deadline",
+      { task_id: FOREIGN_TASK_ID, deadline_at: "2026-09-08T16:00:00.000Z" },
+      { tasks: [{ id: FOREIGN_TASK_ID, user_id: "victime", reminder_enabled: true, reminder_offset_minutes: null }] },
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain("task_not_found");
+  });
+
+  test("deadline_at: null efface et le confirme", async () => {
+    const res = await runTool(
+      "set_deadline",
+      { task_id: OWN_TASK_ID, deadline_at: null },
+      { tasks: [{ id: OWN_TASK_ID, user_id: "u1", reminder_enabled: true, reminder_offset_minutes: null }] },
+    );
+    expect(res.isError).toBe(false);
+    expect(res.content[0].text).toContain("effacée");
+  });
+
+  test("deadline_at fixee -> heure locale (ctx.timezone) dans le texte", async () => {
+    const res = await runTool(
+      "set_deadline",
+      { task_id: OWN_TASK_ID, deadline_at: "2026-01-15T16:00:00.000Z" },
+      { tasks: [{ id: OWN_TASK_ID, user_id: "u1", reminder_enabled: null, reminder_offset_minutes: null }] },
+      "Europe/Paris",
+    );
+    expect(res.isError).toBe(false);
+    // Janvier : Paris en CET (UTC+1), hors ambiguite DST - 16:00 UTC == 17:00 locale.
+    expect(res.content[0].text).toContain("17:00");
+  });
+
+  // *** Le test qui verrouille le piege undefined-propagation (brief tache 3) ***
+  test("task_id + deadline_at seuls -> reminder_enabled et reminder_offset_minutes INTACTS sur la ligne", async () => {
+    const tasksTable: Record<string, unknown>[] = [
+      {
+        id: OWN_TASK_ID,
+        user_id: "u1",
+        reminder_enabled: true,
+        reminder_offset_minutes: 45,
+      },
+    ];
+    const supabase = new FakeSupabaseClient({
+      profiles: [{ id: "u1", timezone: "UTC", reminder_offset_minutes: 30 }],
+      tasks: tasksTable,
+    });
+    const res = await callTool(
+      "set_deadline",
+      { task_id: OWN_TASK_ID, deadline_at: "2026-01-16T09:00:00.000Z" },
+      makeCtx(supabase),
+    );
+    expect(res.isError).toBe(false);
+
+    // Assertion sur la LIGNE en base, jamais sur la valeur de retour (cf. brief) :
+    // un parseur naif (`args.reminder_enabled === true`) ecraserait ces deux
+    // colonnes malgre leur absence des arguments recus.
+    const row = tasksTable.find((t) => t.id === OWN_TASK_ID);
+    expect(row?.reminder_enabled).toBe(true);
+    expect(row?.reminder_offset_minutes).toBe(45);
   });
 });
