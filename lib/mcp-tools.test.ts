@@ -181,6 +181,45 @@ describe("catalogue (lot 3 lecture + lot 4 ecriture complete)", () => {
     expect(parsed.ok).toBe(true);
   });
 
+  // Revue #201 (lot 6, finding 5) : `args.day ?? "today"` collapsait
+  // `day: null` sur le defaut exactement comme une absence d'argument - un
+  // type incorrect (pas seulement une chaine invalide comme "hier" ci-dessus)
+  // passait donc silencieusement. Doit desormais etre refuse, comme
+  // parseAddTaskArgs le fait deja pour ce meme cas.
+  test("list_tasks refuse day: null plutot que de le collapser sur le defaut", () => {
+    const parsed = findTool("list_tasks")!.parseArgs({ day: null });
+    expect(parsed.ok).toBe(false);
+    expect(parsed.ok === false && parsed.error).toBe(
+      "invalid_args : day doit valoir 'today' ou 'tomorrow'.",
+    );
+  });
+
+  // Revue #201 (lot 6, finding 5) : meme pattern outlawed par
+  // parseCompleteTaskArgs (lot 4) mais laisse en place ici - `include_completed:
+  // 0`/`"no"`/`{}` retombaient tous silencieusement sur `false`, la branche
+  // qui filtre les taches completees (jamais neutre pour un agent).
+  test("list_tasks refuse un include_completed de type incorrect plutot que de decocher silencieusement", () => {
+    for (const bad of [0, 1, "no", "yes", {}]) {
+      const parsed = findTool("list_tasks")!.parseArgs({ include_completed: bad });
+      expect(parsed).toEqual({
+        ok: false,
+        error: "invalid_args : include_completed doit etre un booleen.",
+      });
+    }
+  });
+
+  test("list_tasks accepte include_completed en booleen et en chaine 'true'/'false'", () => {
+    for (const [raw, expected] of [
+      [true, true],
+      [false, false],
+      ["true", true],
+      ["false", false],
+    ] as const) {
+      const parsed = findTool("list_tasks")!.parseArgs({ include_completed: raw });
+      expect(parsed).toEqual({ ok: true, args: { day: "today", includeCompleted: expected } });
+    }
+  });
+
   test("les tools sans argument acceptent un objet vide", () => {
     for (const name of ["get_boss_status", "get_streak", "get_progression", "list_heroes"]) {
       expect(findTool(name)!.parseArgs({}).ok).toBe(true);
@@ -439,20 +478,34 @@ describe("complete_task (lot 4, tache 3)", () => {
     expect(res.content[0].text).toContain("task_not_found");
   });
 
+  // Revue #201 (lot 6, finding 2) : `'Tâche décochée.'.includes('cochée')`
+  // vaut `true` (le mot "décochée" contient "cochée" comme sous-chaîne) — donc
+  // `toContain("cochée")` seul ne prouve rien sur la BRANCHE réellement prise,
+  // et rien n'assertait `is_completed` sur la ligne. Un défaut `completed`
+  // flippé silencieusement à `false` (lit "décoche") aurait laissé ce test au
+  // vert. Sous-chaîne non-ambiguë (`"Tâche cochée."`, avec l'espace qui
+  // précède, absent de "Tâche décochée.") + assertion sur la ligne elle-même.
   test("coche une tache et renvoie l'issue (cochee)", async () => {
-    const res = await runTool("complete_task", { task_id: OWN_TASK_ID }, ownTaskFixture());
+    const tables = ownTaskFixture();
+    const supabase = new FakeSupabaseClient(tables);
+    const res = await callTool("complete_task", { task_id: OWN_TASK_ID }, makeCtx(supabase));
     expect(res.isError).toBe(false);
-    expect(res.content[0].text).toContain("cochée");
+    expect(res.content[0].text).toContain("Tâche cochée.");
+    expect(res.content[0].text).not.toContain("décochée");
+    expect(tables.tasks[0].is_completed).toBe(true);
   });
 
   test("completed: false decoche", async () => {
-    const res = await runTool(
+    const tables = ownTaskFixture({ is_completed: true, xp_awarded: 10 });
+    const supabase = new FakeSupabaseClient(tables);
+    const res = await callTool(
       "complete_task",
       { task_id: OWN_TASK_ID, completed: false },
-      ownTaskFixture({ is_completed: true, xp_awarded: 10 }),
+      makeCtx(supabase),
     );
     expect(res.isError).toBe(false);
-    expect(res.content[0].text).toContain("décochée");
+    expect(res.content[0].text).toContain("Tâche décochée.");
+    expect(tables.tasks[0].is_completed).toBe(false);
   });
 
   test("erreur au format <code> : <phrase>, jamais un code nu", async () => {

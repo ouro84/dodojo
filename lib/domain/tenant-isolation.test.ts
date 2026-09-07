@@ -113,7 +113,7 @@ describe("isolation de tenant — le domaine ne voit jamais les lignes d'autrui"
   // Issue #201 (lot 4) : assembleAchievementContext a emmenage dans lib/domain/
   // avec la Task 2, donc elle est desormais appelee par le serveur MCP via
   // completeTaskForUser -> applyNewAchievements, avec un client service-role.
-  // Ses 11 requetes n'avaient jamais ete verrouillees ici. Une seule d'entre
+  // Ses 8 requetes n'avaient jamais ete verrouillees ici. Une seule d'entre
   // elles perdant son `.eq("user_id", ...)` donnerait a un agent la progression
   // d'un autre joueur — et debloquerait chez lui des succes qu'il n'a pas
   // gagnes, puisque applyNewAchievements ecrit sur la base de ce contexte.
@@ -198,16 +198,30 @@ describe("isolation de tenant — le domaine ne voit jamais les lignes d'autrui"
     expect(res.error).toBe("profile_not_found");
   });
 
-  test("applyNewAchievements ne debloque rien depuis les succes d'autrui", async () => {
-    const unlocked: Row[] = [{ user_id: "victime", code: "FIRST_VICTORY", unlocked_at: "2026-01-01T00:00:00.000Z" }];
+  // Issue #201 (lot 6) : reecrit apres l'ajout d'un vrai `upsert` au faux
+  // client. L'ancienne version de ce test passait un contexte neutre (rien de
+  // debloque) — `evaluateAchievements` renvoyait alors `[]` quel que soit le
+  // contenu d'`alreadyUnlocked`, donc `applyNewAchievements` (lib/domain/achievements.ts:91)
+  // retournait AVANT que l'upsert ne s'execute jamais. Retirer le
+  // `.eq("user_id", userId)` de la lecture des succes deja debloques
+  // (achievements.ts:86) laissait donc ce test au vert — la ligne de la
+  // victime restait "intacte" trivialement, puisqu'aucune ecriture n'avait
+  // lieu. Ce test-ci force `ctx.level` a 10 (debloque LEVEL_10, seule
+  // condition vraie pour ce niveau — verifie en lisant lib/achievements.ts :
+  // tous les autres seuils/compteurs sont a 0/false/vide) : l'upsert s'execute
+  // reellement, et la victime possede DEJA le meme code ("LEVEL_10") sous un
+  // user_id different — le cas exact ou un onConflict mal scope fusionnerait
+  // a tort sur sa ligne au lieu d'en creer une nouvelle pour u1.
+  test("applyNewAchievements ecrit un succes reellement debloque sans jamais toucher la ligne d'un autre utilisateur qui partage le meme code", async () => {
+    const victimRow: Row = { user_id: "victime", code: "LEVEL_10", unlocked_at: "2026-01-01T00:00:00.000Z" };
+    const unlocked: Row[] = [victimRow];
     const c = new FakeSupabaseClient({
       profiles: [{ id: "u1", title_manually_set: false }],
       unlocked_achievements: unlocked,
     });
 
-    // Contexte neutre : rien n'est gagne, donc rien ne doit etre ecrit.
     const codes = await applyNewAchievements(c as unknown as SupabaseClient, "u1", {
-      level: 1,
+      level: 10,
       bestStreak: 0,
       aggressivityLevel: "direct",
       unlockedHeroIds: [],
@@ -220,10 +234,23 @@ describe("isolation de tenant — le domaine ne voit jamais les lignes d'autrui"
       shareSuccessCount: 0,
     });
 
-    expect(codes).toEqual([]);
-    // La ligne de la victime est intacte : aucun upsert ne l'a touchee.
-    expect(unlocked).toEqual([
-      { user_id: "victime", code: "FIRST_VICTORY", unlocked_at: "2026-01-01T00:00:00.000Z" },
-    ]);
+    // L'upsert a bien tourne : u1 debloque reellement LEVEL_10 (si la lecture
+    // des succes deja debloques (achievements.ts:86) perdait son filtre
+    // user_id, la ligne de la victime contaminerait `alreadyUnlocked` et
+    // LEVEL_10 serait a tort suppose deja acquis pour u1 -> `codes` vaudrait
+    // `[]` et cette assertion echouerait).
+    expect(codes).toEqual(["LEVEL_10"]);
+    // La ligne de la victime est intacte : l'upsert (onConflict user_id,code)
+    // ne l'a jamais reutilisee comme cible malgre le meme `code`.
+    expect(victimRow).toEqual({
+      user_id: "victime",
+      code: "LEVEL_10",
+      unlocked_at: "2026-01-01T00:00:00.000Z",
+    });
+    // Une ligne DISTINCTE existe desormais pour u1.
+    const u1Row = unlocked.find((r) => r.user_id === "u1" && r.code === "LEVEL_10");
+    expect(u1Row).toBeDefined();
+    expect(u1Row?.unlocked_at).not.toBe(victimRow.unlocked_at);
+    expect(unlocked).toHaveLength(2);
   });
 });

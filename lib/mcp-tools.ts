@@ -305,14 +305,35 @@ const EQUIP_HERO_TOOL: McpTool = {
 };
 
 function parseListTasksArgs(args: Record<string, unknown>): ParsedArgs<Record<string, unknown>> {
-  const day = args.day ?? "today";
-  if (day !== "today" && day !== "tomorrow") {
+  // Fix (lot 6, finding 5) : `args.day ?? "today"` traitait `day: null`
+  // exactement comme une absence d'argument (`??` collapse null ET undefined
+  // vers le defaut) — donc un type incorrect passait silencieusement en
+  // "today" au lieu d'etre refuse, contrairement a parseAddTaskArgs qui refuse
+  // deja tout `day` non-undefined et non "today"/"tomorrow" (null inclus). On
+  // valide maintenant la valeur BRUTE avant d'appliquer le defaut, seul
+  // `undefined` beneficiant du defaut.
+  const rawDay = args.day;
+  if (rawDay !== undefined && rawDay !== "today" && rawDay !== "tomorrow") {
     // Fix (lot 4, tache 3 - revue finding 6) : meme retrofit que
     // parseAddTaskArgs ci-dessus - site pre-lot, code nu jusqu'ici.
     return { ok: false, error: "invalid_args : day doit valoir 'today' ou 'tomorrow'." };
   }
+  const day = rawDay ?? "today";
+
+  // Fix (lot 6, finding 5) : meme pattern que celui outlawed dans
+  // parseCompleteTaskArgs (lot 4) - `rawInclude === "true" || rawInclude ===
+  // true` est un test d'EGALITE, pas une coercition, donc tout ce qui n'est ni
+  // `true`/`"true"` ni `false`/`"false"` (ex. `0`, `"no"`, `{}`) retombait
+  // silencieusement sur `false`. Refuse desormais un type incorrect plutot que
+  // de le reinterpreter en "false", exactement la discipline deja appliquee a
+  // `completed`.
   const rawInclude = args.include_completed;
-  const includeCompleted = rawInclude === undefined ? true : rawInclude === "true" || rawInclude === true;
+  let includeCompleted: boolean;
+  if (rawInclude === undefined) includeCompleted = true;
+  else if (rawInclude === true || rawInclude === "true") includeCompleted = true;
+  else if (rawInclude === false || rawInclude === "false") includeCompleted = false;
+  else return { ok: false, error: "invalid_args : include_completed doit etre un booleen." };
+
   return { ok: true, args: { day, includeCompleted } };
 }
 

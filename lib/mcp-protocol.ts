@@ -107,10 +107,20 @@ export interface McpToolResult {
 // une tache de demain ne peut jamais affecter le Boss d'aujourd'hui). Un
 // texte "Boss a X/Y HP" non qualifie serait relaye tel quel par un agent au
 // joueur, qui le lirait a tort comme l'etat du Boss du jour.
+// Revue #201 (lot 6, finding 3) : `outcome.taskId` (InsertTaskOutcome,
+// lib/task-insertion.ts) n'apparaissait nulle part dans le texte renvoye -
+// alors que complete_task/set_deadline/move_task/add_task(parent_id) exigent
+// tous un task_id, obtenable uniquement en rappelant list_tasks et en
+// regex-scrapant son texte (cf. extractTaskId de e2e/mcp-oauth.spec.ts). La
+// branche sous-tache du meme tool (lib/mcp-tools.ts, handleAddTask) le
+// renvoyait deja - meme forme ici, pour qu'un agent puisse enchainer un
+// aller-retour d'ecriture sans round-trip de lecture supplementaire.
 export function buildAddTaskToolResult(outcome: InsertTaskOutcome, isTomorrow = false): McpToolResult {
   const bossLabel = isTomorrow ? "Boss de demain a " : "Boss a ";
   const text =
-    "Tache ajoutee pour le " +
+    "Tache ajoutee (id " +
+    outcome.taskId +
+    ") pour le " +
     outcome.dayDate +
     ". " +
     bossLabel +

@@ -3,11 +3,15 @@
 // (la copie locale de ce dernier a été fusionnée ici, issue #201 lot 3) et
 // app/api/mcp/route.test.ts (fusionnée à son tour, issue #201 lot 3 tache 4 —
 // `.rpc()` ci-dessous vient de cette copie, seul consommateur à ce jour).
-// `eq`/`in`/`lt`/`is`/`or` filtrent réellement les lignes (this.filters,
+// `eq`/`neq`/`in`/`lt`/`is`/`or` filtrent réellement les lignes (this.filters,
 // consulté par apply() en lecture comme en update). `or()` parse uniquement
 // la forme étroite "colonne.eq.valeur[,...]" (cf. sa définition) et LÈVE sur
-// toute autre forme plutôt que de retomber en no-op silencieux — aucun no-op
-// filtre ne reste dans ce fichier (issue #201, lot 4).
+// toute autre forme plutôt que de retomber en no-op silencieux. `upsert()`
+// (issue #201, lot 6) matche réellement sur les colonnes `onConflict` — plus
+// aucun no-op ne reste dans ce fichier : sans lui, le seul appelant
+// (applyNewAchievements) plantait avec un TypeError (`.upsert is not a
+// function`) dès qu'un test déclenchait réellement un nouveau succès, et
+// aucun test ne pouvait vérifier que l'écriture reste scopée par utilisateur.
 
 import { vi } from "vitest";
 
@@ -26,10 +30,12 @@ function nullish(value: unknown): boolean {
 
 export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
   private filters: Array<(row: Row) => boolean> = [];
-  private mode: "select" | "insert" | "update" = "select";
+  private mode: "select" | "insert" | "update" | "upsert" = "select";
   private patch: Row = {};
   private insertedRow: Row | null = null;
   private countMode = false;
+  private upsertRows: Row[] = [];
+  private onConflictColumns: string[] = [];
 
   constructor(private readonly rows: Row[]) {}
 
@@ -55,6 +61,22 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
   update(patch: Row): this {
     this.mode = "update";
     this.patch = patch;
+    return this;
+  }
+
+  // Dernier no-op du faux client (issue #201, lot 6) : seul consommateur a ce
+  // jour, applyNewAchievements (lib/domain/achievements.ts) — appele SANS
+  // .eq() prealable (le user_id voyage dans chaque ligne de `rows`, pas comme
+  // filtre de requete), donc onConflict est la SEULE frontiere de matching a
+  // simuler ici. Matche une ligne existante seulement si TOUTES les colonnes
+  // de `onConflict` sont egales (jamais un sous-ensemble) — un onConflict qui
+  // omettrait "user_id" par erreur cote appelant fusionnerait alors a tort sur
+  // la ligne d'un autre utilisateur partageant le meme `code`, exactement le
+  // trou que ce faux client doit pouvoir revenir prouver.
+  upsert(rows: Row | Row[], options?: { onConflict?: string }): this {
+    this.mode = "upsert";
+    this.upsertRows = Array.isArray(rows) ? rows : [rows];
+    this.onConflictColumns = options?.onConflict ? options.onConflict.split(",") : [];
     return this;
   }
 
@@ -129,6 +151,23 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
       const matched = this.rows.filter((row) => this.matches(row));
       for (const row of matched) Object.assign(row, this.patch);
       return matched;
+    }
+    if (this.mode === "upsert") {
+      const result: Row[] = [];
+      for (const row of this.upsertRows) {
+        const existing =
+          this.onConflictColumns.length > 0
+            ? this.rows.find((r) => this.onConflictColumns.every((col) => r[col] === row[col]))
+            : undefined;
+        if (existing) {
+          Object.assign(existing, row);
+          result.push(existing);
+        } else {
+          this.rows.push(row);
+          result.push(row);
+        }
+      }
+      return result;
     }
     // Clone en lecture : un `select` renvoie un instantané détaché, comme le
     // vrai Supabase (les lignes désérialisées ne sont pas des références

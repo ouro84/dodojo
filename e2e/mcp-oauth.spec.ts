@@ -15,20 +15,14 @@ function deriveCodeChallenge(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
-// Le texte de retour d'add_task (buildAddTaskToolResult) ne porte pas l'id de
-// la tache creee (seulement dayDate + HP du Boss) - contrairement a
-// addSubtaskForUser. Pour enchainer un vrai aller-retour d'ecriture (issue
-// #201, lot 4), on repasse donc par list_tasks et on extrait l'UUID de la
-// ligne qui porte le titre unique de la tache (cf. handleListTasks,
-// lib/mcp-tools.ts : `${indent}${box} ${t.id} — ${t.title}${suffix}`).
-function extractTaskId(listTasksText: string, title: string): string {
-  const line = listTasksText.split("\n").find((l) => l.includes(title));
-  if (!line) {
-    throw new Error(`extractTaskId : aucune ligne ne contient "${title}" dans :\n${listTasksText}`);
-  }
-  const match = line.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+// Revue #201 (lot 6, finding 3) : le texte de retour d'add_task
+// (buildAddTaskToolResult) porte desormais l'id de la tache creee
+// ("Tache ajoutee (id <uuid>) pour le ..."), comme addSubtaskForUser le
+// faisait deja - plus besoin de repasser par list_tasks pour l'obtenir.
+function extractTaskIdFromAddResult(addResultText: string): string {
+  const match = addResultText.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
   if (!match) {
-    throw new Error(`extractTaskId : aucun UUID trouve dans la ligne : "${line}"`);
+    throw new Error(`extractTaskIdFromAddResult : aucun UUID trouve dans : "${addResultText}"`);
   }
   return match[0];
 }
@@ -133,6 +127,7 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     expect(addRes.status()).toBe(200);
     const addBody = await addRes.json();
     expect(addBody.result.isError).toBe(false);
+    expect(addBody.result.content[0].text).toContain("id ");
 
     // Lot 3 : les tools de lecture repondent avec le scope par defaut
     const listTasksRes = await request.post(`${baseURL}/api/mcp`, {
@@ -158,9 +153,11 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
 
     // Lot 4 (issue #201) : aller-retour d'ecriture complet, pas seulement de
     // la lecture. complete_task cible la tache creee par add_task un peu plus
-    // haut (retrouvee via list_tasks, cf. extractTaskId) - premiere preuve
-    // qu'un agent MCP peut faire AVANCER le combat, pas seulement le consulter.
-    const taskId = extractTaskId(listTasksBody.result.content[0].text, taskTitle);
+    // haut - premiere preuve qu'un agent MCP peut faire AVANCER le combat, pas
+    // seulement le consulter. Revue lot 6 (finding 3) : l'id vient desormais
+    // directement de la reponse add_task, plus besoin de repasser par
+    // list_tasks pour l'obtenir.
+    const taskId = extractTaskIdFromAddResult(addBody.result.content[0].text);
 
     const completeRes = await request.post(`${baseURL}/api/mcp`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -171,7 +168,9 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     });
     const completeBody = await completeRes.json();
     expect(completeBody.result.isError).toBe(false);
-    expect(completeBody.result.content[0].text).toContain("cochée");
+    // Revue #201 (lot 6, finding 2) : "cochée" est aussi une sous-chaîne de
+    // "décochée" - sous-chaîne non-ambiguë avec l'espace qui précède.
+    expect(completeBody.result.content[0].text).toContain("Tâche cochée.");
 
     // include_completed: false -> la tache cochee juste au-dessus a disparu
     // de la liste active.
@@ -190,20 +189,15 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     // (deadline_at: null). Deux appels distincts pour verifier a la fois la
     // pose et l'effacement, sans dependre de l'etat laisse par complete_task.
     const deadlineTaskTitle = `Tache MCP e2e deadline ${Date.now()}`;
-    await request.post(`${baseURL}/api/mcp`, {
+    const addDeadlineTaskRes = await request.post(`${baseURL}/api/mcp`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       data: {
         jsonrpc: "2.0", id: 22, method: "tools/call",
         params: { name: "add_task", arguments: { title: deadlineTaskTitle } },
       },
     });
-    const listForDeadlineRes = await request.post(`${baseURL}/api/mcp`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      data: { jsonrpc: "2.0", id: 23, method: "tools/call", params: { name: "list_tasks", arguments: {} } },
-    });
-    const deadlineTaskId = extractTaskId(
-      (await listForDeadlineRes.json()).result.content[0].text,
-      deadlineTaskTitle,
+    const deadlineTaskId = extractTaskIdFromAddResult(
+      (await addDeadlineTaskRes.json()).result.content[0].text,
     );
 
     const deadlineIso = new Date(Date.now() + 3_600_000).toISOString();
@@ -236,18 +230,14 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
     // CLAUDE.md, issue #201 lot 4) - un appelant qui s'attendrait a une erreur
     // sur le second appel testerait le mauvais contrat.
     const moveTaskTitle = `Tache MCP e2e move ${Date.now()}`;
-    await request.post(`${baseURL}/api/mcp`, {
+    const addMoveTaskRes = await request.post(`${baseURL}/api/mcp`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       data: {
         jsonrpc: "2.0", id: 26, method: "tools/call",
         params: { name: "add_task", arguments: { title: moveTaskTitle } },
       },
     });
-    const listForMoveRes = await request.post(`${baseURL}/api/mcp`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      data: { jsonrpc: "2.0", id: 27, method: "tools/call", params: { name: "list_tasks", arguments: {} } },
-    });
-    const moveTaskId = extractTaskId((await listForMoveRes.json()).result.content[0].text, moveTaskTitle);
+    const moveTaskId = extractTaskIdFromAddResult((await addMoveTaskRes.json()).result.content[0].text);
 
     const moveToTomorrowRes = await request.post(`${baseURL}/api/mcp`, {
       headers: { Authorization: `Bearer ${accessToken}` },

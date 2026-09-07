@@ -50,7 +50,7 @@ describe("buildAddTaskToolResult / buildToolErrorResult", () => {
     const result = buildAddTaskToolResult({ taskId: "t1", dayDate: "2026-07-22", bossMaxHp: 40, bossCurrentHp: 20 });
     expect(result.isError).toBe(false);
     expect(result.content).toEqual([
-      { type: "text", text: "Tache ajoutee pour le 2026-07-22. Boss a 20/40 HP." },
+      { type: "text", text: "Tache ajoutee (id t1) pour le 2026-07-22. Boss a 20/40 HP." },
     ]);
   });
 
@@ -68,7 +68,7 @@ describe("buildAddTaskToolResult / buildToolErrorResult", () => {
     );
     expect(result.isError).toBe(false);
     expect(result.content).toEqual([
-      { type: "text", text: "Tache ajoutee pour le 2026-07-23. Boss de demain a 20/20 HP." },
+      { type: "text", text: "Tache ajoutee (id t1) pour le 2026-07-23. Boss de demain a 20/20 HP." },
     ]);
   });
 
