@@ -2,6 +2,17 @@ import { expect, test } from "@playwright/test";
 import { createHash, randomBytes } from "node:crypto";
 import { login } from "./fixtures";
 
+// ⚠️ `expect(redirectRequest.method()).toBe("GET")` accompagne chaque capture
+// de la redirection post-consentement, et ce n'est pas decoratif. La reponse
+// d'autorisation doit atteindre `redirect_uri` en GET (RFC 6749 §4.1.2). Ce
+// spec n'assertait auparavant que l'URL — un commentaire plus bas disait meme
+// « on n'a besoin que de l'URL » — or un 307 PRESERVE la methode du POST de
+// consentement et porte exactement la meme URL : les trois tests passaient a
+// l'identique avec le bug. Trouve le 2026-09-07 par un vrai client MCP, dont
+// le callback repondait `{"detail":"Method Not Allowed"}`. Lecon generale :
+// quand une redirection suit un POST, c'est la METHODE d'arrivee qui porte la
+// propriete, pas l'URL.
+//
 // Issue #201 (lot 2, socle MCP) : premier test qui exerce le handshake OAuth
 // 2.1 + MCP dans son integralite (enregistrement dynamique -> consentement
 // filtre par scope -> code -> token -> tools/list -> tools/call). Aucun
@@ -87,6 +98,7 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
       page.waitForRequest((req) => req.url().startsWith(redirectUri)),
       page.getByRole("button", { name: "Autoriser" }).click(),
     ]);
+    expect(redirectRequest.method()).toBe("GET"); // cf. l'entete de ce fichier
     const code = new URL(redirectRequest.url()).searchParams.get("code");
     expect(code).toBeTruthy();
 
@@ -354,6 +366,7 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
       page.waitForRequest((req) => req.url().startsWith(redirectUri)),
       page.getByRole("button", { name: "Autoriser" }).click(),
     ]);
+    expect(redirectRequest.method()).toBe("GET"); // cf. l'entete de ce fichier
     const code = new URL(redirectRequest.url()).searchParams.get("code");
     expect(code).toBeTruthy();
 
@@ -475,6 +488,7 @@ test.describe("Handshake OAuth + MCP (issue #201)", () => {
       page.waitForRequest((req) => req.url().startsWith(redirectUri)),
       page.getByRole("button", { name: "Autoriser" }).click(),
     ]);
+    expect(redirectRequest.method()).toBe("GET"); // cf. l'entete de ce fichier
     const code = new URL(redirectRequest.url()).searchParams.get("code");
     expect(code).toBeTruthy();
 
