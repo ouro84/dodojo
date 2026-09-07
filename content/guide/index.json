@@ -239,5 +239,16 @@
       "integration"
     ],
     "majLe": "2026-07-24T21:37:00.000Z"
+  },
+  {
+    "titre": "Ce qu'un agent IA peut faire dans Dodojo",
+    "slug": "agent-ia",
+    "section": "Intégrations",
+    "ordre": 40,
+    "resume": "Ce qu'un assistant IA connecté à Dodojo (comme Gemini) peut consulter et faire avancer dans ton combat, et ce qu'il ne peut jamais faire.",
+    "motsCles": [
+      "integration"
+    ],
+    "majLe": "2026-09-07T12:21:00.000Z"
   }
 ]
