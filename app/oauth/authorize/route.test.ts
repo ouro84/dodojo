@@ -188,13 +188,35 @@ describe("POST /oauth/authorize (US-22)", () => {
     const response = await POST(
       new Request("https://dodojo.vercel.app/oauth/authorize", { method: "POST", body: form }),
     );
-    expect(response.status).toBe(307);
+    // 303, jamais 307 : cf. le test « statut 303 » plus bas — 307 preserve la
+    // methode, donc le navigateur re-POSTerait sur le callback du client.
+    expect(response.status).toBe(303);
     const location = new URL(response.headers.get("location") ?? "");
     expect(location.origin + location.pathname).toBe(REDIRECT_URI);
     expect(location.searchParams.get("error")).toBe("access_denied");
     expect(location.searchParams.get("state")).toBe("xyz");
     expect(dbTables.oauth_authorization_codes).toHaveLength(0);
   });
+
+  // Constate le 2026-09-07 en branchant un vrai client MCP : apres consentement,
+  // son callback repondait {"detail":"Method Not Allowed"}. Cause : ce handler
+  // repond a un POST et NextResponse.redirect(url) vaut 307 par defaut, statut
+  // qui PRESERVE la methode — le navigateur re-POSTait donc sur un chemin que
+  // le client declare en GET. Les deux tests ci-dessus assertaient toBe(307) :
+  // ils ne sont pas passes a cote du bug, ils l'avaient verrouille.
+  test.each([["approve"], ["deny"]])(
+    "statut 303 (jamais 307/308) : la reponse d'autorisation doit atteindre redirect_uri en GET — decision=%s",
+    async (decision) => {
+      const form = approveForm();
+      form.set("decision", decision);
+      const { POST } = await import("./route");
+      const response = await POST(
+        new Request("https://dodojo.vercel.app/oauth/authorize", { method: "POST", body: form }),
+      );
+      expect(response.status).toBe(303);
+      expect([307, 308]).not.toContain(response.status);
+    },
+  );
 
   test("redirect_uri falsifie dans le formulaire : erreur 400, aucune redirection", async () => {
     const form = approveForm();
@@ -224,7 +246,7 @@ describe("POST /oauth/authorize (US-22)", () => {
     const response = await POST(
       new Request("https://dodojo.vercel.app/oauth/authorize", { method: "POST", body: approveForm() }),
     );
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     const location = new URL(response.headers.get("location") ?? "");
     expect(location.origin + location.pathname).toBe(REDIRECT_URI);
     const code = location.searchParams.get("code");

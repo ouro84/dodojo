@@ -11,6 +11,7 @@ nouvelle section versionnée et datée.
 
 ### Technique
 
+- Serveur MCP : après avoir autorisé un assistant, la redirection vers son adresse de retour se faisait en conservant la méthode POST — les clients qui attendent un GET (le cas normal) répondaient « Method Not Allowed » et la connexion échouait juste avant d’aboutir (issue #201).
 - Serveur MCP : un client auto-hébergé sur le réseau local (`http://192.168.x`, `10.x`, `172.16-31.x`) peut désormais se connecter — écart assumé à OAuth 2.1, tenable parce que PKCE S256 reste obligatoire, le code d’autorisation à usage unique et valable 60 s (issue #201).
 - Serveur MCP : l’enregistrement d’un client refusait les redirections en schéma privé (`monapp://callback`) et le loopback IPv6 (`http://[::1]`), pourtant tous deux prévus par la RFC 8252 — aucun client MCP natif ne pouvait donc se connecter. Le message d’erreur nomme désormais l’URI refusée (issue #201).
 - Couche domaine `lib/domain/` : toute la logique métier des tâches, de la boutique, du boss et de la progression est désormais appelable sans session cookie, préparant l'ouverture du serveur MCP (issue #201).

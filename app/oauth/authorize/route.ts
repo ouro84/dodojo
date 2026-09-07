@@ -124,6 +124,18 @@ export async function GET(request: Request): Promise<Response> {
   return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
+// La reponse d'autorisation doit atteindre `redirect_uri` en **GET** (RFC 6749
+// §4.1.2 : parametres en query string sur l'URI de redirection). Or ce handler
+// repond a un POST — la soumission du formulaire de consentement — et
+// `NextResponse.redirect(url)` vaut **307** par defaut
+// (`node_modules/next/dist/server/web/spec-extension/response.js:99`, `?? 307`),
+// statut qui **preserve la methode**. Le navigateur re-POSTait donc sur le
+// callback du client, qui declare ce chemin en GET : constate le 2026-09-07
+// avec un vrai client MCP, qui repondait `{"detail":"Method Not Allowed"}`.
+// `303 See Other` est exactement le statut prevu pour « ce POST est traite,
+// va chercher la suite en GET ». Ne jamais revenir a 307/308 ici.
+const SEE_OTHER = 303;
+
 // US-22 : POST traite la decision (Autoriser/Refuser) soumise depuis
 // l'ecran de consentement. Revalide TOUT cote serveur (jamais confiance
 // dans les champs caches du formulaire) avant de generer le code
@@ -158,7 +170,7 @@ export async function POST(request: Request): Promise<Response> {
 
   if (decision !== "approve") {
     redirectUrl.searchParams.set("error", "access_denied");
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(redirectUrl, SEE_OTHER);
   }
 
   const code = generateOpaqueToken();
@@ -178,5 +190,5 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   redirectUrl.searchParams.set("code", code);
-  return NextResponse.redirect(redirectUrl);
+  return NextResponse.redirect(redirectUrl, SEE_OTHER);
 }
