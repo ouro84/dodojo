@@ -562,7 +562,24 @@ addTaskForUser(supabase, userId, title, dayDate?)      // L419
 addSubtaskForUser(supabase, userId, parentId, title)   // L451 — PAS de dayDate
 ```
 
-Le handler dispatche : `parent_id` fourni → `addSubtaskForUser` ; sinon → `addTaskForUser` avec `dayDate` calculé depuis `userToday`/`nextDayKey`.
+⚠️ **Correction : le handler actuel n'appelle pas `addTaskForUser`.** Une version précédente de ce plan le supposait. `handleAddTask` (`lib/mcp-tools.ts:48`) appelle en réalité `insertTaskForUser(ctx.supabase, { userId, title, timezone })` — la fonction partagée de `lib/task-insertion.ts`, celle du webhook Siri.
+
+Et elle accepte **déjà** `params.dayDate` (`lib/task-insertion.ts:37` : `params.dayDate ?? dayKey(new Date(), timezone)`). Donc le cas racine ne demande qu'un champ de plus dans l'objet passé :
+
+```ts
+const outcome = await insertTaskForUser(ctx.supabase, {
+  userId: ctx.userId,
+  title: validation.title,
+  timezone: ctx.timezone,
+  dayDate,                      // undefined => aujourd'hui, comportement actuel inchange
+});
+```
+
+**Ne pas basculer vers `addTaskForUser`.** Ce serait un pur coût : elle refait une requête `profiles` pour lire le fuseau, que `McpContext` porte déjà (`ctx.timezone`) ; et elle renvoie `AddTaskOutcome` (`{ error, id }`) là où le handler consomme `InsertTaskOutcome` via `buildAddTaskToolResult` (qui lit `dayDate`/`bossCurrentHp`/`bossMaxHp`). Le changement casserait le message de retour pour rien.
+
+Le dispatch est donc : `parent_id` fourni → `addSubtaskForUser` ; sinon → `insertTaskForUser` avec `dayDate`.
+
+⚠️ Les deux branches ne renvoient pas la même forme : `addSubtaskForUser` rend `AddTaskOutcome` (`{ error, id }`), sans HP de Boss. `buildAddTaskToolResult` ne peut donc pas la servir telle quelle — prévoir un message de retour distinct pour la branche sous-tâche plutôt que de forcer les deux dans le même builder.
 
 ⚠️ **`parent_id` + `day` ensemble : refuser, ne pas ignorer.** `addSubtaskForUser` n'a volontairement pas de paramètre `dayDate` — une sous-tâche hérite du `day_date` de son parent (correctif issue #116 : avant, elle était toujours datée « aujourd'hui », ce qui datait mal toute sous-tâche ajoutée à une tâche de la section Demain). Le tool ne peut donc structurellement pas honorer `day` sur une sous-tâche.
 
