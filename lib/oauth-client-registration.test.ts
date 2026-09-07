@@ -96,6 +96,35 @@ describe("validateClientRegistration (US-22 - RFC 7591)", () => {
     expect("registration" in result).toBe(true);
   });
 
+  // Ecart assume a OAuth 2.1 (qui exige HTTPS hors loopback), decide le
+  // 2026-09-07 : un client MCP auto-heberge s'annoncait sur une IP de LAN en
+  // clair. Tenable uniquement parce que PKCE S256 est obligatoire, le code a
+  // usage unique et son TTL de 60 s — cf. le commentaire de la fonction.
+  test.each([
+    "http://192.168.1.212:9119/api/mcp/oauth/callback/dodojo", // le cas reel rencontre
+    "http://10.0.0.5:3000/cb",
+    "http://172.16.4.9:3000/cb",
+    "http://172.31.255.254:3000/cb",
+    "http://[fd00::1]:3000/cb",
+  ])("valide : plage privee en http — %s", (uri) => {
+    expect("registration" in validateClientRegistration({ redirect_uris: [uri] })).toBe(true);
+  });
+
+  // Les bornes comptent : 172.15 et 172.32 sont HORS 172.16.0.0/12, et une IP
+  // publique en clair reste refusee — c'est ce qui distingue l'ecart assume
+  // d'un simple "on accepte http".
+  test.each([
+    "http://172.15.0.1:3000/cb",
+    "http://172.32.0.1:3000/cb",
+    "http://11.0.0.1:3000/cb",
+    "http://193.168.0.1:3000/cb",
+    "http://8.8.8.8/cb",
+    "http://999.1.1.1/cb",
+    "http://evil.example.com/callback",
+  ])("erreur : http hors loopback et hors plage privee — %s", (uri) => {
+    expect("error" in validateClientRegistration({ redirect_uris: [uri] })).toBe(true);
+  });
+
   test.each(["javascript:alert(1)", "data:text/html,x", "vbscript:msgbox", "file:///etc/passwd", "blob:https://x/y"])(
     "erreur : schema jamais legitime rejete — %s",
     (uri) => {
