@@ -504,9 +504,29 @@ Le tool existe depuis le lot 2 avec `title` seul. Ajouter deux propriétés opti
       day: { type: "string", description: "'today' (défaut) ou 'tomorrow'" },
 ```
 
-Le parseur valide `day` comme `list_tasks` le fait déjà (`"today"`/`"tomorrow"`, défaut `"today"`), et `parent_id` comme string optionnelle. Le handler dispatche : si `parent_id` est fourni → `addSubtaskForUser` (qui hérite du `day_date` du parent, donc **`day` est ignoré dans ce cas** — le dire explicitement dans la description du schéma et dans le rapport) ; sinon → `addTaskForUser(supabase, userId, title, dayDate)` avec `dayDate` calculé depuis `userToday`/`nextDayKey`.
+Le parseur valide `day` comme `list_tasks` le fait déjà (`"today"`/`"tomorrow"`, défaut `"today"`), et `parent_id` comme string optionnelle.
+
+✅ **Signatures vérifiées** (`lib/domain/tasks.ts`) — les deux cibles du dispatch :
+
+```ts
+addTaskForUser(supabase, userId, title, dayDate?)      // L419
+addSubtaskForUser(supabase, userId, parentId, title)   // L451 — PAS de dayDate
+```
+
+Le handler dispatche : `parent_id` fourni → `addSubtaskForUser` ; sinon → `addTaskForUser` avec `dayDate` calculé depuis `userToday`/`nextDayKey`.
+
+⚠️ **`parent_id` + `day` ensemble : refuser, ne pas ignorer.** `addSubtaskForUser` n'a volontairement pas de paramètre `dayDate` — une sous-tâche hérite du `day_date` de son parent (correctif issue #116 : avant, elle était toujours datée « aujourd'hui », ce qui datait mal toute sous-tâche ajoutée à une tâche de la section Demain). Le tool ne peut donc structurellement pas honorer `day` sur une sous-tâche.
+
+La version précédente de ce plan disait de l'ignorer en le documentant dans le schéma. C'est le mauvais choix : un agent qui demande « sous-tâche X sous P, pour demain » recevrait un succès et une tâche datée autrement, sans rien dans la réponse qui le signale — exactement le mode d'échec silencieux que ce projet paie déjà cher ailleurs (cf. `purchaseHero`, issue #192). Le parseur rejette donc explicitement la combinaison :
+
+```
+day ne s'applique pas a une sous-tache : elle herite du jour de sa tache parente.
+```
+
+L'agent apprend la règle et rejoue sans `day`. Coût : zéro requête supplémentaire. (L'alternative — accepter `day` quand il coïncide avec le jour réel du parent — exigerait de lire le parent avant de dispatcher, pour une ergonomie marginale.)
 
 ⚠️ Ne pas casser le comportement actuel : `add_task` avec le seul `title` doit se comporter exactement comme avant.
+
 
 - [ ] **Step 3 : `move_task`**
 
