@@ -39,7 +39,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
-vi.mock("@/app/actions/achievements", () => ({
+vi.mock("@/lib/domain/achievements", () => ({
   assembleAchievementContext: async () => ({}),
   applyNewAchievements: async () => newAchievements,
 }));

@@ -53,7 +53,7 @@ vi.mock("@/lib/bosses", async (importOriginal) => {
   };
 });
 
-vi.mock("@/app/actions/achievements", () => ({
+vi.mock("@/lib/domain/achievements", () => ({
   assembleAchievementContext: async () => ({}),
   applyNewAchievements: async () => [],
 }));

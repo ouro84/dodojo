@@ -17,7 +17,7 @@ import {
   XP_PER_TASK,
 } from "@/lib/game-engine";
 import type { CascadeTask } from "@/lib/game-engine";
-import { assembleAchievementContext, applyNewAchievements } from "@/app/actions/achievements";
+import { assembleAchievementContext, applyNewAchievements } from "@/lib/domain/achievements";
 import { cancelDeadlineReminder, scheduleDeadlineReminder } from "@/lib/inngest/deadline-reminder";
 import { insertTaskForUser } from "@/lib/task-insertion";
 import { validateTaskTitle } from "@/lib/task-title";

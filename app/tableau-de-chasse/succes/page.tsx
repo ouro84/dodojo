@@ -9,7 +9,7 @@ import {
   rarityCounts,
   CATEGORY_LABELS,
 } from "@/lib/achievements";
-import { assembleAchievementContext } from "@/app/actions/achievements";
+import { assembleAchievementContext } from "@/lib/domain/achievements";
 import BottomNav from "@/components/ui/BottomNav";
 import BackLink from "@/components/ui/BackLink";
 import GameIcon from "@/components/ui/GameIcon";

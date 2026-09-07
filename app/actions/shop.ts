@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { goldBalance } from "@/lib/game-engine";
 import { getHero, isHeroOwned } from "@/lib/heroes";
 import { getSkin, isSkinOwned } from "@/lib/hero-skins";
-import { applyNewAchievements, assembleAchievementContext } from "@/app/actions/achievements";
+import { applyNewAchievements, assembleAchievementContext } from "@/lib/domain/achievements";
 import { equipHeroForUser } from "@/lib/domain/shop";
 import type { DomainErrorCode } from "@/lib/domain/errors";
 
