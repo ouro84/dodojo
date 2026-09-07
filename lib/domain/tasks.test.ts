@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { dayKey } from "@/lib/game-engine";
 import { FakeSupabaseClient } from "./fake-supabase";
 import {
   addSubtaskForUser,
@@ -8,6 +9,7 @@ import {
   bringToTodayForUser,
   completeTaskForUser,
   deferOverdueTaskForUser,
+  listTasksForUser,
   rageQuitTaskForUser,
   reorderSiblingsForUser,
   reportToTomorrowForUser,
@@ -15,6 +17,13 @@ import {
   undoRageQuitForUser,
   userToday,
 } from "./tasks";
+
+// Le profil de test a `timezone: "UTC"` (cf. client() ci-dessous) — userToday()
+// calcule donc "aujourd'hui" via dayKey(new Date(), "UTC"). Les fixtures qui
+// doivent matcher un filtre `.eq("day_date", today)" du domaine dérivent cette
+// valeur en direct plutôt que de figer une date en dur (qui ne matcherait plus
+// dès que ce fichier tourne un autre jour).
+const TODAY = dayKey(new Date(), "UTC");
 
 const cancelCalls: string[] = [];
 const scheduleCalls: Array<{ taskId: string; offsetMinutes: number }> = [];
@@ -46,7 +55,7 @@ describe("completeTaskForUser", () => {
 
   test("accorde de l'XP a la premiere completion", async () => {
     const c = client([
-      { id: "11111111-1111-1111-1111-111111111111", is_completed: false, is_abandoned: false, xp_awarded: null, deadline_at: null, deferred_at: null },
+      { id: "11111111-1111-1111-1111-111111111111", user_id: "u1", is_completed: false, is_abandoned: false, xp_awarded: null, deadline_at: null, deferred_at: null },
     ]);
     const res = await completeTaskForUser(
       c as unknown as SupabaseClient,
@@ -84,7 +93,7 @@ describe("addTaskForUser", () => {
 describe("addSubtaskForUser", () => {
   test("refuse un parent qui est deja une sous-tache (RG-01, deux niveaux max)", async () => {
     const c = client([
-      { id: "22222222-2222-2222-2222-222222222222", parent_id: "11111111-1111-1111-1111-111111111111", is_abandoned: false, day_date: "2026-09-05" },
+      { id: "22222222-2222-2222-2222-222222222222", user_id: "u1", parent_id: "11111111-1111-1111-1111-111111111111", is_abandoned: false, day_date: "2026-09-05" },
     ]);
     const res = await addSubtaskForUser(
       c as unknown as SupabaseClient,
@@ -97,7 +106,7 @@ describe("addSubtaskForUser", () => {
 
   test("refuse un parent abandonne", async () => {
     const c = client([
-      { id: "33333333-3333-3333-3333-333333333333", parent_id: null, is_abandoned: true, day_date: "2026-09-05" },
+      { id: "33333333-3333-3333-3333-333333333333", user_id: "u1", parent_id: null, is_abandoned: true, day_date: "2026-09-05" },
     ]);
     const res = await addSubtaskForUser(
       c as unknown as SupabaseClient,
@@ -114,7 +123,7 @@ describe("setTaskDeadlineForUser", () => {
     cancelCalls.length = 0;
     scheduleCalls.length = 0;
     const c = client([
-      { id: "44444444-4444-4444-4444-444444444444", reminder_enabled: true, reminder_offset_minutes: null },
+      { id: "44444444-4444-4444-4444-444444444444", user_id: "u1", reminder_enabled: true, reminder_offset_minutes: null },
     ]);
     const res = await setTaskDeadlineForUser(
       c as unknown as SupabaseClient,
@@ -157,7 +166,7 @@ describe("userToday", () => {
 describe("deferOverdueTaskForUser", () => {
   test("efface deadline_at en meme temps qu'il reporte", async () => {
     const c = client([
-      { id: "55555555-5555-5555-5555-555555555555", is_completed: false, is_abandoned: false, deadline_at: "2026-09-04T10:00:00.000Z", deferred_at: null, day_date: "2026-09-04" },
+      { id: "55555555-5555-5555-5555-555555555555", user_id: "u1", is_completed: false, is_abandoned: false, deadline_at: "2026-09-04T10:00:00.000Z", deferred_at: null, day_date: "2026-09-04" },
     ]);
     const res = await deferOverdueTaskForUser(
       c as unknown as SupabaseClient,
@@ -179,9 +188,9 @@ describe("rageQuitTaskForUser", () => {
 
   test("applique le malus XP une seule fois, pas une par sous-tache cascadee", async () => {
     const c = client([
-      { id: "66666666-6666-6666-6666-666666666666", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
-      { id: "77777777-7777-7777-7777-777777777777", parent_id: "66666666-6666-6666-6666-666666666666", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
-      { id: "88888888-8888-8888-8888-888888888888", parent_id: "66666666-6666-6666-6666-666666666666", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
+      { id: "66666666-6666-6666-6666-666666666666", user_id: "u1", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
+      { id: "77777777-7777-7777-7777-777777777777", user_id: "u1", parent_id: "66666666-6666-6666-6666-666666666666", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
+      { id: "88888888-8888-8888-8888-888888888888", user_id: "u1", parent_id: "66666666-6666-6666-6666-666666666666", is_completed: false, is_abandoned: false, deadline_at: null, deferred_at: null },
     ]);
     const res = await rageQuitTaskForUser(
       c as unknown as SupabaseClient,
@@ -195,7 +204,7 @@ describe("rageQuitTaskForUser", () => {
 
   test("no-op idempotent quand la cascade est vide (deja abandonnee/completee/introuvable)", async () => {
     const c = client([
-      { id: "66666666-6666-6666-6666-666666666666", parent_id: null, is_completed: false, is_abandoned: true, deadline_at: null, deferred_at: null },
+      { id: "66666666-6666-6666-6666-666666666666", user_id: "u1", parent_id: null, is_completed: false, is_abandoned: true, deadline_at: null, deferred_at: null },
     ]);
     const res = await rageQuitTaskForUser(
       c as unknown as SupabaseClient,
@@ -219,6 +228,7 @@ describe("undoRageQuitForUser", () => {
     const c = client([
       {
         id: "99999999-9999-9999-9999-999999999999",
+        user_id: "u1",
         parent_id: null,
         is_completed: false,
         is_abandoned: true,
@@ -275,8 +285,8 @@ describe("reorderSiblingsForUser", () => {
 
   test("reordonne une fratrie racine valide", async () => {
     const c = client([
-      { id: "11111111-1111-1111-1111-111111111111", parent_id: null, is_abandoned: false },
-      { id: "22222222-2222-2222-2222-222222222222", parent_id: null, is_abandoned: false },
+      { id: "11111111-1111-1111-1111-111111111111", user_id: "u1", parent_id: null, is_abandoned: false },
+      { id: "22222222-2222-2222-2222-222222222222", user_id: "u1", parent_id: null, is_abandoned: false },
     ]);
     const res = await reorderSiblingsForUser(
       c as unknown as SupabaseClient,
@@ -289,9 +299,9 @@ describe("reorderSiblingsForUser", () => {
 
   test("refuse de reparenter une tache qui a deja des sous-taches", async () => {
     const c = client([
-      { id: "11111111-1111-1111-1111-111111111111", parent_id: null, is_abandoned: false },
-      { id: "33333333-3333-3333-3333-333333333333", parent_id: null, is_abandoned: false },
-      { id: "44444444-4444-4444-4444-444444444444", parent_id: "33333333-3333-3333-3333-333333333333", is_abandoned: false },
+      { id: "11111111-1111-1111-1111-111111111111", user_id: "u1", parent_id: null, is_abandoned: false },
+      { id: "33333333-3333-3333-3333-333333333333", user_id: "u1", parent_id: null, is_abandoned: false },
+      { id: "44444444-4444-4444-4444-444444444444", user_id: "u1", parent_id: "33333333-3333-3333-3333-333333333333", is_abandoned: false },
     ]);
     const res = await reorderSiblingsForUser(
       c as unknown as SupabaseClient,
@@ -317,7 +327,7 @@ describe("famille Demain", () => {
 
   test("reportToTomorrow efface toujours deferred_at", async () => {
     const c = client([
-      { id: "99999999-9999-9999-9999-999999999999", is_completed: false, is_abandoned: false, deferred_at: "2026-09-05T08:00:00.000Z", deadline_at: null, day_date: "2026-09-05" },
+      { id: "99999999-9999-9999-9999-999999999999", user_id: "u1", is_completed: false, is_abandoned: false, deferred_at: "2026-09-05T08:00:00.000Z", deadline_at: null, day_date: TODAY },
     ]);
     const res = await reportToTomorrowForUser(
       c as unknown as SupabaseClient,
@@ -330,7 +340,7 @@ describe("famille Demain", () => {
 
   test("bringToToday efface aussi deferred_at", async () => {
     const c = client([
-      { id: "aaaaaaaa-9999-9999-9999-999999999999", is_completed: false, is_abandoned: false, deferred_at: "2026-09-05T08:00:00.000Z", deadline_at: null, day_date: "2026-09-06" },
+      { id: "aaaaaaaa-9999-9999-9999-999999999999", user_id: "u1", is_completed: false, is_abandoned: false, deferred_at: "2026-09-05T08:00:00.000Z", deadline_at: null, day_date: "2026-09-06" },
     ]);
     const res = await bringToTodayForUser(
       c as unknown as SupabaseClient,
@@ -339,5 +349,88 @@ describe("famille Demain", () => {
     );
     expect(res.error).toBeNull();
     expect(res.broughtBackTasks?.[0]?.deferred_at).toBeNull();
+  });
+});
+
+describe("listTasksForUser", () => {
+  test("ne renvoie que les taches du jour demande et du bon utilisateur", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "aujourd hui", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "b", user_id: "u1", day_date: "2026-09-05", title: "hier", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "c", user_id: "autre", day_date: "2026-09-06", title: "pas a moi", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    expect(res.map((t) => t.title)).toEqual(["aujourd hui"]);
+  });
+
+  test("exclut les taches abandonnees", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "active", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "b", user_id: "u1", day_date: "2026-09-06", title: "abandonnee", parent_id: null, is_completed: false, is_abandoned: true, deadline_at: null, position: 1 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    expect(res.map((t) => t.title)).toEqual(["active"]);
+  });
+
+  test("includeCompleted=false retire les taches cochees", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "active", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "b", user_id: "u1", day_date: "2026-09-06", title: "faite", parent_id: null, is_completed: true, is_abandoned: false, deadline_at: null, position: 1 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", false);
+    expect(res.map((t) => t.title)).toEqual(["active"]);
+  });
+
+  test("marque isOverdue sur une deadline passee et non cochee", async () => {
+    const past = new Date(Date.now() - 3600_000).toISOString();
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "en retard", parent_id: null, is_completed: false, is_abandoned: false, deadline_at: past, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    expect(res[0].isOverdue).toBe(true);
+  });
+
+  test("n'isOverdue jamais une tache cochee, meme deadline passee", async () => {
+    const past = new Date(Date.now() - 3600_000).toISOString();
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "a", user_id: "u1", day_date: "2026-09-06", title: "faite en retard", parent_id: null, is_completed: true, is_abandoned: false, deadline_at: past, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    expect(res[0].isOverdue).toBe(false);
+  });
+
+  test("includeCompleted=false : parent coche exclu, sous-tache active gardee avec parentId neutralise", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "parent", user_id: "u1", day_date: "2026-09-06", title: "parent fait", parent_id: null, is_completed: true, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "enfant", user_id: "u1", day_date: "2026-09-06", title: "sous-tache active", parent_id: "parent", is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", false);
+    expect(res.map((t) => t.title)).toEqual(["sous-tache active"]);
+    expect(res[0].parentId).toBeNull();
+  });
+
+  test("includeCompleted=true : la meme fratrie garde le parentId reel de la sous-tache", async () => {
+    const c = new FakeSupabaseClient({
+      tasks: [
+        { id: "parent", user_id: "u1", day_date: "2026-09-06", title: "parent fait", parent_id: null, is_completed: true, is_abandoned: false, deadline_at: null, position: 0 },
+        { id: "enfant", user_id: "u1", day_date: "2026-09-06", title: "sous-tache active", parent_id: "parent", is_completed: false, is_abandoned: false, deadline_at: null, position: 0 },
+      ],
+    });
+    const res = await listTasksForUser(c as unknown as SupabaseClient, "u1", "2026-09-06", true);
+    const enfant = res.find((t) => t.title === "sous-tache active");
+    expect(enfant?.parentId).toBe("parent");
+    expect(res.map((t) => t.title)).toContain("parent fait");
   });
 });

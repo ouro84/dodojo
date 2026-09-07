@@ -14,6 +14,7 @@ import {
   JSON_RPC_ERROR_INVALID_PARAMS,
   JSON_RPC_ERROR_METHOD_NOT_FOUND,
   type JsonRpcRequest,
+  type McpToolResult,
 } from "../../../lib/mcp-protocol";
 
 // hashOpaqueToken utilise node:crypto - pas compatible edge runtime.
@@ -159,9 +160,9 @@ async function handleToolsCall(
     );
   }
 
-  const parsedArgs = def.parseArgs(args);
-  if ("error" in parsedArgs && typeof parsedArgs.error === "string") {
-    return NextResponse.json(successResponse(rpcRequest.id, buildToolErrorResult(parsedArgs.error)));
+  const parsed = def.parseArgs(args);
+  if (!parsed.ok) {
+    return NextResponse.json(successResponse(rpcRequest.id, buildToolErrorResult(parsed.error)));
   }
 
   const { data: profile } = await supabase
@@ -172,6 +173,19 @@ async function handleToolsCall(
   const timezone = (profile as ProfileTimezoneRow | null)?.timezone ?? "UTC";
 
   const ctx: McpContext = { supabase, userId, timezone };
-  const result = await def.handler(ctx, parsedArgs);
+  // Revue finale PR #205, fix 1 : un throw non rattrape ici (panne Supabase,
+  // ou RangeError d'Intl si `profiles.timezone` est un IANA invalide - captee
+  // cote navigateur a l'onboarding, jamais validee serveur) fuyait en HTTP
+  // 500 sans enveloppe JSON-RPC. D6.3 du spec veut qu'une erreur metier reste
+  // une reponse in-band (`isError: true`), jamais une panne de transport - un
+  // agent qui recoit un -326xx ou un 500 nu conclut que le serveur est casse
+  // et abandonne. Garde posee ici (niveau route), pas par handler : couvre
+  // aussi les tools d'ecriture d'un futur lot sans dupliquer de try/catch.
+  let result: McpToolResult;
+  try {
+    result = await def.handler(ctx, parsed.args);
+  } catch {
+    result = buildToolErrorResult("internal_error");
+  }
   return NextResponse.json(successResponse(rpcRequest.id, result));
 }

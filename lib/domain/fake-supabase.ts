@@ -1,12 +1,26 @@
 // Faux client Supabase — TEST ONLY, jamais importé par du code de production.
-// Copie délibérée de app/actions/tasks.test.ts (lot 1, issue #201) : ce
-// fichier de test est sous contrainte « aucune modification » pendant la
-// refacto, on ne peut donc pas l'y remplacer par un import. Les deux copies
-// seront fusionnées dans un PR ultérieur.
+// Source unique partagée par lib/domain/*.test.ts, app/actions/tasks.test.ts
+// (la copie locale de ce dernier a été fusionnée ici, issue #201 lot 3) et
+// app/api/mcp/route.test.ts (fusionnée à son tour, issue #201 lot 3 tache 4 —
+// `.rpc()` ci-dessous vient de cette copie, seul consommateur à ce jour).
+// `eq`/`in`/`lt`/`is` filtrent réellement les lignes (this.filters, consulté
+// par apply() en lecture comme en update) — seul `or()` reste un no-op,
+// choix documenté juste au-dessus de sa définition, pas un oubli.
 
 import { vi } from "vitest";
 
 type Row = Record<string, unknown>;
+
+// En base, une colonne absente d'une ligne EST un NULL SQL — `.eq`/`.is`
+// comparés à `null` doivent donc matcher une colonne absente du fixture
+// (`undefined`) tout autant qu'une colonne explicitement posée à `null`.
+// Sans ça, `undefined === null` (faux en JS) ferait échouer un match que
+// Postgres accepterait, et un test qui asserte une ABSENCE (`toBeNull()`,
+// `toHaveLength(0)`, `toBeUndefined()`) passerait pour une raison de forme de
+// fixture plutôt que de comportement réel du domaine.
+function nullish(value: unknown): boolean {
+  return value === null || value === undefined;
+}
 
 export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
   private filters: Array<(row: Row) => boolean> = [];
@@ -32,33 +46,40 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     return this;
   }
 
-  eq(): this {
-    this.filters.push(() => true);
+  eq(column: string, value: unknown): this {
+    this.filters.push((row) => (value === null ? nullish(row[column]) : row[column] === value));
     return this;
   }
 
+  // `or` reste volontairement permissif : les vraies clauses `.or()` de ce
+  // repo sont des chaines PostgREST (`id.eq.X,parent_id.eq.X`) dont le
+  // parsing complet n'apporterait rien ici — mais contrairement aux autres,
+  // ce no-op est desormais EXPLICITE et documente, plus un oubli silencieux.
   or(): this {
-    this.filters.push(() => true);
     return this;
   }
 
-  lt(): this {
-    this.filters.push(() => true);
+  lt(column: string, value: unknown): this {
+    this.filters.push((row) => (row[column] as string | number) < (value as string | number));
     return this;
   }
 
-  is(): this {
-    this.filters.push(() => true);
+  is(column: string, value: unknown): this {
+    this.filters.push((row) => (value === null ? nullish(row[column]) : row[column] === value));
     return this;
   }
 
-  in(): this {
-    this.filters.push(() => true);
+  in(column: string, values: unknown[]): this {
+    this.filters.push((row) => values.includes(row[column]));
     return this;
   }
 
   limit(): this {
     return this;
+  }
+
+  private matches(row: Row): boolean {
+    return this.filters.every((f) => f(row));
   }
 
   private apply(): Row[] {
@@ -67,7 +88,7 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
       return [this.insertedRow];
     }
     if (this.mode === "update") {
-      const matched = this.rows.filter(() => true);
+      const matched = this.rows.filter((row) => this.matches(row));
       for (const row of matched) Object.assign(row, this.patch);
       return matched;
     }
@@ -81,7 +102,7 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
     // était mutée en place par l'update qui le précède, donc `isRealTransition`
     // valait toujours `false` — la branche XP/achievements n'était jamais
     // réellement exercée par ces tests malgré l'apparence de passer.
-    return this.rows.map((row) => ({ ...row }));
+    return this.rows.filter((row) => this.matches(row)).map((row) => ({ ...row }));
   }
 
   async maybeSingle(): Promise<{ data: Row | null; error: null }> {
@@ -106,12 +127,22 @@ export class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null 
 
 export class FakeSupabaseClient {
   public calls = 0;
+  // consumeMcpQuota (lib/mcp-rate-limit.ts) appelle supabase.rpc(...) — par
+  // defaut ca autorise (data: true), sauf override explicite via
+  // `rpcResult` (utilise par app/api/mcp/route.test.ts pour tester le rate
+  // limit). Aucun consommateur de ce fake n'appelle un autre RPC a ce jour.
+  public rpcResult = true;
+
   constructor(private readonly tables: Record<string, Row[]>) {}
 
   from(table: string): FakeQueryBuilder {
     this.calls += 1;
     if (!this.tables[table]) this.tables[table] = [];
     return new FakeQueryBuilder(this.tables[table]);
+  }
+
+  async rpc(): Promise<{ data: boolean; error: null }> {
+    return { data: this.rpcResult, error: null };
   }
 
   auth = {
