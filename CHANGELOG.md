@@ -10,6 +10,8 @@ nouvelle section versionnée et datée.
 ## [Unreleased]
 
 ### Technique
+
+- Serveur MCP : l’enregistrement d’un client refusait les redirections en schéma privé (`monapp://callback`) et le loopback IPv6 (`http://[::1]`), pourtant tous deux prévus par la RFC 8252 — aucun client MCP natif ne pouvait donc se connecter. Le message d’erreur nomme désormais l’URI refusée (issue #201).
 - Couche domaine `lib/domain/` : toute la logique métier des tâches, de la boutique, du boss et de la progression est désormais appelable sans session cookie, préparant l'ouverture du serveur MCP (issue #201).
 - Serveur MCP : scopes OAuth (lecture/écriture tâches, lecture/écriture profil), registry de tools extensible, consentement détaillant les droits demandés, rate limit autoritaire (issue #201).
 - Serveur MCP : 5 tools de lecture (tâches du jour, statut du Boss, série, progression, roster de combattants) — un assistant IA peut désormais consulter l'état du combat, pas seulement créer des tâches (issue #201).
