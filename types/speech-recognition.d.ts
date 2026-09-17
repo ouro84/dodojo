@@ -8,6 +8,7 @@ declare global {
 
   interface SpeechRecognitionResult {
     readonly length: number;
+    readonly isFinal: boolean;
     item(index: number): SpeechRecognitionAlternative;
     [index: number]: SpeechRecognitionAlternative;
   }

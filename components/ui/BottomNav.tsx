@@ -24,6 +24,16 @@ export default function BottomNav({ active }: BottomNavProps) {
           <Link
             key={item.key}
             href={item.href}
+            // Issue #211 bis : "/" (l'Arène) porte des effets de bord au
+            // rendu (resolveDailyBoss, generateRecurringInstances) — un
+            // prefetch en arrière-plan de ce lien (viewport, sur toutes les
+            // pages où BottomNav est monté) est suspecté de déclencher une
+            // exécution supplémentaire, non liée au clic réel de
+            // l'utilisateur (même famille que le prefetch-exécute-le-composant-
+            // serveur déjà diagnostiqué issue #156). Désactivé en filet
+            // défensif : aucune page listée ici n'a besoin d'être préchargée
+            // (rendu dynamique de toute façon, pas de cache statique perdu).
+            prefetch={false}
             aria-current={isActive ? "page" : undefined}
             className={`flex min-h-11 flex-col items-center justify-center gap-1 px-4 py-2.5 text-micro uppercase tracking-wide transition-colors lg:w-full lg:px-1 lg:py-3 lg:text-center lg:leading-snug ${
               isActive ? "font-semibold text-ink" : "text-faint hover:text-ink focus-visible:text-ink"

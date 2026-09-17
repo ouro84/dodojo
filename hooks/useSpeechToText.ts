@@ -82,8 +82,15 @@ export function useSpeechToText({
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
+    // Certains moteurs (Android Chrome notamment) ignorent
+    // `interimResults = false` et livrent quand même plusieurs `onresult`
+    // avant le résultat final, chacun avec un transcript plus long — sans ce
+    // garde, chaque évènement interim déclenche onResult (donc un addTask)
+    // séparément, créant une tâche par lettre dictée.
     recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript;
+      const lastResult = event.results[event.results.length - 1];
+      if (!lastResult?.isFinal) return;
+      const transcript = lastResult[0]?.transcript;
       if (transcript) onResult(transcript);
     };
 
