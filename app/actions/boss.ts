@@ -56,6 +56,17 @@ export async function resolveDailyBoss(): Promise<DailyBossSelection> {
     .eq("day_date", today)
     .maybeSingle();
 
+  // Log de diagnostic temporaire (issue #211 bis, "boss qui change à la
+  // première visite du jour") : la relecture inconditionnelle post-upsert
+  // (issue #160 bug #1) est mathématiquement race-safe, mais le symptôme a
+  // été revu malgré ce correctif — trigger non identifié. Retirer une fois
+  // une occurrence capturée avec ces logs (Vercel Hobby ne garde qu'1h de
+  // logs, d'où l'instrumentation proactive plutôt qu'une relecture a
+  // posteriori).
+  console.log(
+    `[resolveDailyBoss] user=${user.id.slice(0, 8)} today=${today} existing=${existing ? existing.boss_id : "none"}`,
+  );
+
   if (existing) {
     selection = { bossId: existing.boss_id, backgroundId: existing.background_id };
   } else {
@@ -96,6 +107,10 @@ export async function resolveDailyBoss(): Promise<DailyBossSelection> {
       : getBoss(boss.id)
         ? { bossId: boss.id, backgroundId }
         : { bossId: fallback.bossId, backgroundId: fallback.backgroundId };
+
+    console.log(
+      `[resolveDailyBoss] user=${user.id.slice(0, 8)} today=${today} localPick=${boss.id} persisted=${persisted ? persisted.boss_id : "NULL_fallback_to_local_pick"} diverged=${persisted ? persisted.boss_id !== boss.id : "n/a"}`,
+    );
   }
 
   // Issue #135 : historique complet (pas seulement les 2 derniers jours comme

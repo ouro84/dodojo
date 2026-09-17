@@ -11,6 +11,7 @@ nouvelle section versionnée et datée.
 
 ### Technique
 
+- Investigation en cours sur une récidive possible du bug "le boss/décor change à la première visite du jour" (déjà rencontré, issue #160) : log de diagnostic ajouté dans `resolveDailyBoss`, prefetch désactivé sur les liens de navigation en filet défensif — root cause pas encore confirmée (issue #212).
 - Dicter une tâche au micro pouvait créer une tâche par lettre au lieu d'une seule ("c", "co", "cou"...) sur certains navigateurs (Android Chrome notamment) qui envoient des résultats intermédiaires malgré la demande contraire (issue #211).
 - L’écran qui te demande d’autoriser un assistant IA porte enfin l’identité visuelle de Dodojo (fond arcade, police pixel, bouton rouge combat) au lieu d’une page HTML brute — c’est le seul écran où tu donnes un accès à ton compte, l’allure y est une information de confiance. Le nom de l’app qui demande l’accès est désormais mis en évidence (issue #201).
 - Serveur MCP : après avoir autorisé un assistant, la redirection vers son adresse de retour se faisait en conservant la méthode POST — les clients qui attendent un GET (le cas normal) répondaient « Method Not Allowed » et la connexion échouait juste avant d’aboutir (issue #201).
