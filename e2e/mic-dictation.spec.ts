@@ -26,7 +26,8 @@ test.describe("Bouton Micro In-App (US-02)", () => {
         onerror: ((event: unknown) => void) | null = null;
         onend: (() => void) | null = null;
         start() {
-          const fakeEvent = { results: [[{ transcript }]] };
+          const result = Object.assign([{ transcript }], { isFinal: true });
+          const fakeEvent = { results: [result] };
           queueMicrotask(() => this.onresult?.(fakeEvent));
         }
         stop() {}

@@ -11,6 +11,7 @@ nouvelle section versionnée et datée.
 
 ### Technique
 
+- Dicter une tâche au micro pouvait créer une tâche par lettre au lieu d'une seule ("c", "co", "cou"...) sur certains navigateurs (Android Chrome notamment) qui envoient des résultats intermédiaires malgré la demande contraire (issue #211).
 - L’écran qui te demande d’autoriser un assistant IA porte enfin l’identité visuelle de Dodojo (fond arcade, police pixel, bouton rouge combat) au lieu d’une page HTML brute — c’est le seul écran où tu donnes un accès à ton compte, l’allure y est une information de confiance. Le nom de l’app qui demande l’accès est désormais mis en évidence (issue #201).
 - Serveur MCP : après avoir autorisé un assistant, la redirection vers son adresse de retour se faisait en conservant la méthode POST — les clients qui attendent un GET (le cas normal) répondaient « Method Not Allowed » et la connexion échouait juste avant d’aboutir (issue #201).
 - Serveur MCP : un client auto-hébergé sur le réseau local (`http://192.168.x`, `10.x`, `172.16-31.x`) peut désormais se connecter — écart assumé à OAuth 2.1, tenable parce que PKCE S256 reste obligatoire, le code d’autorisation à usage unique et valable 60 s (issue #201).
