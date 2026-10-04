@@ -80,7 +80,8 @@ export const reminderFanout = inngest.createFunction(
 
       const { data: subsData } = await supabase
         .from("push_subscriptions")
-        .select("user_id, endpoint, p256dh, auth");
+        .select("user_id, endpoint, p256dh, auth")
+        .is("expired_at", null);
       const subs = (subsData ?? []) as SubscriptionRow[];
       if (subs.length === 0) return [];
 

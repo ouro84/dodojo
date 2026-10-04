@@ -2,8 +2,8 @@
 
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { getServiceWorkerRegistration } from "@/lib/pwa/update-prompt-client";
-import { urlBase64ToUint8Array } from "@/lib/pwa/push-subscribe";
-import { subscribeToPush, unsubscribeFromPush } from "@/app/actions/push";
+import { createFreshPushSubscription, serializePushSubscription } from "@/lib/pwa/push-subscribe";
+import { getPushSubscriptionState, subscribeToPush, unsubscribeFromPush } from "@/app/actions/push";
 import GameIcon from "@/components/ui/GameIcon";
 
 interface PushReminderToggleProps {
@@ -98,40 +98,28 @@ export default function PushReminderToggle({ hasSubscription }: PushReminderTogg
         return;
       }
 
-      // Réconciliation (piège H5) : si le navigateur a déjà une souscription
-      // active (ex. ligne DB perdue/jamais créée), ne jamais rappeler
-      // subscribe() — ça échouerait ou recréerait une souscription
-      // équivalente pour rien. On réutilise l'existante et on s'assure juste
-      // que la DB est à jour, plutôt que de se contenter d'afficher "on"
-      // sans vérifier : la DB reste la source de vérité.
+      // Réconciliation (piège H5) : la souscription locale existante n'est
+      // réutilisée que si la base la connaît déjà comme ACTIVE pour cet
+      // utilisateur. Sinon (issue #215) elle peut être celle que le service
+      // push a rejetée en 404/410 — la réenregistrer réinsérerait un endpoint
+      // mort, re-expiré au prochain envoi. On repart alors d'une souscription
+      // neuve. La DB reste la source de vérité.
       const existing = await registration.pushManager.getSubscription();
-      let pushSubscription = existing;
-      if (!pushSubscription) {
-        const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        if (!publicKey) {
-          setError("Configuration push manquante.");
-          return;
-        }
-
-        pushSubscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          // TS 5.9 distingue Uint8Array<ArrayBuffer> de Uint8Array<ArrayBufferLike> ;
-          // BufferSource (défini pour SharedArrayBuffer aussi) n'infère pas l'un
-          // depuis l'autre — le cast est sûr, le buffer vient bien d'un ArrayBuffer
-          // neuf (new Uint8Array(length) dans urlBase64ToUint8Array).
-          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-        });
+      const reusable =
+        existing && (await getPushSubscriptionState(existing.endpoint)) === "active"
+          ? serializePushSubscription(existing)
+          : null;
+      if (!reusable && !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+        setError("Configuration push manquante.");
+        return;
       }
-      const json = pushSubscription.toJSON();
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+      const subscription = reusable ?? (await createFreshPushSubscription(registration));
+      if (!subscription) {
         setError("Souscription push incomplète.");
         return;
       }
 
-      const result = await subscribeToPush({
-        endpoint: json.endpoint,
-        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-      });
+      const result = await subscribeToPush(subscription);
       if (result.error) {
         setError(result.error);
         return;

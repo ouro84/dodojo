@@ -14,6 +14,11 @@ class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
     this.filters.push((row) => row[column] === value);
     return this;
   }
+  // `.is(col, null)` : une colonne absente de la fixture EST un NULL SQL.
+  is(column: string, value: unknown): this {
+    this.filters.push((row) => (value === null ? row[column] == null : row[column] === value));
+    return this;
+  }
   in(column: string, values: unknown[]): this {
     this.filters.push((row) => values.includes(row[column]));
     return this;
@@ -159,6 +164,17 @@ describe("reminder-fanout", () => {
     expect(payload[0]?.data.profileId).toBe("u1");
     expect(payload[0]?.data.dayKey).toBe("2026-07-22");
     expect(result).toEqual({ fanned: 1 });
+  });
+
+  test("F6 — souscription expirée (issue #215) → profil exclu", async () => {
+    dbTables.push_subscriptions = [{ ...withSub("u1"), expired_at: "2026-07-20T15:30:00.000Z" }];
+    dbTables.profiles = [withProfile("u1", "Europe/Paris")];
+    dbTables.tasks = [withTask("u1", "2026-07-22")];
+
+    const result = await invokeFanout();
+
+    expect(sendEventMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ fanned: 0 });
   });
 
   test("F2 — profil déjà notifié aujourd'hui (jour local) → exclu", async () => {

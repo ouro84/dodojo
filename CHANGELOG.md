@@ -11,6 +11,7 @@ nouvelle section versionnée et datée.
 
 ### Technique
 
+- Rappels de 17h30 : quand le navigateur ou le téléphone invalidait l'abonnement aux notifications, il était supprimé sans aucune trace et plus aucun rappel n'arrivait, sans rien qui le signale. Il est désormais marqué expiré (avec un log) et remplacé automatiquement par un abonnement neuf à la prochaine ouverture de l'Arène ; réactiver le rappel dans Le Vestiaire repart lui aussi toujours d'un abonnement valide (issue #215).
 - Investigation en cours sur une récidive possible du bug "le boss/décor change à la première visite du jour" (déjà rencontré, issue #160) : log de diagnostic ajouté dans `resolveDailyBoss`, prefetch désactivé sur les liens de navigation en filet défensif — root cause pas encore confirmée (issue #212).
 - Dicter une tâche au micro pouvait créer une tâche par lettre au lieu d'une seule ("c", "co", "cou"...) sur certains navigateurs (Android Chrome notamment) qui envoient des résultats intermédiaires malgré la demande contraire (issue #211).
 - L’écran qui te demande d’autoriser un assistant IA porte enfin l’identité visuelle de Dodojo (fond arcade, police pixel, bouton rouge combat) au lieu d’une page HTML brute — c’est le seul écran où tu donnes un accès à ton compte, l’allure y est une information de confiance. Le nom de l’app qui demande l’accès est désormais mis en évidence (issue #201).

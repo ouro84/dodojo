@@ -3,6 +3,7 @@ import webpush from "web-push";
 import { inngest } from "@/lib/inngest/client";
 import { buildDeadlineReminderPayload } from "@/lib/copy/deadline";
 import type { AggressivityLevel } from "@/types";
+import { isExpiredPushStatus, markPushSubscriptionExpired } from "@/lib/inngest/push-subscriptions";
 import type { ScheduleDeadlineReminderEvent } from "./schedule-deadline-reminder.types";
 
 interface TaskRow {
@@ -100,7 +101,8 @@ export const scheduleDeadlineReminder = inngest.createFunction(
       const { data: subsData } = await supabase
         .from("push_subscriptions")
         .select("endpoint, p256dh, auth")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .is("expired_at", null);
       const subs = (subsData ?? []) as SubscriptionRow[];
 
       return { taskTitle: task.title, level: profile?.aggressivity_level ?? ("direct" as const), subs };
@@ -132,8 +134,13 @@ export const scheduleDeadlineReminder = inngest.createFunction(
           );
         } catch (err) {
           const statusCode = (err as { statusCode?: number }).statusCode;
-          if (statusCode === 404 || statusCode === 410) {
-            await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+          if (statusCode !== undefined && isExpiredPushStatus(statusCode)) {
+            await markPushSubscriptionExpired(
+              supabase,
+              { user_id: userId, endpoint: sub.endpoint },
+              statusCode,
+              "inngest:schedule-deadline-reminder",
+            );
           } else {
             // Issue #183 (C2) : un run "Completed" ne garantissait aucune trace
             // en cas d'échec d'envoi silencieux (statusCode ≠ 404/410) — visible

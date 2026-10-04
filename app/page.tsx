@@ -6,6 +6,7 @@ import { resolveDailyBoss } from "@/app/actions/boss";
 import { backfillMissedDaysDuringRender } from "@/app/actions/day";
 import Arena from "@/components/combat/Arena";
 import ArenaError from "@/components/combat/ArenaError";
+import PushSubscriptionResync from "@/components/qg/PushSubscriptionResync";
 
 export default async function ArenePage() {
   const supabase = await createClient();
@@ -101,18 +102,22 @@ export default async function ArenePage() {
   }
 
   return (
-    <Arena
-      initialProfile={profile}
-      initialTasks={tasks ?? []}
-      initialTomorrowTasks={tomorrowTasks ?? []}
-      overdueTasks={overdueTasks ?? []}
-      dayResults={dayResults ?? []}
-      today={today}
-      bossId={daily.bossId}
-      backgroundId={daily.backgroundId}
-      isFirstEncounter={daily.isFirstEncounter}
-      hasSeenTutorial={profile.has_seen_tutorial}
-      initialNewAchievements={daily.newAchievements}
-    />
+    <>
+      {/* Issue #215 : remplace en silence une souscription push expirée. */}
+      <PushSubscriptionResync />
+      <Arena
+        initialProfile={profile}
+        initialTasks={tasks ?? []}
+        initialTomorrowTasks={tomorrowTasks ?? []}
+        overdueTasks={overdueTasks ?? []}
+        dayResults={dayResults ?? []}
+        today={today}
+        bossId={daily.bossId}
+        backgroundId={daily.backgroundId}
+        isFirstEncounter={daily.isFirstEncounter}
+        hasSeenTutorial={profile.has_seen_tutorial}
+        initialNewAchievements={daily.newAchievements}
+      />
+    </>
   );
 }

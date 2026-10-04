@@ -5,6 +5,7 @@ import { buildCandidatesFromDb, pickSubscriptionsToSend } from "@/lib/inngest/sc
 import { isReminderEligible } from "@/lib/push-eligibility";
 import { buildReminderPayload } from "@/lib/copy/notifications";
 import { calculateBossCurrentHp } from "@/lib/game-engine";
+import { isExpiredPushStatus, markPushSubscriptionExpired } from "@/lib/inngest/push-subscriptions";
 import type { SendReminderEvent } from "./send-reminder.types";
 
 interface SubscriptionRow {
@@ -83,7 +84,8 @@ export const sendReminder = inngest.createFunction(
       const { data } = await supabase
         .from("push_subscriptions")
         .select("user_id, endpoint, p256dh, auth")
-        .eq("user_id", profileId);
+        .eq("user_id", profileId)
+        .is("expired_at", null);
       return (data ?? []) as SubscriptionRow[];
     });
 
@@ -151,8 +153,8 @@ export const sendReminder = inngest.createFunction(
           didSend = true;
         } catch (err) {
           const statusCode = (err as { statusCode?: number }).statusCode;
-          if (statusCode === 404 || statusCode === 410) {
-            await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+          if (statusCode !== undefined && isExpiredPushStatus(statusCode)) {
+            await markPushSubscriptionExpired(supabase, sub, statusCode, "inngest:send-reminder");
           } else {
             // Issue #183 (C2) : même trou d'observabilité que schedule-deadline-reminder.
             console.error("[inngest:send-reminder] envoi push échoué", {

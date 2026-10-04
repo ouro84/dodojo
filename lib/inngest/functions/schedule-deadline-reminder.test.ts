@@ -27,6 +27,11 @@ class FakeQueryBuilder implements PromiseLike<{ data: Row | Row[] | null; error:
     this.filters.push((row) => row[column] === value);
     return this;
   }
+  // `.is(col, null)` : une colonne absente de la fixture EST un NULL SQL.
+  is(column: string, value: unknown): this {
+    this.filters.push((row) => (value === null ? row[column] == null : row[column] === value));
+    return this;
+  }
   maybeSingle(): this {
     this.single = true;
     return this;
@@ -204,6 +209,12 @@ describe("schedule-deadline-reminder", () => {
 
   test("n'envoie rien si aucune souscription push n'existe", async () => {
     dbTables.push_subscriptions = [];
+    await invoke(baseEvent);
+    expect(sendNotificationMock).not.toHaveBeenCalled();
+  });
+
+  test("n'envoie rien si la seule souscription est expirée (issue #215)", async () => {
+    dbTables.push_subscriptions[0]!.expired_at = "2026-07-20T15:30:00.000Z";
     await invoke(baseEvent);
     expect(sendNotificationMock).not.toHaveBeenCalled();
   });

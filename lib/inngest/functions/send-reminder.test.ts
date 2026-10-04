@@ -40,6 +40,11 @@ class FakeQueryBuilder implements PromiseLike<{ data: Row[]; error: null }> {
     this.filters.push((row) => row[column] === value);
     return this;
   }
+  // `.is(col, null)` : une colonne absente de la fixture EST un NULL SQL.
+  is(column: string, value: unknown): this {
+    this.filters.push((row) => (value === null ? row[column] == null : row[column] === value));
+    return this;
+  }
   in(column: string, values: unknown[]): this {
     this.filters.push((row) => values.includes(row[column]));
     return this;
@@ -216,24 +221,35 @@ describe("send-reminder", () => {
     expect(dbTables.profiles[0]?.last_reminder_sent_on).toBe("2026-07-22");
   });
 
-  test("T1.1 — supprime la souscription sur 410 Gone, sans marquer last_reminder_sent_on", async () => {
+  // Issue #215 : marquée expirée (et non plus supprimée), pour que le client
+  // puisse la remplacer au prochain chargement.
+  test("T1.1 — marque la souscription expirée sur 410 Gone, sans marquer last_reminder_sent_on", async () => {
     sendNotificationMock.mockRejectedValueOnce({ statusCode: 410 });
 
     await invokeSendReminder("u1");
 
     expect(sendNotificationMock).toHaveBeenCalledTimes(1);
-    expect(dbTables.push_subscriptions).toHaveLength(0);
+    expect(dbTables.push_subscriptions).toHaveLength(1);
+    expect(dbTables.push_subscriptions[0]?.expired_at).toEqual(expect.any(String));
     expect(dbTables.profiles[0]?.last_reminder_sent_on).toBeNull();
   });
 
-  test("T1.5 — 404 supprime la sub, sans marquer last_reminder_sent_on (aligné sur 410, C4)", async () => {
+  test("T1.5 — 404 marque la sub expirée, sans marquer last_reminder_sent_on (aligné sur 410, C4)", async () => {
     sendNotificationMock.mockRejectedValueOnce({ statusCode: 404 });
 
     await invokeSendReminder("u1");
 
     expect(sendNotificationMock).toHaveBeenCalledTimes(1);
-    expect(dbTables.push_subscriptions).toHaveLength(0);
+    expect(dbTables.push_subscriptions[0]?.expired_at).toEqual(expect.any(String));
     expect(dbTables.profiles[0]?.last_reminder_sent_on).toBeNull();
+  });
+
+  test("T1.7 — une souscription expirée n'est jamais réutilisée pour l'envoi", async () => {
+    dbTables.push_subscriptions[0]!.expired_at = "2026-07-20T15:30:00.000Z";
+
+    await invokeSendReminder("u1");
+
+    expect(sendNotificationMock).not.toHaveBeenCalled();
   });
 
   test("T1.4 — ignore un profil non éligible (manque de souscription)", async () => {
