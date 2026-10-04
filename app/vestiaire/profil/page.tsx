@@ -49,7 +49,8 @@ export default async function ProfilPage() {
     supabase
       .from("push_subscriptions")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
+      .eq("user_id", user.id)
+      .is("expired_at", null),
   ]);
 
   if (profileError || subscriptionError) {

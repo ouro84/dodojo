@@ -13,31 +13,28 @@ vi.mock("@/lib/pwa/update-prompt-client", () => ({
   getServiceWorkerRegistration: getServiceWorkerRegistrationMock,
 }));
 
-vi.mock("@/lib/pwa/push-subscribe", () => ({
-  urlBase64ToUint8Array: vi.fn(() => new Uint8Array()),
-}));
-
-const { subscribeToPushMock, unsubscribeFromPushMock } = vi.hoisted(() => ({
+const { subscribeToPushMock, unsubscribeFromPushMock, getPushSubscriptionStateMock } = vi.hoisted(() => ({
   subscribeToPushMock: vi.fn(),
   unsubscribeFromPushMock: vi.fn(),
+  getPushSubscriptionStateMock: vi.fn(),
 }));
 vi.mock("@/app/actions/push", () => ({
   subscribeToPush: subscribeToPushMock,
   unsubscribeFromPush: unsubscribeFromPushMock,
+  getPushSubscriptionState: getPushSubscriptionStateMock,
 }));
 
 interface FakePushSubscription {
   endpoint: string;
+  unsubscribe: ReturnType<typeof vi.fn>;
   toJSON: () => { endpoint: string; keys: { p256dh: string; auth: string } };
 }
 
-function makeFakeSubscription(): FakePushSubscription {
+function makeFakeSubscription(endpoint = "https://push.example/existing"): FakePushSubscription {
   return {
-    endpoint: "https://push.example/existing",
-    toJSON: () => ({
-      endpoint: "https://push.example/existing",
-      keys: { p256dh: "p", auth: "a" },
-    }),
+    endpoint,
+    unsubscribe: vi.fn(async () => true),
+    toJSON: () => ({ endpoint, keys: { p256dh: "p", auth: "a" } }),
   };
 }
 
@@ -45,7 +42,7 @@ function makeFakeRegistration(existing: FakePushSubscription | null) {
   return {
     pushManager: {
       getSubscription: vi.fn(async () => existing),
-      subscribe: vi.fn(),
+      subscribe: vi.fn(async () => makeFakeSubscription("https://push.example/fresh")),
     },
   };
 }
@@ -61,6 +58,7 @@ beforeEach(() => {
   getServiceWorkerRegistrationMock.mockReset();
   subscribeToPushMock.mockReset().mockResolvedValue({ error: null });
   unsubscribeFromPushMock.mockReset().mockResolvedValue({ error: null });
+  getPushSubscriptionStateMock.mockReset().mockResolvedValue("active");
   vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "fake-public-key");
 });
 
@@ -98,6 +96,32 @@ describe("PushReminderToggle", () => {
     expect(registration.pushManager.subscribe).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByRole("button", { name: "Désactiver" })).toBeInTheDocument());
   });
+
+  // Issue #215 : le navigateur peut garder localement l'abonnement que le
+  // service push vient de rejeter (410) ; le réutiliser réinsérait un
+  // endpoint mort.
+  test.each(["expired", "unknown"] as const)(
+    "T3.5 — souscription locale %s en base : désabonnée puis remplacée par une neuve",
+    async (state) => {
+      stubNotification("granted");
+      getPushSubscriptionStateMock.mockResolvedValue(state);
+      const stale = makeFakeSubscription();
+      const registration = makeFakeRegistration(stale);
+      getServiceWorkerRegistrationMock.mockResolvedValue(registration);
+
+      render(<PushReminderToggle hasSubscription={false} />);
+      fireEvent.click(screen.getByRole("button", { name: "Activer" }));
+
+      await waitFor(() =>
+        expect(subscribeToPushMock).toHaveBeenCalledWith({
+          endpoint: "https://push.example/fresh",
+          keys: { p256dh: "p", auth: "a" },
+        }),
+      );
+      expect(stale.unsubscribe).toHaveBeenCalled();
+      expect(registration.pushManager.subscribe).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test("T3.3 — Notification.permission denied : bouton disabled + texte d'aide", () => {
     stubNotification("denied");
